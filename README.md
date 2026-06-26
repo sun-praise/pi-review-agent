@@ -70,3 +70,5 @@ Re-pushing to a PR continues the prior session. The second run should show
 Team mode runs N personas in parallel plus a coordinator synthesis, posting
 a single review comment to the PR. The comment is edited in place on re-push
 (via a hidden marker), not spammed.
+
+Re-push to verify comment edit + cache growth.
