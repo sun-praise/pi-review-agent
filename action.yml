@@ -1,10 +1,7 @@
 name: Pi Review Agent
 description: >
-  AI code review with multiple personas (quality, security, performance,
-  architecture, regression-test, test-value) plus a coordinator that
-  synthesizes a single verdict. Built on Pi. Cross-runner session resume
-  via actions/cache. Posts one PR comment, edited in place on re-push.
-  Requires a LiteLLM proxy (or any OpenAI-compatible endpoint).
+  AI code review: N personas in parallel + coordinator, cross-runner resume,
+  one PR comment. LiteLLM/DeepSeek.
 
 branding:
   icon: 'search'
