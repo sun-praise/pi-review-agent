@@ -149438,6 +149438,7 @@ var openAICompletionsApi = () => lazyApi(() => Promise.resolve().then(() => (ini
 function createLiteLLMDeepSeekProvider(opts) {
   const id = opts.id ?? "litellm-deepseek";
   const envVar = opts.envVar ?? "LITELLM_API_KEY";
+  const modelId = opts.modelId ?? "deepseek-v4-flash";
   const baseURL = opts.baseURL.endsWith("/v1") ? opts.baseURL : `${opts.baseURL.replace(/\/+$/, "")}/v1`;
   return createProvider({
     id,
@@ -149446,8 +149447,8 @@ function createLiteLLMDeepSeekProvider(opts) {
     auth: { apiKey: envApiKeyAuth("LiteLLM API key", [envVar]) },
     models: [
       {
-        id: "deepseek-v4-flash",
-        name: "DeepSeek V4 Flash",
+        id: modelId,
+        name: modelId,
         api: "openai-completions",
         provider: id,
         baseUrl: baseURL,
@@ -172068,6 +172069,7 @@ function parseArgs(argv) {
     skipCoordinator: Boolean(process.env.PI_REVIEW_SKIP_COORDINATOR) || args["skip-coordinator"] === "true",
     baseURL: args["base-url"] || process.env.LITELLM_BASE_URL || "https://llm.sun-praise.com",
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
+    modelId: args.model || process.env.PI_REVIEW_MODEL,
     cwd: args.cwd || process.cwd()
   };
 }
@@ -172133,9 +172135,9 @@ function writeTeamSummary(result) {
   ]);
 }
 async function runSingle(opts) {
+  const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
   const persona = opts.persona;
   const diff = loadDiff(opts);
-  const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL });
   const result = await runReview({
     provider,
     pr: opts.pr,
@@ -172162,7 +172164,7 @@ ${result.content}
 }
 async function runTeam(opts) {
   const diff = loadDiff(opts);
-  const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL });
+  const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
   const result = await runTeamReview({
     provider,
     pr: opts.pr,

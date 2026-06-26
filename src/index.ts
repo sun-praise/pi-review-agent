@@ -33,6 +33,7 @@ interface CliOptions {
   skipCoordinator: boolean;
   baseURL: string;
   sessionsRoot: string;
+  modelId: string | undefined;
   cwd: string;
 }
 
@@ -60,6 +61,7 @@ function parseArgs(argv: string[]): CliOptions {
     skipCoordinator: Boolean(process.env.PI_REVIEW_SKIP_COORDINATOR) || args["skip-coordinator"] === "true",
     baseURL: args["base-url"] || process.env.LITELLM_BASE_URL || "https://llm.sun-praise.com",
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
+    modelId: args.model || process.env.PI_REVIEW_MODEL,
     cwd: args.cwd || process.cwd(),
   };
 }
@@ -124,9 +126,9 @@ function writeTeamSummary(result: TeamReviewResult): void {
 }
 
 async function runSingle(opts: CliOptions): Promise<void> {
+  const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
   const persona = opts.persona as string;
   const diff = loadDiff(opts);
-  const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL });
   const result = await runReview({
     provider,
     pr: opts.pr,
@@ -150,7 +152,7 @@ async function runSingle(opts: CliOptions): Promise<void> {
 
 async function runTeam(opts: CliOptions): Promise<void> {
   const diff = loadDiff(opts);
-  const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL });
+  const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
   const result = await runTeamReview({
     provider,
     pr: opts.pr,

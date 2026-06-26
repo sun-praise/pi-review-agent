@@ -1,65 +1,107 @@
 name: Pi Review Agent
 description: >
-  Multi-persona PR review agent built on Pi (earendil-works) with cross-runner
-  session resume and correct cache_read accounting. Surfaces DeepSeek prompt-cache
-  hits that OpenAI-compatible providers (litellm) return but other runtimes drop.
+  AI code review with multiple personas (quality, security, performance,
+  architecture, regression-test, test-value) plus a coordinator that
+  synthesizes a single verdict. Built on Pi. Cross-runner session resume
+  via actions/cache. Posts one PR comment, edited in place on re-push.
+  Requires a LiteLLM proxy (or any OpenAI-compatible endpoint).
 
 branding:
-  icon: 'eye'
+  icon: 'search'
   color: 'blue'
 
 inputs:
   github-token:
-    description: GitHub token for fetching the PR diff and posting the review comment.
+    description: >
+      GitHub token used to fetch the PR diff and post the review comment.
+      Defaults to `github.token`. Needs `pull-requests: write` scope to post
+      the comment.
     required: false
     default: ${{ github.token }}
   pr:
-    description: PR number. Auto-detected from GITHUB_REF when blank.
+    description: >
+      PR number. Auto-detected from `GITHUB_REF` on `pull_request` events.
+      Set explicitly for other triggers (workflow_dispatch, schedule).
+    required: false
+    default: ""
+  team:
+    description: >
+      Multi-persona mode. Comma-separated list of `persona:count` pairs.
+
+      Built-in personas: quality, security, performance, architecture,
+      regression-test, test-value. Custom personas can be added via
+      `.github/reviewers/*.{yml,yaml}` in the target repo.
+
+      Each persona runs in parallel as its own session; a coordinator then
+      synthesizes all outputs into a single verdict (CAN MERGE / CONDITIONAL
+      MERGE / CANNOT MERGE) and posts one PR comment.
+
+      Example: `quality:1,security:1,performance:1`
+
+      Count >1 is accepted for spec compatibility with opencode-actions but
+      currently runs as 1.
     required: false
     default: ""
   persona:
     description: >
-      Single-persona mode. Ignored when `team` is set. Default "quality".
+      Single-persona mode (used when `team` is empty). Runs one reviewer with
+      no coordinator and no PR comment (output goes to step summary only).
+      Default "quality".
     required: false
     default: "quality"
-  team:
-    description: >
-      Team spec for multi-persona mode, e.g. "quality:1,security:1,performance:1".
-      When set, runs each persona in parallel plus a coordinator synthesis,
-      and posts a single review comment to the PR. Counts >1 are accepted but
-      currently run as 1 (compat with opencode-actions spec).
-    required: false
-    default: ""
   skip-coordinator:
-    description: Skip the coordinator synthesis step (team mode only).
+    description: >
+      Skip the coordinator synthesis step. Only affects team mode. When true,
+      the verdict output falls back to persona severity vote.
     required: false
     default: "false"
   litellm-url:
-    description: LiteLLM proxy base URL (with or without trailing /v1).
+    description: >
+      Base URL of a LiteLLM proxy or any OpenAI-compatible chat completions
+      endpoint. Trailing `/v1` is optional. Example:
+      `https://llm.example.com` or `https://llm.example.com/v1`.
     required: false
     default: ""
   litellm-api-key:
-    description: LiteLLM API key.
+    description: API key for the LiteLLM / OpenAI-compatible endpoint.
     required: false
     default: ""
+  model:
+    description: >
+      Model id to request from the endpoint. Defaults to `deepseek-v4-flash`.
+      Change this if your proxy routes a different model name.
+    required: false
+    default: "deepseek-v4-flash"
   sessions-root:
-    description: Directory for per-PR session JSONL (resume cache).
+    description: >
+      Directory used to persist per-PR review sessions across runs (the
+      resume cache). Defaults to a runner-temp path; override to point at a
+      mounted volume if you skip `actions/cache`.
     required: false
     default: ""
   working-directory:
-    description: Repo checkout dir for read/grep tools. Defaults to GITHUB_WORKSPACE.
+    description: >
+      Repository checkout path for the reviewer's read/grep tools. Defaults
+      to `github.workspace`.
     required: false
     default: ""
 
 outputs:
   verdict:
-    description: Coordinator verdict (CAN MERGE / CONDITIONAL MERGE / CANNOT MERGE). Single-persona mode echoes that run's first line.
+    description: >
+      Final review verdict: `CAN MERGE`, `CONDITIONAL MERGE`, `CANNOT MERGE`,
+      or `UNKNOWN`. In team mode this is the coordinator's verdict (with
+      persona severity vote as fallback). In single mode it echoes the
+      reviewer's first line.
     value: ${{ steps.review.outputs.verdict }}
   cacheRead:
-    description: Total cacheRead across all personas + coordinator.
+    description: >
+      Total `cacheRead` tokens across all reviewers and coordinator for this
+      run. Non-zero means the upstream's prompt cache was hit (discounted
+      billing).
     value: ${{ steps.review.outputs.totalCacheRead }}
   totalCost:
-    description: Total USD cost across all personas + coordinator.
+    description: Total USD cost across all reviewers and coordinator.
     value: ${{ steps.review.outputs.totalCost }}
 
 runs:
@@ -113,8 +155,9 @@ runs:
       uses: actions/cache@v4
       with:
         path: ${{ inputs.sessions-root != '' && inputs.sessions-root || format('{0}/.pi-review-sessions', runner.temp) }}
-        # Key per (repo, pr) so each PR gets its own session cache; persona/team
-        # is encoded into the filename inside sessions-root, so the same cache
+        # Key per (repo, pr) so each PR gets its own session cache. The
+        # persona/team is encoded into filenames inside sessions-root, so one
+        # cache entry holds all reviewers for that PR.
         key: pi-review-session-${{ github.repository }}-${{ steps.pr.outputs.pr }}-${{ github.run_id }}
         restore-keys: |
           pi-review-session-${{ github.repository }}-${{ steps.pr.outputs.pr }}-
@@ -128,6 +171,7 @@ runs:
         PI_REVIEW_PERSONA: ${{ inputs.team == '' && inputs.persona || '' }}
         PI_REVIEW_TEAM: ${{ inputs.team }}
         PI_REVIEW_SKIP_COORDINATOR: ${{ inputs.skip-coordinator }}
+        PI_REVIEW_MODEL: ${{ inputs.model }}
         PI_REVIEW_SESSIONS_ROOT: ${{ inputs.sessions-root != '' && inputs.sessions-root || format('{0}/.pi-review-sessions', runner.temp) }}
         LITELLM_BASE_URL: ${{ inputs.litellm-url }}
         LITELLM_API_KEY: ${{ inputs.litellm-api-key }}

@@ -2,7 +2,7 @@ import { createProvider, envApiKeyAuth, type Provider } from "@earendil-works/pi
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 
 /**
- * Provider config for LiteLLM proxying DeepSeek.
+ * Provider config for LiteLLM proxying a DeepSeek-shaped model.
  *
  * Why this exact shape:
  * - `provider` field on the model is REQUIRED. createProvider() does not inject
@@ -30,6 +30,12 @@ export interface LiteLLMProviderOptions {
   envVar?: string;
   /** Provider id used as the Models-layer lookup key. */
   id?: string;
+  /**
+   * Model id to request from the endpoint. Default "deepseek-v4-flash".
+   * Cost/compat stay DeepSeek-shaped; only the id changes (works for any
+   * deepseek-* model behind the same litellm proxy).
+   */
+  modelId?: string;
 }
 
 export function createLiteLLMDeepSeekProvider(
@@ -37,6 +43,7 @@ export function createLiteLLMDeepSeekProvider(
 ): Provider<"openai-completions"> {
   const id = opts.id ?? "litellm-deepseek";
   const envVar = opts.envVar ?? "LITELLM_API_KEY";
+  const modelId = opts.modelId ?? "deepseek-v4-flash";
   // Accept baseURL with or without trailing /v1. The OpenAI SDK appends
   // /chat/completions, so litellm expects the /v1 prefix here. Normalize once.
   const baseURL = opts.baseURL.endsWith("/v1")
@@ -50,8 +57,8 @@ export function createLiteLLMDeepSeekProvider(
     auth: { apiKey: envApiKeyAuth("LiteLLM API key", [envVar]) },
     models: [
       {
-        id: "deepseek-v4-flash",
-        name: "DeepSeek V4 Flash",
+        id: modelId,
+        name: modelId,
         api: "openai-completions",
         provider: id,
         baseUrl: baseURL,
