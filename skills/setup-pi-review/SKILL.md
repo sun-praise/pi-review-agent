@@ -1,6 +1,6 @@
 ---
 name: setup-pi-review
-description: Install sun-praise/pi-review-agent GitHub Action into a user's repository. Triggers on "安装 pi-review-agent", "setup pi review", "配置 pi-review", "add pi-review-agent", "multi-persona AI review setup", or any request to add the pi-review-agent GitHub Action for automated PR code review. Covers workflow YAML generation, secrets (LITELLM_URL, LITELLM_API_KEY), permissions (pull-requests: write), and team/persona configuration.
+description: "Install sun-praise/pi-review-agent GitHub Action into a repository. Use when the user wants to set up AI code review, multi-persona review, or migrate off opencode multi-review. Triggers on setup pi review, add pi-review-agent, multi-persona AI review setup, or similar requests. Covers workflow YAML generation, secrets, permissions, and team configuration."
 ---
 
 # Setup pi-review-agent
