@@ -20,7 +20,11 @@ import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completio
  *   in both streaming and non-streaming responses.
  */
 export interface LiteLLMProviderOptions {
-  /** LiteLLM proxy base URL, e.g. "https://llm.sun-praise.com/v1". */
+  /**
+   * LiteLLM proxy base URL. Accepted with or without a trailing /v1 —
+   * normalized internally since the OpenAI SDK appends /chat/completions.
+   * Examples: "https://llm.sun-praise.com" or "https://llm.sun-praise.com/v1".
+   */
   baseURL: string;
   /** Env var name holding the API key. */
   envVar?: string;
@@ -33,11 +37,16 @@ export function createLiteLLMDeepSeekProvider(
 ): Provider<"openai-completions"> {
   const id = opts.id ?? "litellm-deepseek";
   const envVar = opts.envVar ?? "LITELLM_API_KEY";
+  // Accept baseURL with or without trailing /v1. The OpenAI SDK appends
+  // /chat/completions, so litellm expects the /v1 prefix here. Normalize once.
+  const baseURL = opts.baseURL.endsWith("/v1")
+    ? opts.baseURL
+    : `${opts.baseURL.replace(/\/+$/, "")}/v1`;
 
   return createProvider({
     id,
     name: `LiteLLM DeepSeek (${id})`,
-    baseUrl: opts.baseURL,
+    baseUrl: baseURL,
     auth: { apiKey: envApiKeyAuth("LiteLLM API key", [envVar]) },
     models: [
       {
@@ -45,7 +54,7 @@ export function createLiteLLMDeepSeekProvider(
         name: "DeepSeek V4 Flash",
         api: "openai-completions",
         provider: id,
-        baseUrl: opts.baseURL,
+        baseUrl: baseURL,
         compat: {
           supportsStore: false,
           supportsDeveloperRole: false,

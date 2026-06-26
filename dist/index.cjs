@@ -149439,10 +149439,11 @@ var openAICompletionsApi = () => lazyApi(() => Promise.resolve().then(() => (ini
 function createLiteLLMDeepSeekProvider(opts) {
   const id = opts.id ?? "litellm-deepseek";
   const envVar = opts.envVar ?? "LITELLM_API_KEY";
+  const baseURL = opts.baseURL.endsWith("/v1") ? opts.baseURL : `${opts.baseURL.replace(/\/+$/, "")}/v1`;
   return createProvider({
     id,
     name: `LiteLLM DeepSeek (${id})`,
-    baseUrl: opts.baseURL,
+    baseUrl: baseURL,
     auth: { apiKey: envApiKeyAuth("LiteLLM API key", [envVar]) },
     models: [
       {
@@ -149450,7 +149451,7 @@ function createLiteLLMDeepSeekProvider(opts) {
         name: "DeepSeek V4 Flash",
         api: "openai-completions",
         provider: id,
-        baseUrl: opts.baseURL,
+        baseUrl: baseURL,
         compat: {
           supportsStore: false,
           supportsDeveloperRole: false,
