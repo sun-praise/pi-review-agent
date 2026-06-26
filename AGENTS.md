@@ -50,6 +50,17 @@ GitHub Marketplace 对 action.yml 有硬限制：
 
 发版前自查：`python3 -c "import yaml; d=yaml.safe_load(open('action.yml')); print(len(' '.join(d['description'].split())))"`。
 
+## Skill 约束（`skills/setup-pi-review/SKILL.md`）
+
+这个 repo 自带一个 installer skill（`skills/setup-pi-review/`），用户通过 `npx skills add sun-praise/pi-review-agent` 装。Skills CLI（vercel-labs/skills）对 SKILL.md frontmatter 有几个静默失败陷阱：
+
+- **目录名必须 `skills/`**（复数）。`skill/`（单数）不会被扫描。
+- **`skills/` 下只放 skill 子目录**，不要混 README.md 等非 skill 文件（人类文档放仓库根的 `SKILLS.md`）。
+- **`description` 字段避开 plain-scalar 里的单引号 `'` 和非 ASCII 引号**。`user's` 里的单引号会让 YAML parser 误判字符串结束，frontmatter 解析失败，skill 被**静默丢弃**（无报错）。修法：要么去掉这些字符，要么用 YAML 双引号 `"..."` 包裹整个 description 值。
+- **改完用 `npx skills add <repo> --list` 验证能被发现**，不要假设改对了。
+
+本地 `~/.claude/skills/setup-pi-review/` 是同一份镜像；改 repo 里那份后同步过去。
+
 ## 验证（CI 之外的本地验证）
 
 改完代码、push 前：
