@@ -8,7 +8,7 @@ A skill for the Oh My Pi / Claude Code harness that lets an agent install `sun-p
 
 ```bash
 git clone https://github.com/sun-praise/pi-review-agent.git /tmp/pra
-cp -r /tmp/pra/skill/setup-pi-review ~/.claude/skills/
+cp -r /tmp/pra/skills/setup-pi-review ~/.claude/skills/
 rm -rf /tmp/pra
 # restart your harness session — new skill is picked up
 ```
@@ -19,7 +19,7 @@ Symlink or copy into the project's `.claude/skills/`:
 
 ```bash
 mkdir -p .claude/skills
-cp -r /path/to/pi-review-agent/skill/setup-pi-review .claude/skills/
+cp -r /path/to/pi-review-agent/skills/setup-pi-review .claude/skills/
 ```
 
 ## What it does
