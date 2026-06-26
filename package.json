@@ -1,7 +1,6 @@
 {
   "name": "pi-review-agent",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
   "type": "module",
   "description": "Multi-persona PR review agent on Pi with cross-runner session resume and correct cache_read accounting.",
   "bin": {
