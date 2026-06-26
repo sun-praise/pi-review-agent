@@ -59,3 +59,8 @@ The action:
 ## License
 
 MIT
+
+## Resume verification
+
+Re-pushing to a PR continues the prior session. The second run should show
+`resumed=true` and the agent recognizing the prior turn.
