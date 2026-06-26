@@ -16,9 +16,11 @@
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "^0.80.0",
-    "@earendil-works/pi-ai": "^0.80.0"
+    "@earendil-works/pi-ai": "^0.80.0",
+    "js-yaml": "^5.1.0"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.0.0",
     "tsup": "^8.5.1",
     "tsx": "^4.0.0",

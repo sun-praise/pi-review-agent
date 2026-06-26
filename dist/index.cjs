@@ -149,10 +149,10 @@ function lazyStream(model, setup) {
   });
   return outer;
 }
-function lazyApi(load) {
+function lazyApi(load2) {
   return {
-    stream: (model, context2, options) => lazyStream(model, async () => (await load()).stream(model, context2, options)),
-    streamSimple: (model, context2, options) => lazyStream(model, async () => (await load()).streamSimple(model, context2, options))
+    stream: (model, context2, options) => lazyStream(model, async () => (await load2()).stream(model, context2, options)),
+    streamSimple: (model, context2, options) => lazyStream(model, async () => (await load2()).streamSimple(model, context2, options))
   };
 }
 var init_lazy = __esm({
@@ -173,15 +173,15 @@ function defaultProviderAuthContext() {
       const value = getProcessEnv()?.[name];
       return typeof value === "string" && value.trim().length > 0 ? value : void 0;
     },
-    async fileExists(path7) {
+    async fileExists(path9) {
       try {
-        const fs4 = await importNodeModule("node:fs/promises");
-        let resolved = path7;
+        const fs5 = await importNodeModule("node:fs/promises");
+        let resolved = path9;
         if (resolved.startsWith("~")) {
           const os = await importNodeModule("node:os");
           resolved = os.homedir() + resolved.slice(1);
         }
-        await fs4.access(resolved);
+        await fs5.access(resolved);
         return true;
       } catch {
         return false;
@@ -193,13 +193,13 @@ var __rewriteRelativeImportExtension, importNodeModule;
 var init_context = __esm({
   "node_modules/@earendil-works/pi-ai/dist/auth/context.js"() {
     "use strict";
-    __rewriteRelativeImportExtension = function(path7, preserveJsx) {
-      if (typeof path7 === "string" && /^\.\.?\//.test(path7)) {
-        return path7.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
+    __rewriteRelativeImportExtension = function(path9, preserveJsx) {
+      if (typeof path9 === "string" && /^\.\.?\//.test(path9)) {
+        return path9.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
           return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m2 : d + ext + "." + cm.toLowerCase() + "js";
         });
       }
-      return path7;
+      return path9;
     };
     importNodeModule = (specifier) => import(__rewriteRelativeImportExtension(specifier));
   }
@@ -272,7 +272,7 @@ async function resolveProviderAuth(provider, model, credentials, authContext, ov
 function overlayEnvAuthContext(base, env2) {
   return {
     env: async (name) => env2[name] || await base.env(name),
-    fileExists: (path7) => base.fileExists(path7)
+    fileExists: (path9) => base.fileExists(path9)
   };
 }
 async function resolveStoredOAuth(credentials, providerId, oauth, stored) {
@@ -2741,12 +2741,12 @@ var init_path = __esm({
     "use strict";
     init_error();
     EMPTY = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.create(null));
-    createPathTagFunction = (pathEncoder = encodeURIPath) => function path7(statics, ...params) {
+    createPathTagFunction = (pathEncoder = encodeURIPath) => function path9(statics, ...params) {
       if (statics.length === 1)
         return statics[0];
       let postPath = false;
       const invalidSegments = [];
-      const path8 = statics.reduce((previousValue, currentValue, index2) => {
+      const path10 = statics.reduce((previousValue, currentValue, index2) => {
         if (/[?#]/.test(currentValue)) {
           postPath = true;
         }
@@ -2763,7 +2763,7 @@ var init_path = __esm({
         }
         return previousValue + currentValue + (index2 === params.length ? "" : encoded);
       }, "");
-      const pathOnly = path8.split(/[?#]/, 1)[0];
+      const pathOnly = path10.split(/[?#]/, 1)[0];
       const invalidSegmentPattern = /(?<=^|\/)(?:\.|%2e){1,2}(?=\/|$)/gi;
       let match2;
       while ((match2 = invalidSegmentPattern.exec(pathOnly)) !== null) {
@@ -2784,10 +2784,10 @@ var init_path = __esm({
         }, "");
         throw new OpenAIError(`Path parameters result in path with invalid segments:
 ${invalidSegments.map((e2) => e2.error).join("\n")}
-${path8}
+${path10}
 ${underline}`);
       }
-      return path8;
+      return path10;
     };
     path = /* @__PURE__ */ createPathTagFunction(encodeURIPath);
   }
@@ -8548,9 +8548,9 @@ var init_client = __esm({
         this.apiKey = token;
         return true;
       }
-      buildURL(path7, query, defaultBaseURL) {
+      buildURL(path9, query, defaultBaseURL) {
         const baseURL = !__classPrivateFieldGet2(this, _OpenAI_instances, "m", _OpenAI_baseURLOverridden).call(this) && defaultBaseURL || this.baseURL;
-        const url2 = isAbsoluteURL(path7) ? new URL(path7) : new URL(baseURL + (baseURL.endsWith("/") && path7.startsWith("/") ? path7.slice(1) : path7));
+        const url2 = isAbsoluteURL(path9) ? new URL(path9) : new URL(baseURL + (baseURL.endsWith("/") && path9.startsWith("/") ? path9.slice(1) : path9));
         const defaultQuery = this.defaultQuery();
         if (!isEmptyObj(defaultQuery)) {
           query = { ...defaultQuery, ...query };
@@ -8574,24 +8574,24 @@ var init_client = __esm({
        */
       async prepareRequest(request, { url: url2, options }) {
       }
-      get(path7, opts) {
-        return this.methodRequest("get", path7, opts);
+      get(path9, opts) {
+        return this.methodRequest("get", path9, opts);
       }
-      post(path7, opts) {
-        return this.methodRequest("post", path7, opts);
+      post(path9, opts) {
+        return this.methodRequest("post", path9, opts);
       }
-      patch(path7, opts) {
-        return this.methodRequest("patch", path7, opts);
+      patch(path9, opts) {
+        return this.methodRequest("patch", path9, opts);
       }
-      put(path7, opts) {
-        return this.methodRequest("put", path7, opts);
+      put(path9, opts) {
+        return this.methodRequest("put", path9, opts);
       }
-      delete(path7, opts) {
-        return this.methodRequest("delete", path7, opts);
+      delete(path9, opts) {
+        return this.methodRequest("delete", path9, opts);
       }
-      methodRequest(method, path7, opts) {
+      methodRequest(method, path9, opts) {
         return this.request(Promise.resolve(opts).then((opts2) => {
-          return { method, path: path7, ...opts2 };
+          return { method, path: path9, ...opts2 };
         }));
       }
       request(options, remainingRetries = null) {
@@ -8695,8 +8695,8 @@ var init_client = __esm({
         }));
         return { response, options, controller, requestLogID, retryOfRequestLogID, startTime };
       }
-      getAPIList(path7, Page3, opts) {
-        return this.requestAPIList(Page3, opts && "then" in opts ? opts.then((opts2) => ({ method: "get", path: path7, ...opts2 })) : { method: "get", path: path7, ...opts });
+      getAPIList(path9, Page3, opts) {
+        return this.requestAPIList(Page3, opts && "then" in opts ? opts.then((opts2) => ({ method: "get", path: path9, ...opts2 })) : { method: "get", path: path9, ...opts });
       }
       requestAPIList(Page3, options) {
         const request = this.makeRequest(options, null, void 0);
@@ -8775,8 +8775,8 @@ var init_client = __esm({
       }
       async buildRequest(inputOptions, { retryCount = 0 } = {}) {
         const options = { ...inputOptions };
-        const { method, path: path7, query, defaultBaseURL } = options;
-        const url2 = this.buildURL(path7, query, defaultBaseURL);
+        const { method, path: path9, query, defaultBaseURL } = options;
+        const url2 = this.buildURL(path9, query, defaultBaseURL);
         if ("timeout" in options)
           validatePositiveInteger("timeout", options.timeout);
         options.timeout = options.timeout ?? this.timeout;
@@ -9037,8 +9037,8 @@ function getBunSandboxEnvValue(name) {
   if (procEnvCache === null) {
     procEnvCache = /* @__PURE__ */ new Map();
     try {
-      const { readFileSync: readFileSync2 } = require("fs");
-      const data = readFileSync2("/proc/self/environ", "utf-8");
+      const { readFileSync: readFileSync3 } = require("fs");
+      const data = readFileSync3("/proc/self/environ", "utf-8");
       for (const entry of data.split("\0")) {
         const idx = entry.indexOf("=");
         if (idx > 0) {
@@ -11707,12 +11707,12 @@ var init_path2 = __esm({
     "use strict";
     init_error3();
     EMPTY2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.create(null));
-    createPathTagFunction2 = (pathEncoder = encodeURIPath2) => function path7(statics, ...params) {
+    createPathTagFunction2 = (pathEncoder = encodeURIPath2) => function path9(statics, ...params) {
       if (statics.length === 1)
         return statics[0];
       let postPath = false;
       const invalidSegments = [];
-      const path8 = statics.reduce((previousValue, currentValue, index2) => {
+      const path10 = statics.reduce((previousValue, currentValue, index2) => {
         if (/[?#]/.test(currentValue)) {
           postPath = true;
         }
@@ -11729,7 +11729,7 @@ var init_path2 = __esm({
         }
         return previousValue + currentValue + (index2 === params.length ? "" : encoded);
       }, "");
-      const pathOnly = path8.split(/[?#]/, 1)[0];
+      const pathOnly = path10.split(/[?#]/, 1)[0];
       const invalidSegmentPattern = /(?<=^|\/)(?:\.|%2e){1,2}(?=\/|$)/gi;
       let match2;
       while ((match2 = invalidSegmentPattern.exec(pathOnly)) !== null) {
@@ -11750,10 +11750,10 @@ var init_path2 = __esm({
         }, "");
         throw new AnthropicError(`Path parameters result in path with invalid segments:
 ${invalidSegments.map((e2) => e2.error).join("\n")}
-${path8}
+${path10}
 ${underline}`);
       }
-      return path8;
+      return path10;
     };
     path2 = /* @__PURE__ */ createPathTagFunction2(encodeURIPath2);
   }
@@ -16654,9 +16654,9 @@ var init_client2 = __esm({
       makeStatusError(status, error51, message, headers) {
         return APIError2.generate(status, error51, message, headers);
       }
-      buildURL(path7, query, defaultBaseURL) {
+      buildURL(path9, query, defaultBaseURL) {
         const baseURL = !__classPrivateFieldGet3(this, _BaseAnthropic_instances, "m", _BaseAnthropic_baseURLOverridden).call(this) && defaultBaseURL || this.baseURL;
-        const url2 = isAbsoluteURL2(path7) ? new URL(path7) : new URL(baseURL + (baseURL.endsWith("/") && path7.startsWith("/") ? path7.slice(1) : path7));
+        const url2 = isAbsoluteURL2(path9) ? new URL(path9) : new URL(baseURL + (baseURL.endsWith("/") && path9.startsWith("/") ? path9.slice(1) : path9));
         const defaultQuery = this.defaultQuery();
         const pathQuery = Object.fromEntries(url2.searchParams);
         if (!isEmptyObj2(defaultQuery) || !isEmptyObj2(pathQuery)) {
@@ -16688,24 +16688,24 @@ var init_client2 = __esm({
        */
       async prepareRequest(request, { url: url2, options }) {
       }
-      get(path7, opts) {
-        return this.methodRequest("get", path7, opts);
+      get(path9, opts) {
+        return this.methodRequest("get", path9, opts);
       }
-      post(path7, opts) {
-        return this.methodRequest("post", path7, opts);
+      post(path9, opts) {
+        return this.methodRequest("post", path9, opts);
       }
-      patch(path7, opts) {
-        return this.methodRequest("patch", path7, opts);
+      patch(path9, opts) {
+        return this.methodRequest("patch", path9, opts);
       }
-      put(path7, opts) {
-        return this.methodRequest("put", path7, opts);
+      put(path9, opts) {
+        return this.methodRequest("put", path9, opts);
       }
-      delete(path7, opts) {
-        return this.methodRequest("delete", path7, opts);
+      delete(path9, opts) {
+        return this.methodRequest("delete", path9, opts);
       }
-      methodRequest(method, path7, opts) {
+      methodRequest(method, path9, opts) {
         return this.request(Promise.resolve(opts).then((opts2) => {
-          return { method, path: path7, ...opts2 };
+          return { method, path: path9, ...opts2 };
         }));
       }
       request(options, remainingRetries = null) {
@@ -16809,8 +16809,8 @@ var init_client2 = __esm({
         }));
         return { response, options, controller, requestLogID, retryOfRequestLogID, startTime };
       }
-      getAPIList(path7, Page3, opts) {
-        return this.requestAPIList(Page3, opts && "then" in opts ? opts.then((opts2) => ({ method: "get", path: path7, ...opts2 })) : { method: "get", path: path7, ...opts });
+      getAPIList(path9, Page3, opts) {
+        return this.requestAPIList(Page3, opts && "then" in opts ? opts.then((opts2) => ({ method: "get", path: path9, ...opts2 })) : { method: "get", path: path9, ...opts });
       }
       requestAPIList(Page3, options) {
         const request = this.makeRequest(options, null, void 0);
@@ -16898,8 +16898,8 @@ var init_client2 = __esm({
       }
       async buildRequest(inputOptions, { retryCount = 0 } = {}) {
         const options = { ...inputOptions };
-        const { method, path: path7, query, defaultBaseURL } = options;
-        const url2 = this.buildURL(path7, query, defaultBaseURL);
+        const { method, path: path9, query, defaultBaseURL } = options;
+        const url2 = this.buildURL(path9, query, defaultBaseURL);
         if ("timeout" in options)
           validatePositiveInteger2("timeout", options.timeout);
         options.timeout = options.timeout ?? this.timeout;
@@ -18911,7 +18911,7 @@ var require_extend = __commonJS({
       }
       return toStr.call(arr) === "[object Array]";
     };
-    var isPlainObject3 = function isPlainObject4(obj) {
+    var isPlainObject4 = function isPlainObject5(obj) {
       if (!obj || toStr.call(obj) !== "[object Object]") {
         return false;
       }
@@ -18968,12 +18968,12 @@ var require_extend = __commonJS({
             src = getProperty(target, name);
             copy = getProperty(options, name);
             if (target !== copy) {
-              if (deep && copy && (isPlainObject3(copy) || (copyIsArray = isArray4(copy)))) {
+              if (deep && copy && (isPlainObject4(copy) || (copyIsArray = isArray4(copy)))) {
                 if (copyIsArray) {
                   copyIsArray = false;
                   clone3 = src && isArray4(src) ? src : [];
                 } else {
-                  clone3 = src && isPlainObject3(src) ? src : {};
+                  clone3 = src && isPlainObject4(src) ? src : {};
                 }
                 setProperty(target, { name, newValue: extend2(deep, clone3, copy) });
               } else if (typeof copy !== "undefined") {
@@ -19768,7 +19768,7 @@ var require_browser = __commonJS({
     "use strict";
     exports2.formatArgs = formatArgs;
     exports2.save = save;
-    exports2.load = load;
+    exports2.load = load2;
     exports2.useColors = useColors;
     exports2.storage = localstorage();
     exports2.destroy = /* @__PURE__ */ (() => {
@@ -19904,7 +19904,7 @@ var require_browser = __commonJS({
       } catch (error51) {
       }
     }
-    function load() {
+    function load2() {
       let r2;
       try {
         r2 = exports2.storage.getItem("debug") || exports2.storage.getItem("DEBUG");
@@ -19943,7 +19943,7 @@ var require_node = __commonJS({
     exports2.log = log;
     exports2.formatArgs = formatArgs;
     exports2.save = save;
-    exports2.load = load;
+    exports2.load = load2;
     exports2.useColors = useColors;
     exports2.destroy = util2.deprecate(
       () => {
@@ -20085,7 +20085,7 @@ var require_node = __commonJS({
         delete process.env.DEBUG;
       }
     }
-    function load() {
+    function load2() {
       return process.env.DEBUG;
     }
     function init(debug) {
@@ -25407,22 +25407,22 @@ var init_from = __esm({
     init_file();
     init_fetch_blob();
     ({ stat } = import_node_fs.promises);
-    blobFromSync = (path7, type) => fromBlob((0, import_node_fs.statSync)(path7), path7, type);
-    blobFrom = (path7, type) => stat(path7).then((stat3) => fromBlob(stat3, path7, type));
-    fileFrom = (path7, type) => stat(path7).then((stat3) => fromFile(stat3, path7, type));
-    fileFromSync = (path7, type) => fromFile((0, import_node_fs.statSync)(path7), path7, type);
-    fromBlob = (stat3, path7, type = "") => new fetch_blob_default([new BlobDataItem({
-      path: path7,
+    blobFromSync = (path9, type) => fromBlob((0, import_node_fs.statSync)(path9), path9, type);
+    blobFrom = (path9, type) => stat(path9).then((stat3) => fromBlob(stat3, path9, type));
+    fileFrom = (path9, type) => stat(path9).then((stat3) => fromFile(stat3, path9, type));
+    fileFromSync = (path9, type) => fromFile((0, import_node_fs.statSync)(path9), path9, type);
+    fromBlob = (stat3, path9, type = "") => new fetch_blob_default([new BlobDataItem({
+      path: path9,
       size: stat3.size,
       lastModified: stat3.mtimeMs,
       start: 0
     })], { type });
-    fromFile = (stat3, path7, type = "") => new file_default([new BlobDataItem({
-      path: path7,
+    fromFile = (stat3, path9, type = "") => new file_default([new BlobDataItem({
+      path: path9,
       size: stat3.size,
       lastModified: stat3.mtimeMs,
       start: 0
-    })], (0, import_node_path.basename)(path7), { type, lastModified: stat3.mtimeMs });
+    })], (0, import_node_path.basename)(path9), { type, lastModified: stat3.mtimeMs });
     BlobDataItem = class _BlobDataItem {
       #path;
       #start;
@@ -30616,9 +30616,9 @@ var require_util2 = __commonJS({
     exports2.removeUndefinedValuesInObject = removeUndefinedValuesInObject;
     exports2.isValidFile = isValidFile;
     exports2.getWellKnownCertificateConfigFileLocation = getWellKnownCertificateConfigFileLocation;
-    var fs4 = require("fs");
+    var fs5 = require("fs");
     var os = require("os");
-    var path7 = require("path");
+    var path9 = require("path");
     var WELL_KNOWN_CERTIFICATE_CONFIG_FILE = "certificate_config.json";
     var CLOUDSDK_CONFIG_DIRECTORY = "gcloud";
     function snakeToCamel(str2) {
@@ -30704,15 +30704,15 @@ var require_util2 = __commonJS({
     }
     async function isValidFile(filePath) {
       try {
-        const stats = await fs4.promises.lstat(filePath);
+        const stats = await fs5.promises.lstat(filePath);
         return stats.isFile();
       } catch (e2) {
         return false;
       }
     }
     function getWellKnownCertificateConfigFileLocation() {
-      const configDir = process.env.CLOUDSDK_CONFIG || (_isWindows() ? path7.join(process.env.APPDATA || "", CLOUDSDK_CONFIG_DIRECTORY) : path7.join(process.env.HOME || "", ".config", CLOUDSDK_CONFIG_DIRECTORY));
-      return path7.join(configDir, WELL_KNOWN_CERTIFICATE_CONFIG_FILE);
+      const configDir = process.env.CLOUDSDK_CONFIG || (_isWindows() ? path9.join(process.env.APPDATA || "", CLOUDSDK_CONFIG_DIRECTORY) : path9.join(process.env.HOME || "", ".config", CLOUDSDK_CONFIG_DIRECTORY));
+      return path9.join(configDir, WELL_KNOWN_CERTIFICATE_CONFIG_FILE);
     }
     function _isWindows() {
       return os.platform().startsWith("win");
@@ -32664,11 +32664,11 @@ var require_getCredentials = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.getCredentials = getCredentials;
-    var path7 = require("path");
-    var fs4 = require("fs");
+    var path9 = require("path");
+    var fs5 = require("fs");
     var util_1 = require("util");
     var errorWithCode_1 = require_errorWithCode();
-    var readFile3 = fs4.readFile ? (0, util_1.promisify)(fs4.readFile) : async () => {
+    var readFile3 = fs5.readFile ? (0, util_1.promisify)(fs5.readFile) : async () => {
       throw new errorWithCode_1.ErrorWithCode("use key rather than keyFile.", "MISSING_CREDENTIALS");
     };
     var ExtensionFiles;
@@ -32736,7 +32736,7 @@ var require_getCredentials = __commonJS({
        * @returns An instance of a class that implements ICredentialsProvider.
        */
       static create(keyFilePath) {
-        const keyFileExtension = path7.extname(keyFilePath);
+        const keyFileExtension = path9.extname(keyFilePath);
         switch (keyFileExtension) {
           case ExtensionFiles.JSON:
             return new JsonCredentialsProvider(keyFilePath);
@@ -34345,12 +34345,12 @@ var require_filesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.FileSubjectTokenSupplier = void 0;
     var util_1 = require("util");
-    var fs4 = require("fs");
-    var readFile3 = (0, util_1.promisify)(fs4.readFile ?? (() => {
+    var fs5 = require("fs");
+    var readFile3 = (0, util_1.promisify)(fs5.readFile ?? (() => {
     }));
-    var realpath = (0, util_1.promisify)(fs4.realpath ?? (() => {
+    var realpath = (0, util_1.promisify)(fs5.realpath ?? (() => {
     }));
-    var lstat = (0, util_1.promisify)(fs4.lstat ?? (() => {
+    var lstat = (0, util_1.promisify)(fs5.lstat ?? (() => {
     }));
     var FileSubjectTokenSupplier = class {
       filePath;
@@ -34468,7 +34468,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.CertificateSubjectTokenSupplier = exports2.InvalidConfigurationError = exports2.CertificateSourceUnavailableError = exports2.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = void 0;
     var util_1 = require_util2();
-    var fs4 = require("fs");
+    var fs5 = require("fs");
     var crypto_1 = require("crypto");
     var https2 = require("https");
     exports2.CERTIFICATE_CONFIGURATION_ENV_VARIABLE = "GOOGLE_API_CERTIFICATE_CONFIG";
@@ -34562,7 +34562,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
         const configPath = this.certificateConfigPath;
         let fileContents;
         try {
-          fileContents = await fs4.promises.readFile(configPath, "utf8");
+          fileContents = await fs5.promises.readFile(configPath, "utf8");
         } catch (err2) {
           throw new CertificateSourceUnavailableError(`Failed to read certificate config file at: ${configPath}`);
         }
@@ -34587,14 +34587,14 @@ var require_certificatesubjecttokensupplier = __commonJS({
       async #getKeyAndCert(certPath, keyPath) {
         let cert, key;
         try {
-          cert = await fs4.promises.readFile(certPath);
+          cert = await fs5.promises.readFile(certPath);
           new crypto_1.X509Certificate(cert);
         } catch (err2) {
           const message = err2 instanceof Error ? err2.message : String(err2);
           throw new CertificateSourceUnavailableError(`Failed to read certificate file at ${certPath}: ${message}`);
         }
         try {
-          key = await fs4.promises.readFile(keyPath);
+          key = await fs5.promises.readFile(keyPath);
           (0, crypto_1.createPrivateKey)(key);
         } catch (err2) {
           const message = err2 instanceof Error ? err2.message : String(err2);
@@ -34613,7 +34613,7 @@ var require_certificatesubjecttokensupplier = __commonJS({
           return JSON.stringify([leafCert.raw.toString("base64")]);
         }
         try {
-          const chainPems = await fs4.promises.readFile(this.trustChainPath, "utf8");
+          const chainPems = await fs5.promises.readFile(this.trustChainPath, "utf8");
           const pemBlocks = chainPems.match(/-----BEGIN CERTIFICATE-----[^-]+-----END CERTIFICATE-----/g) ?? [];
           const chainCerts = pemBlocks.map((pem, index2) => {
             try {
@@ -35315,7 +35315,7 @@ var require_pluggable_auth_handler = __commonJS({
     exports2.PluggableAuthHandler = exports2.ExecutableError = void 0;
     var executable_response_1 = require_executable_response();
     var childProcess = require("child_process");
-    var fs4 = require("fs");
+    var fs5 = require("fs");
     var ExecutableError = class extends Error {
       /**
        * The exit code returned by the executable.
@@ -35400,14 +35400,14 @@ var require_pluggable_auth_handler = __commonJS({
         }
         let filePath;
         try {
-          filePath = await fs4.promises.realpath(this.outputFile);
+          filePath = await fs5.promises.realpath(this.outputFile);
         } catch {
           return void 0;
         }
-        if (!(await fs4.promises.lstat(filePath)).isFile()) {
+        if (!(await fs5.promises.lstat(filePath)).isFile()) {
           return void 0;
         }
-        const responseString = await fs4.promises.readFile(filePath, {
+        const responseString = await fs5.promises.readFile(filePath, {
           encoding: "utf8"
         });
         if (responseString === "") {
@@ -35818,7 +35818,7 @@ var require_gdchclient = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.GdchClient = exports2.GDCH_SERVICE_ACCOUNT_TYPE = void 0;
     var crypto2 = require("crypto");
-    var fs4 = require("fs");
+    var fs5 = require("fs");
     var https2 = require("https");
     var oauth2client_1 = require_oauth2client();
     var DEFAULT_LIFETIME_IN_SECONDS = 3600;
@@ -36041,7 +36041,7 @@ var require_gdchclient = __commonJS({
         const currentPath = this.caCertPath;
         this.caAgentPromise = (async () => {
           try {
-            const ca = await fs4.promises.readFile(currentPath);
+            const ca = await fs5.promises.readFile(currentPath);
             return new https2.Agent({ ca });
           } catch (err2) {
             if (this.cachedCaCertPath === currentPath) {
@@ -36101,11 +36101,11 @@ var require_googleauth = __commonJS({
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.GoogleAuth = exports2.GoogleAuthExceptionMessages = void 0;
     var child_process_1 = require("child_process");
-    var fs4 = require("fs");
+    var fs5 = require("fs");
     var gaxios_1 = require_src2();
     var gcpMetadata = require_src4();
     var os = require("os");
-    var path7 = require("path");
+    var path9 = require("path");
     var crypto_1 = require_crypto3();
     var computeclient_1 = require_computeclient();
     var idtokenclient_1 = require_idtokenclient();
@@ -36392,12 +36392,12 @@ var require_googleauth = __commonJS({
         } else {
           const home = process.env["HOME"];
           if (home) {
-            location = path7.join(home, ".config");
+            location = path9.join(home, ".config");
           }
         }
         if (location) {
-          location = path7.join(location, "gcloud", "application_default_credentials.json");
-          if (!fs4.existsSync(location)) {
+          location = path9.join(location, "gcloud", "application_default_credentials.json");
+          if (!fs5.existsSync(location)) {
             location = null;
           }
         }
@@ -36418,8 +36418,8 @@ var require_googleauth = __commonJS({
           throw new Error("The file path is invalid.");
         }
         try {
-          filePath = fs4.realpathSync(filePath);
-          if (!fs4.lstatSync(filePath).isFile()) {
+          filePath = fs5.realpathSync(filePath);
+          if (!fs5.lstatSync(filePath).isFile()) {
             throw new Error();
           }
         } catch (err2) {
@@ -36428,7 +36428,7 @@ var require_googleauth = __commonJS({
           }
           throw err2;
         }
-        const readStream = fs4.createReadStream(filePath);
+        const readStream = fs5.createReadStream(filePath);
         return this.fromStream(readStream, options);
       }
       /**
@@ -36755,8 +36755,8 @@ var require_googleauth = __commonJS({
         if (this.jsonContent) {
           return this._cacheClientFromJSON(this.jsonContent, this.clientOptions);
         } else if (this.keyFilename) {
-          const filePath = path7.resolve(this.keyFilename);
-          const stream10 = fs4.createReadStream(filePath);
+          const filePath = path9.resolve(this.keyFilename);
+          const stream10 = fs5.createReadStream(filePath);
           return await this.fromStreamAsync(stream10, this.clientOptions);
         } else if (this.apiKey) {
           const client = await this.fromAPIKey(this.apiKey, this.clientOptions);
@@ -52809,7 +52809,7 @@ var init_node = __esm({
           params
         );
         const urlParams = body["_url"];
-        const path7 = formatMap("{model}:batchGenerateContent", urlParams);
+        const path9 = formatMap("{model}:batchGenerateContent", urlParams);
         const batch = body["batch"];
         const inputConfig = batch["inputConfig"];
         const requestsWrapper = inputConfig["requests"];
@@ -52830,7 +52830,7 @@ var init_node = __esm({
         delete body["config"];
         delete body["_url"];
         delete body["_query"];
-        return { path: path7, body };
+        return { path: path9, body };
       }
       // Helper function to get the first GCS URI
       getGcsUri(src) {
@@ -52886,16 +52886,16 @@ var init_node = __esm({
       async createInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = createBatchJobParametersToVertex(this.apiClient, params);
-          path7 = formatMap("batchPredictionJobs", body["_url"]);
+          path9 = formatMap("batchPredictionJobs", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -52910,12 +52910,12 @@ var init_node = __esm({
           });
         } else {
           const body = createBatchJobParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{model}:batchGenerateContent", body["_url"]);
+          path9 = formatMap("{model}:batchGenerateContent", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -52940,18 +52940,18 @@ var init_node = __esm({
       async createEmbeddingsInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = createEmbeddingsBatchJobParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{model}:asyncBatchEmbedContent", body["_url"]);
+          path9 = formatMap("{model}:asyncBatchEmbedContent", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -52980,16 +52980,16 @@ var init_node = __esm({
       async get(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = getBatchJobParametersToVertex(this.apiClient, params);
-          path7 = formatMap("batchPredictionJobs/{name}", body["_url"]);
+          path9 = formatMap("batchPredictionJobs/{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53004,12 +53004,12 @@ var init_node = __esm({
           });
         } else {
           const body = getBatchJobParametersToMldev(this.apiClient, params);
-          path7 = formatMap("batches/{name}", body["_url"]);
+          path9 = formatMap("batches/{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53037,16 +53037,16 @@ var init_node = __esm({
        */
       async cancel(params) {
         var _a7, _b, _c, _d;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = cancelBatchJobParametersToVertex(this.apiClient, params);
-          path7 = formatMap("batchPredictionJobs/{name}:cancel", body["_url"]);
+          path9 = formatMap("batchPredictionJobs/{name}:cancel", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           await this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -53055,12 +53055,12 @@ var init_node = __esm({
           });
         } else {
           const body = cancelBatchJobParametersToMldev(this.apiClient, params);
-          path7 = formatMap("batches/{name}:cancel", body["_url"]);
+          path9 = formatMap("batches/{name}:cancel", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           await this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -53072,16 +53072,16 @@ var init_node = __esm({
       async listInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = listBatchJobsParametersToVertex(params);
-          path7 = formatMap("batchPredictionJobs", body["_url"]);
+          path9 = formatMap("batchPredictionJobs", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53104,12 +53104,12 @@ var init_node = __esm({
           });
         } else {
           const body = listBatchJobsParametersToMldev(params);
-          path7 = formatMap("batches", body["_url"]);
+          path9 = formatMap("batches", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53146,16 +53146,16 @@ var init_node = __esm({
       async delete(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = deleteBatchJobParametersToVertex(this.apiClient, params);
-          path7 = formatMap("batchPredictionJobs/{name}", body["_url"]);
+          path9 = formatMap("batchPredictionJobs/{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -53176,12 +53176,12 @@ var init_node = __esm({
           });
         } else {
           const body = deleteBatchJobParametersToMldev(this.apiClient, params);
-          path7 = formatMap("batches/{name}", body["_url"]);
+          path9 = formatMap("batches/{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -53240,16 +53240,16 @@ var init_node = __esm({
       async create(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = createCachedContentParametersToVertex(this.apiClient, params);
-          path7 = formatMap("cachedContents", body["_url"]);
+          path9 = formatMap("cachedContents", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -53263,12 +53263,12 @@ var init_node = __esm({
           });
         } else {
           const body = createCachedContentParametersToMldev(this.apiClient, params);
-          path7 = formatMap("cachedContents", body["_url"]);
+          path9 = formatMap("cachedContents", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -53296,16 +53296,16 @@ var init_node = __esm({
       async get(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = getCachedContentParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53319,12 +53319,12 @@ var init_node = __esm({
           });
         } else {
           const body = getCachedContentParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53352,16 +53352,16 @@ var init_node = __esm({
       async delete(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = deleteCachedContentParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -53384,12 +53384,12 @@ var init_node = __esm({
           });
         } else {
           const body = deleteCachedContentParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -53429,16 +53429,16 @@ var init_node = __esm({
       async update(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = updateCachedContentParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "PATCH",
@@ -53452,12 +53452,12 @@ var init_node = __esm({
           });
         } else {
           const body = updateCachedContentParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "PATCH",
@@ -53474,16 +53474,16 @@ var init_node = __esm({
       async listInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = listCachedContentsParametersToVertex(params);
-          path7 = formatMap("cachedContents", body["_url"]);
+          path9 = formatMap("cachedContents", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53506,12 +53506,12 @@ var init_node = __esm({
           });
         } else {
           const body = listCachedContentsParametersToMldev(params);
-          path7 = formatMap("cachedContents", body["_url"]);
+          path9 = formatMap("cachedContents", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53842,18 +53842,18 @@ var init_node = __esm({
       async listInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = listFilesParametersToMldev(params);
-          path7 = formatMap("files", body["_url"]);
+          path9 = formatMap("files", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53879,18 +53879,18 @@ var init_node = __esm({
       async createInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = createFileParametersToMldev(params);
-          path7 = formatMap("upload/v1beta/files", body["_url"]);
+          path9 = formatMap("upload/v1beta/files", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -53925,18 +53925,18 @@ var init_node = __esm({
       async get(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = getFileParametersToMldev(params);
-          path7 = formatMap("files/{file}", body["_url"]);
+          path9 = formatMap("files/{file}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53966,18 +53966,18 @@ var init_node = __esm({
       async delete(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = deleteFileParametersToMldev(params);
-          path7 = formatMap("files/{file}", body["_url"]);
+          path9 = formatMap("files/{file}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -54003,18 +54003,18 @@ var init_node = __esm({
       async registerFilesInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = internalRegisterFilesParametersToMldev(params);
-          path7 = formatMap("files:register", body["_url"]);
+          path9 = formatMap("files:register", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -54174,13 +54174,13 @@ var init_node = __esm({
           throw new Error("HTTP options are not correctly set.");
         }
       }
-      constructUrl(path7, httpOptions, prependProjectLocation) {
+      constructUrl(path9, httpOptions, prependProjectLocation) {
         const urlElement = [this.getRequestUrlInternal(httpOptions)];
         if (prependProjectLocation) {
           urlElement.push(this.getBaseResourcePath());
         }
-        if (path7 !== "") {
-          urlElement.push(path7);
+        if (path9 !== "") {
+          urlElement.push(path9);
         }
         const url2 = new URL(`${urlElement.join("/")}`);
         return url2;
@@ -54465,8 +54465,8 @@ var init_node = __esm({
           file: fileToUpload
         };
         const fileName = this.getFileName(file2);
-        const path7 = formatMap("upload/v1beta/files", body["_url"]);
-        const uploadUrl = await this.fetchUploadUrl(path7, fileToUpload.sizeBytes, fileToUpload.mimeType, fileName, body, config2 === null || config2 === void 0 ? void 0 : config2.httpOptions);
+        const path9 = formatMap("upload/v1beta/files", body["_url"]);
+        const uploadUrl = await this.fetchUploadUrl(path9, fileToUpload.sizeBytes, fileToUpload.mimeType, fileName, body, config2 === null || config2 === void 0 ? void 0 : config2.httpOptions);
         return uploader.upload(file2, uploadUrl, this);
       }
       /**
@@ -54490,13 +54490,13 @@ var init_node = __esm({
         if (mimeType === void 0 || mimeType === "") {
           throw new Error("Can not determine mimeType. Please provide mimeType in the config.");
         }
-        const path7 = `upload/v1beta/${fileSearchStoreName}:uploadToFileSearchStore`;
+        const path9 = `upload/v1beta/${fileSearchStoreName}:uploadToFileSearchStore`;
         const fileName = this.getFileName(file2);
         const body = {};
         if (config2 != null) {
           uploadToFileSearchStoreConfigToMldev(config2, body);
         }
-        const uploadUrl = await this.fetchUploadUrl(path7, sizeBytes, mimeType, fileName, body, config2 === null || config2 === void 0 ? void 0 : config2.httpOptions);
+        const uploadUrl = await this.fetchUploadUrl(path9, sizeBytes, mimeType, fileName, body, config2 === null || config2 === void 0 ? void 0 : config2.httpOptions);
         return uploader.uploadToFileSearchStore(file2, uploadUrl, this);
       }
       /**
@@ -54509,7 +54509,7 @@ var init_node = __esm({
         const downloader = this.clientOptions.downloader;
         await downloader.download(params, this);
       }
-      async fetchUploadUrl(path7, sizeBytes, mimeType, fileName, body, configHttpOptions) {
+      async fetchUploadUrl(path9, sizeBytes, mimeType, fileName, body, configHttpOptions) {
         var _a7;
         let httpOptions = {};
         if (configHttpOptions) {
@@ -54522,7 +54522,7 @@ var init_node = __esm({
           };
         }
         const httpResponse = await this.request({
-          path: path7,
+          path: path9,
           body: JSON.stringify(body),
           httpMethod: "POST",
           httpOptions
@@ -55499,16 +55499,16 @@ var init_node = __esm({
       async generateContentInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = generateContentParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{model}:generateContent", body["_url"]);
+          path9 = formatMap("{model}:generateContent", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55531,12 +55531,12 @@ var init_node = __esm({
           });
         } else {
           const body = generateContentParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{model}:generateContent", body["_url"]);
+          path9 = formatMap("{model}:generateContent", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55562,17 +55562,17 @@ var init_node = __esm({
       async generateContentStreamInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = generateContentParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{model}:streamGenerateContent?alt=sse", body["_url"]);
+          path9 = formatMap("{model}:streamGenerateContent?alt=sse", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           const apiClient = this.apiClient;
           response = apiClient.requestStream({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55608,13 +55608,13 @@ var init_node = __esm({
           });
         } else {
           const body = generateContentParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{model}:streamGenerateContent?alt=sse", body["_url"]);
+          path9 = formatMap("{model}:streamGenerateContent?alt=sse", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           const apiClient = this.apiClient;
           response = apiClient.requestStream({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55674,17 +55674,17 @@ var init_node = __esm({
       async embedContentInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = embedContentParametersPrivateToVertex(this.apiClient, params, params);
           const endpointUrl = tIsVertexEmbedContentModel(params.model) ? "{model}:embedContent" : "{model}:predict";
-          path7 = formatMap(endpointUrl, body["_url"]);
+          path9 = formatMap(endpointUrl, body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55707,12 +55707,12 @@ var init_node = __esm({
           });
         } else {
           const body = embedContentParametersPrivateToMldev(this.apiClient, params);
-          path7 = formatMap("{model}:batchEmbedContents", body["_url"]);
+          path9 = formatMap("{model}:batchEmbedContents", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55741,16 +55741,16 @@ var init_node = __esm({
       async generateImagesInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = generateImagesParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{model}:predict", body["_url"]);
+          path9 = formatMap("{model}:predict", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55773,12 +55773,12 @@ var init_node = __esm({
           });
         } else {
           const body = generateImagesParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{model}:predict", body["_url"]);
+          path9 = formatMap("{model}:predict", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55807,16 +55807,16 @@ var init_node = __esm({
       async editImageInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = editImageParametersInternalToVertex(this.apiClient, params);
-          path7 = formatMap("{model}:predict", body["_url"]);
+          path9 = formatMap("{model}:predict", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55847,16 +55847,16 @@ var init_node = __esm({
       async upscaleImageInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = upscaleImageAPIParametersInternalToVertex(this.apiClient, params);
-          path7 = formatMap("{model}:predict", body["_url"]);
+          path9 = formatMap("{model}:predict", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55908,16 +55908,16 @@ var init_node = __esm({
       async recontextImage(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = recontextImageParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{model}:predict", body["_url"]);
+          path9 = formatMap("{model}:predict", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55959,16 +55959,16 @@ var init_node = __esm({
       async segmentImage(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = segmentImageParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{model}:predict", body["_url"]);
+          path9 = formatMap("{model}:predict", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55998,16 +55998,16 @@ var init_node = __esm({
       async get(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = getModelParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56022,12 +56022,12 @@ var init_node = __esm({
           });
         } else {
           const body = getModelParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56045,16 +56045,16 @@ var init_node = __esm({
       async listInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = listModelsParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{models_url}", body["_url"]);
+          path9 = formatMap("{models_url}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56077,12 +56077,12 @@ var init_node = __esm({
           });
         } else {
           const body = listModelsParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{models_url}", body["_url"]);
+          path9 = formatMap("{models_url}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56125,16 +56125,16 @@ var init_node = __esm({
       async update(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = updateModelParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{model}", body["_url"]);
+          path9 = formatMap("{model}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "PATCH",
@@ -56149,12 +56149,12 @@ var init_node = __esm({
           });
         } else {
           const body = updateModelParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "PATCH",
@@ -56183,16 +56183,16 @@ var init_node = __esm({
       async delete(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = deleteModelParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -56215,12 +56215,12 @@ var init_node = __esm({
           });
         } else {
           const body = deleteModelParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -56262,16 +56262,16 @@ var init_node = __esm({
       async countTokens(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = countTokensParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{model}:countTokens", body["_url"]);
+          path9 = formatMap("{model}:countTokens", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56294,12 +56294,12 @@ var init_node = __esm({
           });
         } else {
           const body = countTokensParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{model}:countTokens", body["_url"]);
+          path9 = formatMap("{model}:countTokens", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56343,16 +56343,16 @@ var init_node = __esm({
       async computeTokens(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = computeTokensParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{model}:computeTokens", body["_url"]);
+          path9 = formatMap("{model}:computeTokens", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56383,16 +56383,16 @@ var init_node = __esm({
       async generateVideosInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = generateVideosParametersToVertex(this.apiClient, params);
-          path7 = formatMap("{model}:predictLongRunning", body["_url"]);
+          path9 = formatMap("{model}:predictLongRunning", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56409,12 +56409,12 @@ var init_node = __esm({
           });
         } else {
           const body = generateVideosParametersToMldev(this.apiClient, params);
-          path7 = formatMap("{model}:predictLongRunning", body["_url"]);
+          path9 = formatMap("{model}:predictLongRunning", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56516,16 +56516,16 @@ var init_node = __esm({
       async getVideosOperationInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = getOperationParametersToVertex(params);
-          path7 = formatMap("{operationName}", body["_url"]);
+          path9 = formatMap("{operationName}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56537,12 +56537,12 @@ var init_node = __esm({
           return response;
         } else {
           const body = getOperationParametersToMldev(params);
-          path7 = formatMap("{operationName}", body["_url"]);
+          path9 = formatMap("{operationName}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56557,16 +56557,16 @@ var init_node = __esm({
       async fetchPredictVideosOperationInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = fetchPredictOperationParametersToVertex(params);
-          path7 = formatMap("{resourceName}:fetchPredictOperation", body["_url"]);
+          path9 = formatMap("{resourceName}:fetchPredictOperation", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56672,20 +56672,20 @@ var init_node = __esm({
       async create(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("The client.tokens.create method is only supported by the Gemini Developer API.");
         } else {
           const body = createAuthTokenParametersToMldev(this.apiClient, params);
-          path7 = formatMap("auth_tokens", body["_url"]);
+          path9 = formatMap("auth_tokens", body["_url"]);
           queryParams = body["_query"];
           delete body["config"];
           delete body["_url"];
           delete body["_query"];
           const transformedBody = convertBidiSetupToTokenSetup(body, params.config);
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(transformedBody),
             httpMethod: "POST",
@@ -56717,18 +56717,18 @@ var init_node = __esm({
       async get(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = getDocumentParametersToMldev(params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56749,18 +56749,18 @@ var init_node = __esm({
        */
       async delete(params) {
         var _a7, _b;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = deleteDocumentParametersToMldev(params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           await this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -56772,18 +56772,18 @@ var init_node = __esm({
       async listInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = listDocumentsParametersToMldev(params);
-          path7 = formatMap("{parent}/documents", body["_url"]);
+          path9 = formatMap("{parent}/documents", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56900,18 +56900,18 @@ var init_node = __esm({
       async create(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = createFileSearchStoreParametersToMldev(this.apiClient, params);
-          path7 = formatMap("fileSearchStores", body["_url"]);
+          path9 = formatMap("fileSearchStores", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56934,18 +56934,18 @@ var init_node = __esm({
       async get(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = getFileSearchStoreParametersToMldev(params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56966,18 +56966,18 @@ var init_node = __esm({
        */
       async delete(params) {
         var _a7, _b;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = deleteFileSearchStoreParametersToMldev(params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           await this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -56989,18 +56989,18 @@ var init_node = __esm({
       async listInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = listFileSearchStoresParametersToMldev(params);
-          path7 = formatMap("fileSearchStores", body["_url"]);
+          path9 = formatMap("fileSearchStores", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -57020,18 +57020,18 @@ var init_node = __esm({
       async uploadToFileSearchStoreInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = uploadToFileSearchStoreParametersToMldev(params);
-          path7 = formatMap("upload/v1beta/{file_search_store_name}:uploadToFileSearchStore", body["_url"]);
+          path9 = formatMap("upload/v1beta/{file_search_store_name}:uploadToFileSearchStore", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -57059,18 +57059,18 @@ var init_node = __esm({
       async importFile(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = importFileParametersToMldev(params);
-          path7 = formatMap("{file_search_store_name}:importFile", body["_url"]);
+          path9 = formatMap("{file_search_store_name}:importFile", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -57263,12 +57263,12 @@ var init_node = __esm({
     };
     APIResource3._key = [];
     EMPTY3 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.create(null));
-    createPathTagFunction3 = (pathEncoder = encodeURIPath3) => (function path7(statics, ...params) {
+    createPathTagFunction3 = (pathEncoder = encodeURIPath3) => (function path9(statics, ...params) {
       if (statics.length === 1)
         return statics[0];
       let postPath = false;
       const invalidSegments = [];
-      const path8 = statics.reduce((previousValue, currentValue, index2) => {
+      const path10 = statics.reduce((previousValue, currentValue, index2) => {
         var _a7, _b, _c;
         if (/[?#]/.test(currentValue)) {
           postPath = true;
@@ -57286,7 +57286,7 @@ var init_node = __esm({
         }
         return previousValue + currentValue + (index2 === params.length ? "" : encoded);
       }, "");
-      const pathOnly = path8.split(/[?#]/, 1)[0];
+      const pathOnly = path10.split(/[?#]/, 1)[0];
       const invalidSegmentPattern = /(^|\/)(?:\.|%2e){1,2}(?=\/|$)/gi;
       let match2;
       while ((match2 = invalidSegmentPattern.exec(pathOnly)) !== null) {
@@ -57310,10 +57310,10 @@ var init_node = __esm({
         }, "");
         throw new GeminiNextGenAPIClientError(`Path parameters result in path with invalid segments:
 ${invalidSegments.map((e2) => e2.error).join("\n")}
-${path8}
+${path10}
 ${underline}`);
       }
-      return path8;
+      return path10;
     });
     path3 = /* @__PURE__ */ createPathTagFunction3(encodeURIPath3);
     BaseInteractions = class extends APIResource3 {
@@ -57922,9 +57922,9 @@ ${underline}`);
       makeStatusError(status, error51, message, headers) {
         return APIError3.generate(status, error51, message, headers);
       }
-      buildURL(path7, query, defaultBaseURL) {
+      buildURL(path9, query, defaultBaseURL) {
         const baseURL = !this.baseURLOverridden() && defaultBaseURL || this.baseURL;
-        const url2 = isAbsoluteURL3(path7) ? new URL(path7) : new URL(baseURL + (baseURL.endsWith("/") && path7.startsWith("/") ? path7.slice(1) : path7));
+        const url2 = isAbsoluteURL3(path9) ? new URL(path9) : new URL(baseURL + (baseURL.endsWith("/") && path9.startsWith("/") ? path9.slice(1) : path9));
         const defaultQuery = this.defaultQuery();
         const pathQuery = Object.fromEntries(url2.searchParams);
         if (!isEmptyObj3(defaultQuery) || !isEmptyObj3(pathQuery)) {
@@ -57953,24 +57953,24 @@ ${underline}`);
        */
       async prepareRequest(request, { url: url2, options }) {
       }
-      get(path7, opts) {
-        return this.methodRequest("get", path7, opts);
+      get(path9, opts) {
+        return this.methodRequest("get", path9, opts);
       }
-      post(path7, opts) {
-        return this.methodRequest("post", path7, opts);
+      post(path9, opts) {
+        return this.methodRequest("post", path9, opts);
       }
-      patch(path7, opts) {
-        return this.methodRequest("patch", path7, opts);
+      patch(path9, opts) {
+        return this.methodRequest("patch", path9, opts);
       }
-      put(path7, opts) {
-        return this.methodRequest("put", path7, opts);
+      put(path9, opts) {
+        return this.methodRequest("put", path9, opts);
       }
-      delete(path7, opts) {
-        return this.methodRequest("delete", path7, opts);
+      delete(path9, opts) {
+        return this.methodRequest("delete", path9, opts);
       }
-      methodRequest(method, path7, opts) {
+      methodRequest(method, path9, opts) {
         return this.request(Promise.resolve(opts).then((opts2) => {
-          return Object.assign({ method, path: path7 }, opts2);
+          return Object.assign({ method, path: path9 }, opts2);
         }));
       }
       request(options, remainingRetries = null) {
@@ -58144,8 +58144,8 @@ ${underline}`);
       async buildRequest(inputOptions, { retryCount = 0 } = {}) {
         var _b, _c, _d;
         const options = Object.assign({}, inputOptions);
-        const { method, path: path7, query, defaultBaseURL } = options;
-        const url2 = this.buildURL(path7, query, defaultBaseURL);
+        const { method, path: path9, query, defaultBaseURL } = options;
+        const url2 = this.buildURL(path9, query, defaultBaseURL);
         if ("timeout" in options)
           validatePositiveInteger3("timeout", options.timeout);
         options.timeout = (_b = options.timeout) !== null && _b !== void 0 ? _b : this.timeout;
@@ -58371,16 +58371,16 @@ ${underline}`);
       async getInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = getTuningJobParametersToVertex(params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -58401,12 +58401,12 @@ ${underline}`);
           });
         } else {
           const body = getTuningJobParametersToMldev(params);
-          path7 = formatMap("{name}", body["_url"]);
+          path9 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -58430,16 +58430,16 @@ ${underline}`);
       async listInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = listTuningJobsParametersToVertex(params);
-          path7 = formatMap("tuningJobs", body["_url"]);
+          path9 = formatMap("tuningJobs", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -58478,16 +58478,16 @@ ${underline}`);
       async cancel(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = cancelTuningJobParametersToVertex(params);
-          path7 = formatMap("{name}:cancel", body["_url"]);
+          path9 = formatMap("{name}:cancel", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -58510,12 +58510,12 @@ ${underline}`);
           });
         } else {
           const body = cancelTuningJobParametersToMldev(params);
-          path7 = formatMap("{name}:cancel", body["_url"]);
+          path9 = formatMap("{name}:cancel", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -58541,16 +58541,16 @@ ${underline}`);
       async tuneInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = createTuningJobParametersPrivateToVertex(params, params);
-          path7 = formatMap("tuningJobs", body["_url"]);
+          path9 = formatMap("tuningJobs", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -58576,18 +58576,18 @@ ${underline}`);
       async tuneMldevInternal(params) {
         var _a7, _b;
         let response;
-        let path7 = "";
+        let path9 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = createTuningJobParametersPrivateToMldev(params);
-          path7 = formatMap("tunedModels", body["_url"]);
+          path9 = formatMap("tunedModels", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path7,
+            path: path9,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -66879,10 +66879,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path7) {
-  if (!path7)
+function getElementAtPath(obj, path9) {
+  if (!path9)
     return obj;
-  return path7.reduce((acc, key) => acc?.[key], obj);
+  return path9.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -67210,11 +67210,11 @@ function explicitlyAborted(x2, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path7, issues) {
+function prefixIssues(path9, issues) {
   return issues.map((iss) => {
     var _a7;
     (_a7 = iss).path ?? (_a7.path = []);
-    iss.path.unshift(path7);
+    iss.path.unshift(path9);
     return iss;
   });
 }
@@ -67432,16 +67432,16 @@ function flattenError(error51, mapper = (issue2) => issue2.message) {
 }
 function formatError(error51, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error52, path7 = []) => {
+  const processError = (error52, path9 = []) => {
     for (const issue2 of error52.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path7, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else {
-        const fullpath = [...path7, ...issue2.path];
+        const fullpath = [...path9, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -67468,17 +67468,17 @@ function formatError(error51, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error51, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error52, path7 = []) => {
+  const processError = (error52, path9 = []) => {
     var _a7, _b;
     for (const issue2 of error52.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path7, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path7, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
       } else {
-        const fullpath = [...path7, ...issue2.path];
+        const fullpath = [...path9, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -67510,8 +67510,8 @@ function treeifyError(error51, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path7 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path7) {
+  const path9 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path9) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -81014,13 +81014,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path7 = ref.slice(1).split("/").filter(Boolean);
-  if (path7.length === 0) {
+  const path9 = ref.slice(1).split("/").filter(Boolean);
+  if (path9.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path7[0] === defsKey) {
-    const key = path7[1];
+  if (path9[0] === defsKey) {
+    const key = path9[1];
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -84142,16 +84142,16 @@ var init_sdks = __esm({
         }
       }
       _createRequest(context2, conf, options) {
-        const { method, path: path7, query, headers: opHeaders, security } = conf;
+        const { method, path: path9, query, headers: opHeaders, security } = conf;
         const base = conf.baseURL ?? this._baseURL;
         if (!base) {
           return ERR(new InvalidRequestError("No base URL provided for operation"));
         }
         const baseURL = new URL(base);
         let reqURL;
-        if (path7) {
+        if (path9) {
           baseURL.pathname = baseURL.pathname.replace(/\/+$/, "") + "/";
-          reqURL = new URL(path7, baseURL);
+          reqURL = new URL(path9, baseURL);
         } else {
           reqURL = baseURL;
         }
@@ -99026,7 +99026,7 @@ async function $do(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/agents/completions")();
+  const path9 = pathToFunc("/v1/agents/completions")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -99048,7 +99048,7 @@ async function $do(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -99262,7 +99262,7 @@ async function $do2(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/agents/completions#stream")();
+  const path9 = pathToFunc("/v1/agents/completions#stream")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
@@ -99284,7 +99284,7 @@ async function $do2(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103306,7 +103306,7 @@ async function $do3(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/audio/speech")();
+  const path9 = pathToFunc("/v1/audio/speech")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: options?.acceptHeaderOverride || "application/json;q=1, text/event-stream;q=0"
@@ -103328,7 +103328,7 @@ async function $do3(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103460,7 +103460,7 @@ async function $do4(client, request, options) {
   if (payload.timestamp_granularities !== void 0) {
     appendForm(body, "timestamp_granularities", payload.timestamp_granularities);
   }
-  const path7 = pathToFunc("/v1/audio/transcriptions")();
+  const path9 = pathToFunc("/v1/audio/transcriptions")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -103481,7 +103481,7 @@ async function $do4(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103576,7 +103576,7 @@ async function $do5(client, request, options) {
   if (payload.timestamp_granularities !== void 0) {
     appendForm(body, "timestamp_granularities", payload.timestamp_granularities);
   }
-  const path7 = pathToFunc("/v1/audio/transcriptions#stream")();
+  const path9 = pathToFunc("/v1/audio/transcriptions#stream")();
   const headers = new Headers(compactMap({
     Accept: "text/event-stream"
   }));
@@ -103597,7 +103597,7 @@ async function $do5(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103687,7 +103687,7 @@ async function $do6(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/audio/voices")();
+  const path9 = pathToFunc("/v1/audio/voices")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -103709,7 +103709,7 @@ async function $do6(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103771,7 +103771,7 @@ async function $do7(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
+  const path9 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -103792,7 +103792,7 @@ async function $do7(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103855,7 +103855,7 @@ async function $do8(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
+  const path9 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -103876,7 +103876,7 @@ async function $do8(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103939,7 +103939,7 @@ async function $do9(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/audio/voices/{voice_id}/sample")(pathParams);
+  const path9 = pathToFunc("/v1/audio/voices/{voice_id}/sample")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "audio/wav"
   }));
@@ -103960,7 +103960,7 @@ async function $do9(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -104017,7 +104017,7 @@ async function $do10(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/audio/voices")();
+  const path9 = pathToFunc("/v1/audio/voices")();
   const query = encodeFormQuery({
     "limit": payload?.limit,
     "offset": payload?.offset,
@@ -104043,7 +104043,7 @@ async function $do10(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -104109,7 +104109,7 @@ async function $do11(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
+  const path9 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -104131,7 +104131,7 @@ async function $do11(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -104292,7 +104292,7 @@ async function $do12(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/batch/jobs/{job_id}/cancel")(pathParams);
+  const path9 = pathToFunc("/v1/batch/jobs/{job_id}/cancel")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -104313,7 +104313,7 @@ async function $do12(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -104366,7 +104366,7 @@ async function $do13(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/batch/jobs")();
+  const path9 = pathToFunc("/v1/batch/jobs")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -104388,7 +104388,7 @@ async function $do13(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -104446,7 +104446,7 @@ async function $do14(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/batch/jobs/{job_id}")(pathParams);
+  const path9 = pathToFunc("/v1/batch/jobs/{job_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -104467,7 +104467,7 @@ async function $do14(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -104526,7 +104526,7 @@ async function $do15(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/batch/jobs/{job_id}")(pathParams);
+  const path9 = pathToFunc("/v1/batch/jobs/{job_id}")(pathParams);
   const query = encodeFormQuery({
     "inline": payload.inline
   });
@@ -104550,7 +104550,7 @@ async function $do15(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -104604,7 +104604,7 @@ async function $do16(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/batch/jobs")();
+  const path9 = pathToFunc("/v1/batch/jobs")();
   const query = encodeFormQuery({
     "agent_id": payload?.agent_id,
     "created_after": payload?.created_after,
@@ -104636,7 +104636,7 @@ async function $do16(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -104771,7 +104771,7 @@ async function $do17(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/agents")();
+  const path9 = pathToFunc("/v1/agents")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -104793,7 +104793,7 @@ async function $do17(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -104855,7 +104855,7 @@ async function $do18(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
+  const path9 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
   const query = encodeFormQuery({
     "alias": payload.alias,
     "version": payload.version
@@ -104880,7 +104880,7 @@ async function $do18(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -104944,7 +104944,7 @@ async function $do19(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
+  const path9 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -104965,7 +104965,7 @@ async function $do19(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -105028,7 +105028,7 @@ async function $do20(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
+  const path9 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
   const query = encodeFormQuery({
     "alias": payload.alias
   });
@@ -105052,7 +105052,7 @@ async function $do20(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -105116,7 +105116,7 @@ async function $do21(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
+  const path9 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
   const query = encodeFormQuery({
     "agent_version": payload.agent_version
   });
@@ -105140,7 +105140,7 @@ async function $do21(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -105208,7 +105208,7 @@ async function $do22(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/agents/{agent_id}/versions/{version}")(pathParams);
+  const path9 = pathToFunc("/v1/agents/{agent_id}/versions/{version}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -105229,7 +105229,7 @@ async function $do22(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -105286,7 +105286,7 @@ async function $do23(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/agents")();
+  const path9 = pathToFunc("/v1/agents")();
   const query = queryJoin(encodeFormQuery({
     "deployment_chat": payload?.deployment_chat,
     "id": payload?.id,
@@ -105318,7 +105318,7 @@ async function $do23(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -105383,7 +105383,7 @@ async function $do24(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
+  const path9 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -105404,7 +105404,7 @@ async function $do24(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -105468,7 +105468,7 @@ async function $do25(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/agents/{agent_id}/versions")(pathParams);
+  const path9 = pathToFunc("/v1/agents/{agent_id}/versions")(pathParams);
   const query = encodeFormQuery({
     "page": payload.page,
     "page_size": payload.page_size
@@ -105493,7 +105493,7 @@ async function $do25(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -105560,7 +105560,7 @@ async function $do26(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
+  const path9 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -105582,7 +105582,7 @@ async function $do26(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -105645,7 +105645,7 @@ async function $do27(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/agents/{agent_id}/version")(pathParams);
+  const path9 = pathToFunc("/v1/agents/{agent_id}/version")(pathParams);
   const query = encodeFormQuery({
     "version": payload.version
   });
@@ -105669,7 +105669,7 @@ async function $do27(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -105854,7 +105854,7 @@ async function $do28(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id}/organization/activate")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id}/organization/activate")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -105876,7 +105876,7 @@ async function $do28(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -105941,7 +105941,7 @@ async function $do29(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id}/user/activate")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id}/user/activate")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -105963,7 +105963,7 @@ async function $do29(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106028,7 +106028,7 @@ async function $do30(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id}/workspace/activate")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id}/workspace/activate")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -106050,7 +106050,7 @@ async function $do30(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106116,7 +106116,7 @@ async function $do31(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/tools/{tool_name}/call")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/tools/{tool_name}/call")(pathParams);
   const query = encodeFormQuery({
     "credentials_name": payload.credentials_name
   });
@@ -106141,7 +106141,7 @@ async function $do31(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -106199,7 +106199,7 @@ async function $do32(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/connectors")();
+  const path9 = pathToFunc("/v1/connectors")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -106221,7 +106221,7 @@ async function $do32(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106282,7 +106282,7 @@ async function $do33(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -106304,7 +106304,7 @@ async function $do33(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106366,7 +106366,7 @@ async function $do34(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -106388,7 +106388,7 @@ async function $do34(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106450,7 +106450,7 @@ async function $do35(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -106472,7 +106472,7 @@ async function $do35(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106535,7 +106535,7 @@ async function $do36(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id}/organization/deactivate")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id}/organization/deactivate")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -106556,7 +106556,7 @@ async function $do36(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106619,7 +106619,7 @@ async function $do37(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id}/user/deactivate")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id}/user/deactivate")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -106640,7 +106640,7 @@ async function $do37(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106703,7 +106703,7 @@ async function $do38(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id}/workspace/deactivate")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id}/workspace/deactivate")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -106724,7 +106724,7 @@ async function $do38(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106787,7 +106787,7 @@ async function $do39(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id}#id")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id}#id")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -106808,7 +106808,7 @@ async function $do39(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106869,7 +106869,7 @@ async function $do40(client, request, options) {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" }),
     credentials_name: encodeSimple("credentials_name", payload.credentials_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials/{credentials_name}")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials/{credentials_name}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -106890,7 +106890,7 @@ async function $do40(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106951,7 +106951,7 @@ async function $do41(client, request, options) {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" }),
     credentials_name: encodeSimple("credentials_name", payload.credentials_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials/{credentials_name}")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials/{credentials_name}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -106972,7 +106972,7 @@ async function $do41(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -107033,7 +107033,7 @@ async function $do42(client, request, options) {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" }),
     credentials_name: encodeSimple("credentials_name", payload.credentials_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials/{credentials_name}")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials/{credentials_name}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -107054,7 +107054,7 @@ async function $do42(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -107114,7 +107114,7 @@ async function $do43(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}#idOrName")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}#idOrName")(pathParams);
   const query = encodeFormQuery({
     "fetch_customer_data": payload.fetch_customer_data,
     "fetch_user_data": payload.fetch_user_data
@@ -107139,7 +107139,7 @@ async function $do43(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -107200,7 +107200,7 @@ async function $do44(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/authentication_methods")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/authentication_methods")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -107221,7 +107221,7 @@ async function $do44(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -107278,7 +107278,7 @@ async function $do45(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/auth_url")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/auth_url")(pathParams);
   const query = encodeFormQuery({
     "app_return_url": payload.app_return_url,
     "credentials_name": payload.credentials_name,
@@ -107305,7 +107305,7 @@ async function $do45(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -107363,7 +107363,7 @@ async function $do46(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/connectors")();
+  const path9 = pathToFunc("/v1/connectors")();
   const query = encodeFormQuery({
     "cursor": payload?.cursor,
     "page_size": payload?.page_size,
@@ -107389,7 +107389,7 @@ async function $do46(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -107450,7 +107450,7 @@ async function $do47(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials")(pathParams);
   const query = encodeFormQuery({
     "auth_type": payload.auth_type,
     "fetch_default": payload.fetch_default
@@ -107475,7 +107475,7 @@ async function $do47(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -107536,7 +107536,7 @@ async function $do48(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/tools")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/tools")(pathParams);
   const query = encodeFormQuery({
     "credentials_name": payload.credentials_name,
     "page": payload.page,
@@ -107564,7 +107564,7 @@ async function $do48(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -107624,7 +107624,7 @@ async function $do49(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials")(pathParams);
   const query = encodeFormQuery({
     "auth_type": payload.auth_type,
     "fetch_default": payload.fetch_default
@@ -107649,7 +107649,7 @@ async function $do49(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -107710,7 +107710,7 @@ async function $do50(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials")(pathParams);
   const query = encodeFormQuery({
     "auth_type": payload.auth_type,
     "fetch_default": payload.fetch_default
@@ -107735,7 +107735,7 @@ async function $do50(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -107801,7 +107801,7 @@ async function $do51(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/connectors/{connector_id}#id")(pathParams);
+  const path9 = pathToFunc("/v1/connectors/{connector_id}#id")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -107823,7 +107823,7 @@ async function $do51(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108140,7 +108140,7 @@ async function $do52(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
+  const path9 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -108162,7 +108162,7 @@ async function $do52(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108227,7 +108227,7 @@ async function $do53(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/conversations/{conversation_id}#stream")(pathParams);
+  const path9 = pathToFunc("/v1/conversations/{conversation_id}#stream")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
@@ -108249,7 +108249,7 @@ async function $do53(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108321,7 +108321,7 @@ async function $do54(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
+  const path9 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -108342,7 +108342,7 @@ async function $do54(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108405,7 +108405,7 @@ async function $do55(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
+  const path9 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -108426,7 +108426,7 @@ async function $do55(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108488,7 +108488,7 @@ async function $do56(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/conversations/{conversation_id}/history")(pathParams);
+  const path9 = pathToFunc("/v1/conversations/{conversation_id}/history")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -108509,7 +108509,7 @@ async function $do56(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108572,7 +108572,7 @@ async function $do57(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/conversations/{conversation_id}/messages")(pathParams);
+  const path9 = pathToFunc("/v1/conversations/{conversation_id}/messages")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -108593,7 +108593,7 @@ async function $do57(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108650,7 +108650,7 @@ async function $do58(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/conversations")();
+  const path9 = pathToFunc("/v1/conversations")();
   const query = queryJoin(encodeFormQuery({
     "page": payload?.page,
     "page_size": payload?.page_size
@@ -108677,7 +108677,7 @@ async function $do58(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -108743,7 +108743,7 @@ async function $do59(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/conversations/{conversation_id}/restart")(pathParams);
+  const path9 = pathToFunc("/v1/conversations/{conversation_id}/restart")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -108765,7 +108765,7 @@ async function $do59(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108830,7 +108830,7 @@ async function $do60(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/conversations/{conversation_id}/restart#stream")(pathParams);
+  const path9 = pathToFunc("/v1/conversations/{conversation_id}/restart#stream")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
@@ -108852,7 +108852,7 @@ async function $do60(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108918,7 +108918,7 @@ async function $do61(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/conversations")();
+  const path9 = pathToFunc("/v1/conversations")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -108940,7 +108940,7 @@ async function $do61(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108996,7 +108996,7 @@ async function $do62(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/conversations#stream")();
+  const path9 = pathToFunc("/v1/conversations#stream")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
@@ -109018,7 +109018,7 @@ async function $do62(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109205,7 +109205,7 @@ async function $do63(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/libraries")();
+  const path9 = pathToFunc("/v1/libraries")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -109227,7 +109227,7 @@ async function $do63(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109289,7 +109289,7 @@ async function $do64(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -109310,7 +109310,7 @@ async function $do64(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109373,7 +109373,7 @@ async function $do65(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -109394,7 +109394,7 @@ async function $do65(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109459,7 +109459,7 @@ async function $do66(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -109481,7 +109481,7 @@ async function $do66(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109538,7 +109538,7 @@ async function $do67(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/libraries")();
+  const path9 = pathToFunc("/v1/libraries")();
   const query = encodeFormQuery({
     "filter_owned_by_me": payload?.filter_owned_by_me,
     "page": payload?.page,
@@ -109565,7 +109565,7 @@ async function $do67(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -109631,7 +109631,7 @@ async function $do68(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -109653,7 +109653,7 @@ async function $do68(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109716,7 +109716,7 @@ async function $do69(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -109738,7 +109738,7 @@ async function $do69(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109801,7 +109801,7 @@ async function $do70(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -109822,7 +109822,7 @@ async function $do70(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109885,7 +109885,7 @@ async function $do71(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -109907,7 +109907,7 @@ async function $do71(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110016,7 +110016,7 @@ async function $do72(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110037,7 +110037,7 @@ async function $do72(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110104,7 +110104,7 @@ async function $do73(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/extracted-text-signed-url")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/extracted-text-signed-url")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110125,7 +110125,7 @@ async function $do73(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110192,7 +110192,7 @@ async function $do74(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110213,7 +110213,7 @@ async function $do74(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110280,7 +110280,7 @@ async function $do75(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/signed-url")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/signed-url")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110301,7 +110301,7 @@ async function $do75(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110370,7 +110370,7 @@ async function $do76(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -110392,7 +110392,7 @@ async function $do76(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110455,7 +110455,7 @@ async function $do77(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/documents")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/documents")(pathParams);
   const query = encodeFormQuery({
     "filters_attributes": payload.filters_attributes,
     "page": payload.page,
@@ -110484,7 +110484,7 @@ async function $do77(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -110552,7 +110552,7 @@ async function $do78(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/reprocess")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/reprocess")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110573,7 +110573,7 @@ async function $do78(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110640,7 +110640,7 @@ async function $do79(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/status")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/status")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110661,7 +110661,7 @@ async function $do79(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110728,7 +110728,7 @@ async function $do80(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/text_content")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/text_content")(pathParams);
   const query = encodeFormQuery({
     "page_end": payload.page_end,
     "page_start": payload.page_start
@@ -110753,7 +110753,7 @@ async function $do80(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -110823,7 +110823,7 @@ async function $do81(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -110845,7 +110845,7 @@ async function $do81(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110921,7 +110921,7 @@ async function $do82(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/libraries/{library_id}/documents")(pathParams);
+  const path9 = pathToFunc("/v1/libraries/{library_id}/documents")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110942,7 +110942,7 @@ async function $do82(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111210,7 +111210,7 @@ async function $do83(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/observability/campaigns")();
+  const path9 = pathToFunc("/v1/observability/campaigns")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -111232,7 +111232,7 @@ async function $do83(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111294,7 +111294,7 @@ async function $do84(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/campaigns/{campaign_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/campaigns/{campaign_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -111315,7 +111315,7 @@ async function $do84(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111378,7 +111378,7 @@ async function $do85(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/campaigns/{campaign_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/campaigns/{campaign_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -111399,7 +111399,7 @@ async function $do85(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111462,7 +111462,7 @@ async function $do86(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/campaigns/{campaign_id}/status")(pathParams);
+  const path9 = pathToFunc("/v1/observability/campaigns/{campaign_id}/status")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -111483,7 +111483,7 @@ async function $do86(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111540,7 +111540,7 @@ async function $do87(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/observability/campaigns")();
+  const path9 = pathToFunc("/v1/observability/campaigns")();
   const query = encodeFormQuery({
     "page": payload?.page,
     "page_size": payload?.page_size,
@@ -111566,7 +111566,7 @@ async function $do87(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -111630,7 +111630,7 @@ async function $do88(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/campaigns/{campaign_id}/selected-events")(pathParams);
+  const path9 = pathToFunc("/v1/observability/campaigns/{campaign_id}/selected-events")(pathParams);
   const query = encodeFormQuery({
     "page": payload.page,
     "page_size": payload.page_size
@@ -111655,7 +111655,7 @@ async function $do88(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -111773,7 +111773,7 @@ async function $do89(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/chat-completion-events/{event_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/chat-completion-events/{event_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -111794,7 +111794,7 @@ async function $do89(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111857,7 +111857,7 @@ async function $do90(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/chat-completion-events/{event_id}/similar-events")(pathParams);
+  const path9 = pathToFunc("/v1/observability/chat-completion-events/{event_id}/similar-events")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -111878,7 +111878,7 @@ async function $do90(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111943,7 +111943,7 @@ async function $do91(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/chat-completion-events/{event_id}/live-judging")(pathParams);
+  const path9 = pathToFunc("/v1/observability/chat-completion-events/{event_id}/live-judging")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -111965,7 +111965,7 @@ async function $do91(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112024,7 +112024,7 @@ async function $do92(client, request, options) {
   const body = encodeJSON("body", payload.SearchChatCompletionEventsRequest, {
     explode: true
   });
-  const path7 = pathToFunc("/v1/observability/chat-completion-events/search")();
+  const path9 = pathToFunc("/v1/observability/chat-completion-events/search")();
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "page_size": payload.page_size
@@ -112050,7 +112050,7 @@ async function $do92(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -112108,7 +112108,7 @@ async function $do93(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/observability/chat-completion-events/search-ids")();
+  const path9 = pathToFunc("/v1/observability/chat-completion-events/search-ids")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -112130,7 +112130,7 @@ async function $do93(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112194,7 +112194,7 @@ async function $do94(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/chat-completion-fields/{field_name}/options-counts")(pathParams);
+  const path9 = pathToFunc("/v1/observability/chat-completion-fields/{field_name}/options-counts")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -112216,7 +112216,7 @@ async function $do94(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112279,7 +112279,7 @@ async function $do95(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/chat-completion-fields/{field_name}/options")(pathParams);
+  const path9 = pathToFunc("/v1/observability/chat-completion-fields/{field_name}/options")(pathParams);
   const query = encodeFormQuery({
     "operator": payload.operator
   });
@@ -112303,7 +112303,7 @@ async function $do95(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -112355,7 +112355,7 @@ function betaObservabilityChatCompletionEventsFieldsList(client, options) {
   return new APIPromise4($do96(client, options));
 }
 async function $do96(client, options) {
-  const path7 = pathToFunc("/v1/observability/chat-completion-fields")();
+  const path9 = pathToFunc("/v1/observability/chat-completion-fields")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -112376,7 +112376,7 @@ async function $do96(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -112514,7 +112514,7 @@ async function $do97(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/observability/datasets")();
+  const path9 = pathToFunc("/v1/observability/datasets")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -112536,7 +112536,7 @@ async function $do97(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112600,7 +112600,7 @@ async function $do98(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}/records")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/records")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -112622,7 +112622,7 @@ async function $do98(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112685,7 +112685,7 @@ async function $do99(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -112706,7 +112706,7 @@ async function $do99(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112769,7 +112769,7 @@ async function $do100(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}/exports/to-jsonl")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/exports/to-jsonl")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -112790,7 +112790,7 @@ async function $do100(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112853,7 +112853,7 @@ async function $do101(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -112874,7 +112874,7 @@ async function $do101(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112941,7 +112941,7 @@ async function $do102(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}/tasks/{task_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/tasks/{task_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -112962,7 +112962,7 @@ async function $do102(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113027,7 +113027,7 @@ async function $do103(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-campaign")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-campaign")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113049,7 +113049,7 @@ async function $do103(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113114,7 +113114,7 @@ async function $do104(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-dataset")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-dataset")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113136,7 +113136,7 @@ async function $do104(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113201,7 +113201,7 @@ async function $do105(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-explorer")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-explorer")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113223,7 +113223,7 @@ async function $do105(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113288,7 +113288,7 @@ async function $do106(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-file")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-file")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113310,7 +113310,7 @@ async function $do106(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113375,7 +113375,7 @@ async function $do107(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-playground")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-playground")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113397,7 +113397,7 @@ async function $do107(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113454,7 +113454,7 @@ async function $do108(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/observability/datasets")();
+  const path9 = pathToFunc("/v1/observability/datasets")();
   const query = encodeFormQuery({
     "page": payload?.page,
     "page_size": payload?.page_size,
@@ -113480,7 +113480,7 @@ async function $do108(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -113544,7 +113544,7 @@ async function $do109(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}/records")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/records")(pathParams);
   const query = encodeFormQuery({
     "page": payload.page,
     "page_size": payload.page_size
@@ -113569,7 +113569,7 @@ async function $do109(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -113633,7 +113633,7 @@ async function $do110(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}/tasks")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/tasks")(pathParams);
   const query = encodeFormQuery({
     "page": payload.page,
     "page_size": payload.page_size
@@ -113658,7 +113658,7 @@ async function $do110(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -113724,7 +113724,7 @@ async function $do111(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113746,7 +113746,7 @@ async function $do111(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113803,7 +113803,7 @@ async function $do112(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/observability/dataset-records/bulk-delete")();
+  const path9 = pathToFunc("/v1/observability/dataset-records/bulk-delete")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113825,7 +113825,7 @@ async function $do112(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113885,7 +113885,7 @@ async function $do113(client, request, options) {
   const pathParams = {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -113906,7 +113906,7 @@ async function $do113(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113966,7 +113966,7 @@ async function $do114(client, request, options) {
   const pathParams = {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -113987,7 +113987,7 @@ async function $do114(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114049,7 +114049,7 @@ async function $do115(client, request, options) {
   const pathParams = {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/live-judging")(pathParams);
+  const path9 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/live-judging")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -114071,7 +114071,7 @@ async function $do115(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114133,7 +114133,7 @@ async function $do116(client, request, options) {
   const pathParams = {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/payload")(pathParams);
+  const path9 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/payload")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -114155,7 +114155,7 @@ async function $do116(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114215,7 +114215,7 @@ async function $do117(client, request, options) {
   const pathParams = {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/properties")(pathParams);
+  const path9 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/properties")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -114237,7 +114237,7 @@ async function $do117(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114470,7 +114470,7 @@ async function $do118(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/observability/judges")();
+  const path9 = pathToFunc("/v1/observability/judges")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -114492,7 +114492,7 @@ async function $do118(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114554,7 +114554,7 @@ async function $do119(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -114575,7 +114575,7 @@ async function $do119(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114638,7 +114638,7 @@ async function $do120(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -114659,7 +114659,7 @@ async function $do120(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114724,7 +114724,7 @@ async function $do121(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/judges/{judge_id}/live-judging")(pathParams);
+  const path9 = pathToFunc("/v1/observability/judges/{judge_id}/live-judging")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -114746,7 +114746,7 @@ async function $do121(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114803,7 +114803,7 @@ async function $do122(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/observability/judges")();
+  const path9 = pathToFunc("/v1/observability/judges")();
   const query = encodeFormQuery({
     "model_filter": payload?.model_filter,
     "page": payload?.page,
@@ -114831,7 +114831,7 @@ async function $do122(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -114897,7 +114897,7 @@ async function $do123(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -114919,7 +114919,7 @@ async function $do123(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -115036,7 +115036,7 @@ async function $do124(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/logs/fields/{field_name}/options")(pathParams);
+  const path9 = pathToFunc("/v1/observability/logs/fields/{field_name}/options")(pathParams);
   const query = encodeFormQuery({
     "from": payload.from,
     "to": payload.to
@@ -115061,7 +115061,7 @@ async function $do124(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -115113,7 +115113,7 @@ function betaObservabilityLogsList(client, options) {
   return new APIPromise4($do125(client, options));
 }
 async function $do125(client, options) {
-  const path7 = pathToFunc("/v1/observability/logs/fields")();
+  const path9 = pathToFunc("/v1/observability/logs/fields")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -115134,7 +115134,7 @@ async function $do125(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -115187,7 +115187,7 @@ async function $do126(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload.LogsRequest, { explode: true });
-  const path7 = pathToFunc("/v1/observability/logs/search")();
+  const path9 = pathToFunc("/v1/observability/logs/search")();
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "from": payload.from,
@@ -115215,7 +115215,7 @@ async function $do126(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -115312,7 +115312,7 @@ async function $do127(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/spans/evaluations/fields/{field_name}/options")(pathParams);
+  const path9 = pathToFunc("/v1/observability/spans/evaluations/fields/{field_name}/options")(pathParams);
   const query = encodeFormQuery({
     "from": payload.from,
     "to": payload.to
@@ -115337,7 +115337,7 @@ async function $do127(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -115401,7 +115401,7 @@ async function $do128(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/spans/fields/{field_name}/options")(pathParams);
+  const path9 = pathToFunc("/v1/observability/spans/fields/{field_name}/options")(pathParams);
   const query = encodeFormQuery({
     "from": payload.from,
     "to": payload.to
@@ -115426,7 +115426,7 @@ async function $do128(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -115478,7 +115478,7 @@ function betaObservabilitySpansListSpanEvalFields(client, options) {
   return new APIPromise4($do129(client, options));
 }
 async function $do129(client, options) {
-  const path7 = pathToFunc("/v1/observability/spans/evaluations/fields")();
+  const path9 = pathToFunc("/v1/observability/spans/evaluations/fields")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -115499,7 +115499,7 @@ async function $do129(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -115546,7 +115546,7 @@ function betaObservabilitySpansListSpanFields(client, options) {
   return new APIPromise4($do130(client, options));
 }
 async function $do130(client, options) {
-  const path7 = pathToFunc("/v1/observability/spans/fields")();
+  const path9 = pathToFunc("/v1/observability/spans/fields")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -115567,7 +115567,7 @@ async function $do130(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -115622,7 +115622,7 @@ async function $do131(client, request, options) {
   const body = encodeJSON("body", payload.SpanEvaluationsRequest, {
     explode: true
   });
-  const path7 = pathToFunc("/v1/observability/spans/evaluations/search/latest")();
+  const path9 = pathToFunc("/v1/observability/spans/evaluations/search/latest")();
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "from": payload.from,
@@ -115650,7 +115650,7 @@ async function $do131(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -115710,7 +115710,7 @@ async function $do132(client, request, options) {
   const body = encodeJSON("body", payload.SpanEvaluationsRequest, {
     explode: true
   });
-  const path7 = pathToFunc("/v1/observability/spans/evaluations/search")();
+  const path9 = pathToFunc("/v1/observability/spans/evaluations/search")();
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "from": payload.from,
@@ -115738,7 +115738,7 @@ async function $do132(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -115796,7 +115796,7 @@ async function $do133(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload.SpansRequest, { explode: true });
-  const path7 = pathToFunc("/v1/observability/spans/search")();
+  const path9 = pathToFunc("/v1/observability/spans/search")();
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "from": payload.from,
@@ -115824,7 +115824,7 @@ async function $do133(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -115949,7 +115949,7 @@ async function $do134(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/traces/fields/{field_name}/options")(pathParams);
+  const path9 = pathToFunc("/v1/observability/traces/fields/{field_name}/options")(pathParams);
   const query = encodeFormQuery({
     "from": payload.from,
     "to": payload.to
@@ -115974,7 +115974,7 @@ async function $do134(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -116042,7 +116042,7 @@ async function $do135(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/traces/{trace_id}/spans/{span_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/traces/{trace_id}/spans/{span_id}")(pathParams);
   const query = encodeFormQuery({
     "from": payload.from,
     "to": payload.to
@@ -116067,7 +116067,7 @@ async function $do135(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -116131,7 +116131,7 @@ async function $do136(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/traces/{trace_id}")(pathParams);
+  const path9 = pathToFunc("/v1/observability/traces/{trace_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -116152,7 +116152,7 @@ async function $do136(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -116203,7 +116203,7 @@ function betaObservabilityTracesGetTraceFields(client, options) {
   return new APIPromise4($do137(client, options));
 }
 async function $do137(client, options) {
-  const path7 = pathToFunc("/v1/observability/traces/fields")();
+  const path9 = pathToFunc("/v1/observability/traces/fields")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -116224,7 +116224,7 @@ async function $do137(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -116283,7 +116283,7 @@ async function $do138(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/observability/traces/{trace_id}/spans")(pathParams);
+  const path9 = pathToFunc("/v1/observability/traces/{trace_id}/spans")(pathParams);
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "from": payload.from,
@@ -116310,7 +116310,7 @@ async function $do138(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -116368,7 +116368,7 @@ async function $do139(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload.TracesRequest, { explode: true });
-  const path7 = pathToFunc("/v1/observability/traces/search")();
+  const path9 = pathToFunc("/v1/observability/traces/search")();
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "from": payload.from,
@@ -116396,7 +116396,7 @@ async function $do139(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -116548,7 +116548,7 @@ function betaRagIngestionPipelineConfigurationsList(client, options) {
   return new APIPromise4($do140(client, options));
 }
 async function $do140(client, options) {
-  const path7 = pathToFunc("/v1/rag/ingestion_pipeline_configurations")();
+  const path9 = pathToFunc("/v1/rag/ingestion_pipeline_configurations")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -116569,7 +116569,7 @@ async function $do140(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -116619,7 +116619,7 @@ async function $do141(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/rag/ingestion_pipeline_configurations")();
+  const path9 = pathToFunc("/v1/rag/ingestion_pipeline_configurations")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -116641,7 +116641,7 @@ async function $do141(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -116703,7 +116703,7 @@ async function $do142(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/rag/ingestion_pipeline_configurations/{id}/run_info")(pathParams);
+  const path9 = pathToFunc("/v1/rag/ingestion_pipeline_configurations/{id}/run_info")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -116725,7 +116725,7 @@ async function $do142(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -116815,7 +116815,7 @@ function betaRagSearchIndexesList(client, options) {
   return new APIPromise4($do143(client, options));
 }
 async function $do143(client, options) {
-  const path7 = pathToFunc("/v1/rag/search_index")();
+  const path9 = pathToFunc("/v1/rag/search_index")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -116836,7 +116836,7 @@ async function $do143(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -116886,7 +116886,7 @@ async function $do144(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/rag/search_index")();
+  const path9 = pathToFunc("/v1/rag/search_index")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -116908,7 +116908,7 @@ async function $do144(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -117052,7 +117052,7 @@ async function $do145(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/chat/completions")();
+  const path9 = pathToFunc("/v1/chat/completions")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -117074,7 +117074,7 @@ async function $do145(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -117130,7 +117130,7 @@ async function $do146(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/chat/completions#stream")();
+  const path9 = pathToFunc("/v1/chat/completions#stream")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
@@ -117152,7 +117152,7 @@ async function $do146(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -117724,8 +117724,8 @@ var init_parseUtil = __esm({
     init_errors6();
     init_en2();
     makeIssue = (params) => {
-      const { data, path: path7, errorMaps, issueData } = params;
-      const fullPath = [...path7, ...issueData.path || []];
+      const { data, path: path9, errorMaps, issueData } = params;
+      const fullPath = [...path9, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -118008,11 +118008,11 @@ var init_types2 = __esm({
     init_parseUtil();
     init_util2();
     ParseInputLazyPath = class {
-      constructor(parent, value, path7, key) {
+      constructor(parent, value, path9, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path7;
+        this._path = path9;
         this._key = key;
       }
       get path() {
@@ -122968,7 +122968,7 @@ async function $do147(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/classifications")();
+  const path9 = pathToFunc("/v1/classifications")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -122990,7 +122990,7 @@ async function $do147(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123046,7 +123046,7 @@ async function $do148(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/chat/classifications")();
+  const path9 = pathToFunc("/v1/chat/classifications")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -123068,7 +123068,7 @@ async function $do148(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123124,7 +123124,7 @@ async function $do149(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/moderations")();
+  const path9 = pathToFunc("/v1/moderations")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -123146,7 +123146,7 @@ async function $do149(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123202,7 +123202,7 @@ async function $do150(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/chat/moderations")();
+  const path9 = pathToFunc("/v1/chat/moderations")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -123224,7 +123224,7 @@ async function $do150(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123320,7 +123320,7 @@ async function $do151(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/embeddings")();
+  const path9 = pathToFunc("/v1/embeddings")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -123342,7 +123342,7 @@ async function $do151(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123420,7 +123420,7 @@ async function $do152(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/workflows/events/stream")();
+  const path9 = pathToFunc("/v1/workflows/events/stream")();
   const query = encodeFormQuery({
     "activity_id": payload?.activity_id,
     "activity_name": payload?.activity_name,
@@ -123458,7 +123458,7 @@ async function $do152(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -123524,7 +123524,7 @@ async function $do153(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/workflows/events/list")();
+  const path9 = pathToFunc("/v1/workflows/events/list")();
   const query = encodeFormQuery({
     "cursor": payload?.cursor,
     "limit": payload?.limit,
@@ -123552,7 +123552,7 @@ async function $do153(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -123642,7 +123642,7 @@ async function $do154(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/files/{file_id}")(pathParams);
+  const path9 = pathToFunc("/v1/files/{file_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -123663,7 +123663,7 @@ async function $do154(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123722,7 +123722,7 @@ async function $do155(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/files/{file_id}/content")(pathParams);
+  const path9 = pathToFunc("/v1/files/{file_id}/content")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/octet-stream"
   }));
@@ -123743,7 +123743,7 @@ async function $do155(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123802,7 +123802,7 @@ async function $do156(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/files/{file_id}/url")(pathParams);
+  const path9 = pathToFunc("/v1/files/{file_id}/url")(pathParams);
   const query = encodeFormQuery({
     "expiry": payload.expiry
   });
@@ -123826,7 +123826,7 @@ async function $do156(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -123880,7 +123880,7 @@ async function $do157(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/files")();
+  const path9 = pathToFunc("/v1/files")();
   const query = encodeFormQuery({
     "include_total": payload?.include_total,
     "mimetypes": payload?.mimetypes,
@@ -123911,7 +123911,7 @@ async function $do157(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -123971,7 +123971,7 @@ async function $do158(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/files/{file_id}")(pathParams);
+  const path9 = pathToFunc("/v1/files/{file_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -123992,7 +123992,7 @@ async function $do158(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124067,7 +124067,7 @@ async function $do159(client, request, options) {
   if (payload.visibility !== void 0) {
     appendForm(body, "visibility", payload.visibility);
   }
-  const path7 = pathToFunc("/v1/files")();
+  const path9 = pathToFunc("/v1/files")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -124088,7 +124088,7 @@ async function $do159(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124217,7 +124217,7 @@ async function $do160(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/fim/completions")();
+  const path9 = pathToFunc("/v1/fim/completions")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -124239,7 +124239,7 @@ async function $do160(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124295,7 +124295,7 @@ async function $do161(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/fim/completions#stream")();
+  const path9 = pathToFunc("/v1/fim/completions#stream")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
@@ -124317,7 +124317,7 @@ async function $do161(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124423,7 +124423,7 @@ async function $do162(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/fine_tuning/jobs/{job_id}/cancel")(pathParams);
+  const path9 = pathToFunc("/v1/fine_tuning/jobs/{job_id}/cancel")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -124444,7 +124444,7 @@ async function $do162(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124496,7 +124496,7 @@ async function $do163(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/fine_tuning/jobs")();
+  const path9 = pathToFunc("/v1/fine_tuning/jobs")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -124518,7 +124518,7 @@ async function $do163(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124577,7 +124577,7 @@ async function $do164(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/fine_tuning/jobs/{job_id}")(pathParams);
+  const path9 = pathToFunc("/v1/fine_tuning/jobs/{job_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -124598,7 +124598,7 @@ async function $do164(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124650,7 +124650,7 @@ async function $do165(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/fine_tuning/jobs")();
+  const path9 = pathToFunc("/v1/fine_tuning/jobs")();
   const query = encodeFormQuery({
     "created_after": payload?.created_after,
     "created_before": payload?.created_before,
@@ -124683,7 +124683,7 @@ async function $do165(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -124743,7 +124743,7 @@ async function $do166(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/fine_tuning/jobs/{job_id}/start")(pathParams);
+  const path9 = pathToFunc("/v1/fine_tuning/jobs/{job_id}/start")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -124764,7 +124764,7 @@ async function $do166(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124900,7 +124900,7 @@ async function $do167(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/fine_tuning/models/{model_id}/archive")(pathParams);
+  const path9 = pathToFunc("/v1/fine_tuning/models/{model_id}/archive")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -124921,7 +124921,7 @@ async function $do167(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124980,7 +124980,7 @@ async function $do168(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/models/{model_id}")(pathParams);
+  const path9 = pathToFunc("/v1/models/{model_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -125001,7 +125001,7 @@ async function $do168(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125058,7 +125058,7 @@ async function $do169(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/models")();
+  const path9 = pathToFunc("/v1/models")();
   const query = encodeFormQuery({
     "model": payload?.model,
     "provider": payload?.provider
@@ -125083,7 +125083,7 @@ async function $do169(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -125147,7 +125147,7 @@ async function $do170(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/models/{model_id}")(pathParams);
+  const path9 = pathToFunc("/v1/models/{model_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -125168,7 +125168,7 @@ async function $do170(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125230,7 +125230,7 @@ async function $do171(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/fine_tuning/models/{model_id}/archive")(pathParams);
+  const path9 = pathToFunc("/v1/fine_tuning/models/{model_id}/archive")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -125251,7 +125251,7 @@ async function $do171(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125312,7 +125312,7 @@ async function $do172(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/fine_tuning/models/{model_id}")(pathParams);
+  const path9 = pathToFunc("/v1/fine_tuning/models/{model_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -125334,7 +125334,7 @@ async function $do172(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125458,7 +125458,7 @@ async function $do173(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/ocr")();
+  const path9 = pathToFunc("/v1/ocr")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -125480,7 +125480,7 @@ async function $do173(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125558,7 +125558,7 @@ async function $do174(client, request, options) {
   const pathParams = {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/workflows/{workflow_identifier}/archive")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/{workflow_identifier}/archive")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -125579,7 +125579,7 @@ async function $do174(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125636,7 +125636,7 @@ async function $do175(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/workflows/archive")();
+  const path9 = pathToFunc("/v1/workflows/archive")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -125658,7 +125658,7 @@ async function $do175(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125714,7 +125714,7 @@ async function $do176(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/workflows/unarchive")();
+  const path9 = pathToFunc("/v1/workflows/unarchive")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -125736,7 +125736,7 @@ async function $do176(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125797,7 +125797,7 @@ async function $do177(client, request, options) {
   const pathParams = {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/workflows/{workflow_identifier}/execute")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/{workflow_identifier}/execute")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -125819,7 +125819,7 @@ async function $do177(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125880,7 +125880,7 @@ async function $do178(client, request, options) {
   const pathParams = {
     workflow_registration_id: encodeSimple("workflow_registration_id", payload.workflow_registration_id, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/workflows/registrations/{workflow_registration_id}/execute")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/registrations/{workflow_registration_id}/execute")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -125902,7 +125902,7 @@ async function $do178(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125961,7 +125961,7 @@ async function $do179(client, request, options) {
   const pathParams = {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/workflows/{workflow_identifier}")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/{workflow_identifier}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -125982,7 +125982,7 @@ async function $do179(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -126042,7 +126042,7 @@ async function $do180(client, request, options) {
   const pathParams = {
     workflow_registration_id: encodeSimple("workflow_registration_id", payload.workflow_registration_id, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/workflows/registrations/{workflow_registration_id}")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/registrations/{workflow_registration_id}")(pathParams);
   const query = encodeFormQuery({
     "include_shared": payload.include_shared,
     "with_workflow": payload.with_workflow
@@ -126067,7 +126067,7 @@ async function $do180(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -126125,7 +126125,7 @@ async function $do181(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/workflows/registrations")();
+  const path9 = pathToFunc("/v1/workflows/registrations")();
   const query = encodeFormQuery({
     "active_only": payload?.active_only,
     "archived": payload?.archived,
@@ -126158,7 +126158,7 @@ async function $do181(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -126286,7 +126286,7 @@ async function $do182(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/workflows")();
+  const path9 = pathToFunc("/v1/workflows")();
   const query = encodeFormQuery({
     "active_only": payload?.active_only,
     "archived": payload?.archived,
@@ -126321,7 +126321,7 @@ async function $do182(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -126416,7 +126416,7 @@ async function $do183(client, request, options) {
   const pathParams = {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/workflows/{workflow_identifier}/unarchive")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/{workflow_identifier}/unarchive")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -126437,7 +126437,7 @@ async function $do183(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -126499,7 +126499,7 @@ async function $do184(client, request, options) {
   const pathParams = {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
-  const path7 = pathToFunc("/v1/workflows/{workflow_identifier}")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/{workflow_identifier}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -126521,7 +126521,7 @@ async function $do184(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -126584,7 +126584,7 @@ async function $do185(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/deployments/{name}")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/deployments/{name}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -126605,7 +126605,7 @@ async function $do185(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -126662,7 +126662,7 @@ async function $do186(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/workflows/deployments")();
+  const path9 = pathToFunc("/v1/workflows/deployments")();
   const query = encodeFormQuery({
     "active_only": payload?.active_only,
     "cursor": payload?.cursor,
@@ -126692,7 +126692,7 @@ async function $do186(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -126776,7 +126776,7 @@ async function $do187(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/workflows/executions/cancel")();
+  const path9 = pathToFunc("/v1/workflows/executions/cancel")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -126798,7 +126798,7 @@ async function $do187(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -126854,7 +126854,7 @@ async function $do188(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/workflows/executions/terminate")();
+  const path9 = pathToFunc("/v1/workflows/executions/terminate")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -126876,7 +126876,7 @@ async function $do188(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -126938,7 +126938,7 @@ async function $do189(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/cancel")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/cancel")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -126959,7 +126959,7 @@ async function $do189(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127022,7 +127022,7 @@ async function $do190(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -127043,7 +127043,7 @@ async function $do190(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127106,7 +127106,7 @@ async function $do191(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/history")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/history")(pathParams);
   const query = encodeFormQuery({
     "decode_payloads": payload.decode_payloads
   });
@@ -127130,7 +127130,7 @@ async function $do191(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -127194,7 +127194,7 @@ async function $do192(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/logs")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/logs")(pathParams);
   const query = encodeFormQuery({
     "activity_id": payload.activity_id,
     "after": payload.after,
@@ -127224,7 +127224,7 @@ async function $do192(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -127288,7 +127288,7 @@ async function $do193(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/events")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/events")(pathParams);
   const query = encodeFormQuery({
     "include_internal_events": payload.include_internal_events,
     "merge_same_id_events": payload.merge_same_id_events
@@ -127313,7 +127313,7 @@ async function $do193(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -127377,7 +127377,7 @@ async function $do194(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/otel")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/otel")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -127398,7 +127398,7 @@ async function $do194(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127461,7 +127461,7 @@ async function $do195(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/summary")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/summary")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -127482,7 +127482,7 @@ async function $do195(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127547,7 +127547,7 @@ async function $do196(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/queries")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/queries")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -127569,7 +127569,7 @@ async function $do196(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127634,7 +127634,7 @@ async function $do197(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/reset")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/reset")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -127656,7 +127656,7 @@ async function $do197(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127721,7 +127721,7 @@ async function $do198(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/signals")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/signals")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -127743,7 +127743,7 @@ async function $do198(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127806,7 +127806,7 @@ async function $do199(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/stream")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/stream")(pathParams);
   const query = encodeFormQuery({
     "event_source": payload.event_source,
     "last_event_id": payload.last_event_id
@@ -127831,7 +127831,7 @@ async function $do199(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -127903,7 +127903,7 @@ async function $do200(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/logs/stream")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/logs/stream")(pathParams);
   const query = encodeFormQuery({
     "activity_id": payload.activity_id,
     "after": payload.after,
@@ -127930,7 +127930,7 @@ async function $do200(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -128002,7 +128002,7 @@ async function $do201(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/terminate")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/terminate")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -128023,7 +128023,7 @@ async function $do201(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -128088,7 +128088,7 @@ async function $do202(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/executions/{execution_id}/updates")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/updates")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -128110,7 +128110,7 @@ async function $do202(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -128311,7 +128311,7 @@ async function $do203(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/{workflow_name}/metrics")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/{workflow_name}/metrics")(pathParams);
   const query = encodeFormQuery({
     "end_time": payload.end_time,
     "start_time": payload.start_time
@@ -128336,7 +128336,7 @@ async function $do203(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -128441,7 +128441,7 @@ async function $do204(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/runs/{run_id}")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/runs/{run_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -128462,7 +128462,7 @@ async function $do204(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -128525,7 +128525,7 @@ async function $do205(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/runs/{run_id}/history")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/runs/{run_id}/history")(pathParams);
   const query = encodeFormQuery({
     "decode_payloads": payload.decode_payloads
   });
@@ -128549,7 +128549,7 @@ async function $do205(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -128607,7 +128607,7 @@ async function $do206(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/workflows/runs")();
+  const path9 = pathToFunc("/v1/workflows/runs")();
   const query = encodeFormQuery({
     "deployment_name": payload?.deployment_name,
     "end_time_after": payload?.end_time_after,
@@ -128643,7 +128643,7 @@ async function $do206(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -128775,7 +128775,7 @@ async function $do207(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -128796,7 +128796,7 @@ async function $do207(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -128853,7 +128853,7 @@ async function $do208(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path7 = pathToFunc("/v1/workflows/schedules")();
+  const path9 = pathToFunc("/v1/workflows/schedules")();
   const query = encodeFormQuery({
     "next_page_token": payload?.next_page_token,
     "page_size": payload?.page_size,
@@ -128881,7 +128881,7 @@ async function $do208(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     query,
     body,
@@ -128979,7 +128979,7 @@ async function $do209(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/schedules/{schedule_id}/pause")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/schedules/{schedule_id}/pause")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -129001,7 +129001,7 @@ async function $do209(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -129066,7 +129066,7 @@ async function $do210(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/schedules/{schedule_id}/resume")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/schedules/{schedule_id}/resume")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -129088,7 +129088,7 @@ async function $do210(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -129145,7 +129145,7 @@ async function $do211(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path7 = pathToFunc("/v1/workflows/schedules")();
+  const path9 = pathToFunc("/v1/workflows/schedules")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -129167,7 +129167,7 @@ async function $do211(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -129231,7 +129231,7 @@ async function $do212(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/schedules/{schedule_id}/trigger")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/schedules/{schedule_id}/trigger")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -129253,7 +129253,7 @@ async function $do212(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -129316,7 +129316,7 @@ async function $do213(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -129337,7 +129337,7 @@ async function $do213(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -129402,7 +129402,7 @@ async function $do214(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path7 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
+  const path9 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -129424,7 +129424,7 @@ async function $do214(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path7,
+    path: path9,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -131329,13 +131329,13 @@ var init_openai_codex_responses = __esm({
     init_openai_prompt_cache();
     init_openai_responses_shared();
     init_simple_options();
-    __rewriteRelativeImportExtension3 = function(path7, preserveJsx) {
-      if (typeof path7 === "string" && /^\.\.?\//.test(path7)) {
-        return path7.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
+    __rewriteRelativeImportExtension3 = function(path9, preserveJsx) {
+      if (typeof path9 === "string" && /^\.\.?\//.test(path9)) {
+        return path9.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
           return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m2 : d + ext + "." + cm.toLowerCase() + "js";
         });
       }
-      return path7;
+      return path9;
     };
     _os = null;
     dynamicImport = (specifier) => import(__rewriteRelativeImportExtension3(specifier));
@@ -132030,17 +132030,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path7) {
-      const ctrl = callVisitor(key, node, visitor, path7);
+    function visit_(key, node, visitor, path9) {
+      const ctrl = callVisitor(key, node, visitor, path9);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path7, ctrl);
-        return visit_(key, ctrl, visitor, path7);
+        replaceNode(key, path9, ctrl);
+        return visit_(key, ctrl, visitor, path9);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path7 = Object.freeze(path7.concat(node));
+          path9 = Object.freeze(path9.concat(node));
           for (let i2 = 0; i2 < node.items.length; ++i2) {
-            const ci = visit_(i2, node.items[i2], visitor, path7);
+            const ci = visit_(i2, node.items[i2], visitor, path9);
             if (typeof ci === "number")
               i2 = ci - 1;
             else if (ci === BREAK)
@@ -132051,13 +132051,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path7 = Object.freeze(path7.concat(node));
-          const ck = visit_("key", node.key, visitor, path7);
+          path9 = Object.freeze(path9.concat(node));
+          const ck = visit_("key", node.key, visitor, path9);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path7);
+          const cv = visit_("value", node.value, visitor, path9);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -132078,17 +132078,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path7) {
-      const ctrl = await callVisitor(key, node, visitor, path7);
+    async function visitAsync_(key, node, visitor, path9) {
+      const ctrl = await callVisitor(key, node, visitor, path9);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path7, ctrl);
-        return visitAsync_(key, ctrl, visitor, path7);
+        replaceNode(key, path9, ctrl);
+        return visitAsync_(key, ctrl, visitor, path9);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path7 = Object.freeze(path7.concat(node));
+          path9 = Object.freeze(path9.concat(node));
           for (let i2 = 0; i2 < node.items.length; ++i2) {
-            const ci = await visitAsync_(i2, node.items[i2], visitor, path7);
+            const ci = await visitAsync_(i2, node.items[i2], visitor, path9);
             if (typeof ci === "number")
               i2 = ci - 1;
             else if (ci === BREAK)
@@ -132099,13 +132099,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path7 = Object.freeze(path7.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path7);
+          path9 = Object.freeze(path9.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path9);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path7);
+          const cv = await visitAsync_("value", node.value, visitor, path9);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -132132,23 +132132,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path7) {
+    function callVisitor(key, node, visitor, path9) {
       if (typeof visitor === "function")
-        return visitor(key, node, path7);
+        return visitor(key, node, path9);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path7);
+        return visitor.Map?.(key, node, path9);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path7);
+        return visitor.Seq?.(key, node, path9);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path7);
+        return visitor.Pair?.(key, node, path9);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path7);
+        return visitor.Scalar?.(key, node, path9);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path7);
+        return visitor.Alias?.(key, node, path9);
       return void 0;
     }
-    function replaceNode(key, path7, node) {
-      const parent = path7[path7.length - 1];
+    function replaceNode(key, path9, node) {
+      const parent = path9[path9.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -132758,10 +132758,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path7, value) {
+    function collectionFromPath(schema, path9, value) {
       let v = value;
-      for (let i2 = path7.length - 1; i2 >= 0; --i2) {
-        const k = path7[i2];
+      for (let i2 = path9.length - 1; i2 >= 0; --i2) {
+        const k = path9[i2];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -132780,7 +132780,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path7) => path7 == null || typeof path7 === "object" && !!path7[Symbol.iterator]().next().done;
+    var isEmptyPath = (path9) => path9 == null || typeof path9 === "object" && !!path9[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -132810,11 +132810,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path7, value) {
-        if (isEmptyPath(path7))
+      addIn(path9, value) {
+        if (isEmptyPath(path9))
           this.add(value);
         else {
-          const [key, ...rest] = path7;
+          const [key, ...rest] = path9;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -132828,8 +132828,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path7) {
-        const [key, ...rest] = path7;
+      deleteIn(path9) {
+        const [key, ...rest] = path9;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -132843,8 +132843,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path7, keepScalar) {
-        const [key, ...rest] = path7;
+      getIn(path9, keepScalar) {
+        const [key, ...rest] = path9;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -132862,8 +132862,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path7) {
-        const [key, ...rest] = path7;
+      hasIn(path9) {
+        const [key, ...rest] = path9;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -132873,8 +132873,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path7, value) {
-        const [key, ...rest] = path7;
+      setIn(path9, value) {
+        const [key, ...rest] = path9;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -133615,16 +133615,16 @@ var require_merge = __commonJS({
     "use strict";
     var identity = require_identity();
     var Scalar = require_Scalar();
-    var MERGE_KEY = "<<";
+    var MERGE_KEY2 = "<<";
     var merge2 = {
-      identify: (value) => value === MERGE_KEY || typeof value === "symbol" && value.description === MERGE_KEY,
+      identify: (value) => value === MERGE_KEY2 || typeof value === "symbol" && value.description === MERGE_KEY2,
       default: "key",
       tag: "tag:yaml.org,2002:merge",
       test: /^<<$/,
-      resolve: () => Object.assign(new Scalar.Scalar(Symbol(MERGE_KEY)), {
+      resolve: () => Object.assign(new Scalar.Scalar(Symbol(MERGE_KEY2)), {
         addToJSMap: addMergeToJSMap
       }),
-      stringify: () => MERGE_KEY
+      stringify: () => MERGE_KEY2
     };
     var isMergeKey = (ctx, key) => (merge2.identify(key) || identity.isScalar(key) && (!key.type || key.type === Scalar.Scalar.PLAIN) && merge2.identify(key.value)) && ctx?.doc.schema.tags.some((tag) => tag.tag === merge2.tag && tag.default);
     function addMergeToJSMap(ctx, map2, value) {
@@ -135209,7 +135209,7 @@ var require_Schema = __commonJS({
     var string4 = require_string();
     var tags = require_tags();
     var sortMapEntriesByKey = (a, b) => a.key < b.key ? -1 : a.key > b.key ? 1 : 0;
-    var Schema = class _Schema {
+    var Schema3 = class _Schema {
       constructor({ compat, customTags, merge: merge2, resolveKnownTags, schema, sortMapEntries, toStringDefaults }) {
         this.compat = Array.isArray(compat) ? tags.getTags(compat, "compat") : compat ? tags.getTags(null, compat) : null;
         this.name = typeof schema === "string" && schema || "core";
@@ -135227,7 +135227,7 @@ var require_Schema = __commonJS({
         return copy;
       }
     };
-    exports2.Schema = Schema;
+    exports2.Schema = Schema3;
   }
 });
 
@@ -135320,7 +135320,7 @@ var require_Document = __commonJS({
     var identity = require_identity();
     var Pair = require_Pair();
     var toJS = require_toJS();
-    var Schema = require_Schema();
+    var Schema3 = require_Schema();
     var stringifyDocument = require_stringifyDocument();
     var anchors = require_anchors();
     var applyReviver = require_applyReviver();
@@ -135389,9 +135389,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path7, value) {
+      addIn(path9, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path7, value);
+          this.contents.addIn(path9, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -135466,14 +135466,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path7) {
-        if (Collection.isEmptyPath(path7)) {
+      deleteIn(path9) {
+        if (Collection.isEmptyPath(path9)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path7) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path9) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -135488,10 +135488,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path7, keepScalar) {
-        if (Collection.isEmptyPath(path7))
+      getIn(path9, keepScalar) {
+        if (Collection.isEmptyPath(path9))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path7, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path9, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -135502,10 +135502,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path7) {
-        if (Collection.isEmptyPath(path7))
+      hasIn(path9) {
+        if (Collection.isEmptyPath(path9))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path7) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path9) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -135522,13 +135522,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path7, value) {
-        if (Collection.isEmptyPath(path7)) {
+      setIn(path9, value) {
+        if (Collection.isEmptyPath(path9)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path7), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path9), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path7, value);
+          this.contents.setIn(path9, value);
         }
       }
       /**
@@ -135571,7 +135571,7 @@ var require_Document = __commonJS({
         if (options.schema instanceof Object)
           this.schema = options.schema;
         else if (opt)
-          this.schema = new Schema.Schema(Object.assign(opt, options));
+          this.schema = new Schema3.Schema(Object.assign(opt, options));
         else
           throw new Error(`With a null YAML version, the { schema: Schema } option is required`);
       }
@@ -137488,9 +137488,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path7) => {
+    visit.itemAtPath = (cst, path9) => {
       let item = cst;
-      for (const [field, index2] of path7) {
+      for (const [field, index2] of path9) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index2];
@@ -137499,23 +137499,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path7) => {
-      const parent = visit.itemAtPath(cst, path7.slice(0, -1));
-      const field = path7[path7.length - 1][0];
+    visit.parentCollection = (cst, path9) => {
+      const parent = visit.itemAtPath(cst, path9.slice(0, -1));
+      const field = path9[path9.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path7, item, visitor) {
-      let ctrl = visitor(item, path7);
+    function _visit(path9, item, visitor) {
+      let ctrl = visitor(item, path9);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i2 = 0; i2 < token.items.length; ++i2) {
-            const ci = _visit(Object.freeze(path7.concat([[field, i2]])), token.items[i2], visitor);
+            const ci = _visit(Object.freeze(path9.concat([[field, i2]])), token.items[i2], visitor);
             if (typeof ci === "number")
               i2 = ci - 1;
             else if (ci === BREAK)
@@ -137526,10 +137526,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path7);
+            ctrl = ctrl(item, path9);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path7) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path9) : ctrl;
     }
     exports2.visit = visit;
   }
@@ -138831,14 +138831,14 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs4 = this.flowScalar(this.type);
+              const fs5 = this.flowScalar(this.type);
               if (atNextItem || it.value) {
-                map2.items.push({ start, key: fs4, sep: [] });
+                map2.items.push({ start, key: fs5, sep: [] });
                 this.onKeyLine = true;
               } else if (it.sep) {
-                this.stack.push(fs4);
+                this.stack.push(fs5);
               } else {
-                Object.assign(it, { key: fs4, sep: [] });
+                Object.assign(it, { key: fs5, sep: [] });
                 this.onKeyLine = true;
               }
               return;
@@ -138966,13 +138966,13 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              const fs4 = this.flowScalar(this.type);
+              const fs5 = this.flowScalar(this.type);
               if (!it || it.value)
-                fc.items.push({ start: [], key: fs4, sep: [] });
+                fc.items.push({ start: [], key: fs5, sep: [] });
               else if (it.sep)
-                this.stack.push(fs4);
+                this.stack.push(fs5);
               else
-                Object.assign(it, { key: fs4, sep: [] });
+                Object.assign(it, { key: fs5, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -139234,7 +139234,7 @@ var require_dist4 = __commonJS({
     "use strict";
     var composer = require_composer();
     var Document = require_Document();
-    var Schema = require_Schema();
+    var Schema3 = require_Schema();
     var errors = require_errors();
     var Alias = require_Alias();
     var identity = require_identity();
@@ -139250,7 +139250,7 @@ var require_dist4 = __commonJS({
     var visit = require_visit();
     exports2.Composer = composer.Composer;
     exports2.Document = Document.Document;
-    exports2.Schema = Schema.Schema;
+    exports2.Schema = Schema3.Schema;
     exports2.YAMLError = errors.YAMLError;
     exports2.YAMLParseError = errors.YAMLParseError;
     exports2.YAMLWarning = errors.YAMLWarning;
@@ -139578,7 +139578,7 @@ var require_ignore = __commonJS({
       //   path matching.
       // - check `string` either `MODE_IGNORE` or `MODE_CHECK_IGNORE`
       // @returns {TestResult} true if a file is ignored
-      test(path7, checkUnignored, mode) {
+      test(path9, checkUnignored, mode) {
         let ignored = false;
         let unignored = false;
         let matchedRule;
@@ -139587,7 +139587,7 @@ var require_ignore = __commonJS({
           if (unignored === negative && ignored !== unignored || negative && !ignored && !unignored && !checkUnignored) {
             return;
           }
-          const matched = rule[mode].test(path7);
+          const matched = rule[mode].test(path9);
           if (!matched) {
             return;
           }
@@ -139605,20 +139605,20 @@ var require_ignore = __commonJS({
         return ret;
       }
     };
-    var throwError = (message, Ctor) => {
+    var throwError2 = (message, Ctor) => {
       throw new Ctor(message);
     };
-    var checkPath = (path7, originalPath, doThrow) => {
-      if (!isString(path7)) {
+    var checkPath = (path9, originalPath, doThrow) => {
+      if (!isString(path9)) {
         return doThrow(
           `path must be a string, but got \`${originalPath}\``,
           TypeError
         );
       }
-      if (!path7) {
+      if (!path9) {
         return doThrow(`path must not be empty`, TypeError);
       }
-      if (checkPath.isNotRelative(path7)) {
+      if (checkPath.isNotRelative(path9)) {
         const r2 = "`path.relative()`d";
         return doThrow(
           `path should be a ${r2} string, but got "${originalPath}"`,
@@ -139627,7 +139627,7 @@ var require_ignore = __commonJS({
       }
       return true;
     };
-    var isNotRelative = (path7) => REGEX_TEST_INVALID_PATH.test(path7);
+    var isNotRelative = (path9) => REGEX_TEST_INVALID_PATH.test(path9);
     checkPath.isNotRelative = isNotRelative;
     checkPath.convert = (p) => p;
     var Ignore = class {
@@ -139657,19 +139657,19 @@ var require_ignore = __commonJS({
       }
       // @returns {TestResult}
       _test(originalPath, cache, checkUnignored, slices) {
-        const path7 = originalPath && checkPath.convert(originalPath);
+        const path9 = originalPath && checkPath.convert(originalPath);
         checkPath(
-          path7,
+          path9,
           originalPath,
-          this._strictPathCheck ? throwError : RETURN_FALSE
+          this._strictPathCheck ? throwError2 : RETURN_FALSE
         );
-        return this._t(path7, cache, checkUnignored, slices);
+        return this._t(path9, cache, checkUnignored, slices);
       }
-      checkIgnore(path7) {
-        if (!REGEX_TEST_TRAILING_SLASH.test(path7)) {
-          return this.test(path7);
+      checkIgnore(path9) {
+        if (!REGEX_TEST_TRAILING_SLASH.test(path9)) {
+          return this.test(path9);
         }
-        const slices = path7.split(SLASH).filter(Boolean);
+        const slices = path9.split(SLASH).filter(Boolean);
         slices.pop();
         if (slices.length) {
           const parent = this._t(
@@ -139682,18 +139682,18 @@ var require_ignore = __commonJS({
             return parent;
           }
         }
-        return this._rules.test(path7, false, MODE_CHECK_IGNORE);
+        return this._rules.test(path9, false, MODE_CHECK_IGNORE);
       }
-      _t(path7, cache, checkUnignored, slices) {
-        if (path7 in cache) {
-          return cache[path7];
+      _t(path9, cache, checkUnignored, slices) {
+        if (path9 in cache) {
+          return cache[path9];
         }
         if (!slices) {
-          slices = path7.split(SLASH).filter(Boolean);
+          slices = path9.split(SLASH).filter(Boolean);
         }
         slices.pop();
         if (!slices.length) {
-          return cache[path7] = this._rules.test(path7, checkUnignored, MODE_IGNORE);
+          return cache[path9] = this._rules.test(path9, checkUnignored, MODE_IGNORE);
         }
         const parent = this._t(
           slices.join(SLASH) + SLASH,
@@ -139701,29 +139701,29 @@ var require_ignore = __commonJS({
           checkUnignored,
           slices
         );
-        return cache[path7] = parent.ignored ? parent : this._rules.test(path7, checkUnignored, MODE_IGNORE);
+        return cache[path9] = parent.ignored ? parent : this._rules.test(path9, checkUnignored, MODE_IGNORE);
       }
-      ignores(path7) {
-        return this._test(path7, this._ignoreCache, false).ignored;
+      ignores(path9) {
+        return this._test(path9, this._ignoreCache, false).ignored;
       }
       createFilter() {
-        return (path7) => !this.ignores(path7);
+        return (path9) => !this.ignores(path9);
       }
       filter(paths) {
         return makeArray(paths).filter(this.createFilter());
       }
       // @returns {TestResult}
-      test(path7) {
-        return this._test(path7, this._testCache, true);
+      test(path9) {
+        return this._test(path9, this._testCache, true);
       }
     };
     var factory = (options) => new Ignore(options);
-    var isPathValid = (path7) => checkPath(path7 && checkPath.convert(path7), path7, RETURN_FALSE);
+    var isPathValid = (path9) => checkPath(path9 && checkPath.convert(path9), path9, RETURN_FALSE);
     var setupWindows = () => {
       const makePosix = (str2) => /^\\\\\?\\/.test(str2) || /["<>|\u0000-\u001F]+/u.test(str2) ? str2 : str2.replace(/\\/g, "/");
       checkPath.convert = makePosix;
       const REGEX_TEST_WINDOWS_PATH_ABSOLUTE = /^[a-z]:\//i;
-      checkPath.isNotRelative = (path7) => REGEX_TEST_WINDOWS_PATH_ABSOLUTE.test(path7) || isNotRelative(path7);
+      checkPath.isNotRelative = (path9) => REGEX_TEST_WINDOWS_PATH_ABSOLUTE.test(path9) || isNotRelative(path9);
     };
     if (
       // Detect `process` so that it can run in browsers.
@@ -139739,8 +139739,7 @@ var require_ignore = __commonJS({
 });
 
 // src/index.ts
-var import_node_fs3 = require("fs");
-var import_node_fs4 = require("fs");
+var import_node_fs5 = require("fs");
 
 // node_modules/typebox/build/system/memory/memory.mjs
 var memory_exports = {};
@@ -141779,12 +141778,12 @@ function FactorMapping(input) {
 function ExprBinaryMapping(left, rest) {
   return guard_exports.IsEqual(rest.length, 3) ? (() => {
     const [operator, right, next] = rest;
-    const Schema = ExprBinaryMapping(right, next);
+    const Schema3 = ExprBinaryMapping(right, next);
     if (guard_exports.IsEqual(operator, "&")) {
-      return IsIntersect(Schema) ? Intersect([left, ...Schema.allOf]) : Intersect([left, Schema]);
+      return IsIntersect(Schema3) ? Intersect([left, ...Schema3.allOf]) : Intersect([left, Schema3]);
     }
     if (guard_exports.IsEqual(operator, "|")) {
-      return IsUnion(Schema) ? Union([left, ...Schema.anyOf]) : Union([left, Schema]);
+      return IsUnion(Schema3) ? Union([left, ...Schema3.anyOf]) : Union([left, Schema3]);
     }
     Unreachable2();
   })() : left;
@@ -148572,12 +148571,12 @@ var MutateError = class extends Error {
 };
 
 // node_modules/typebox/build/value/mutate/from_array.mjs
-function FromArray14(root, path7, current, next) {
+function FromArray14(root, path9, current, next) {
   if (!guard_exports.IsArray(current)) {
-    pointer_exports.Set(root, path7, Clone2(next));
+    pointer_exports.Set(root, path9, Clone2(next));
   } else {
     for (let index2 = 0; index2 < next.length; index2++) {
-      FromValue5(root, `${path7}/${index2}`, current[index2], next[index2]);
+      FromValue5(root, `${path9}/${index2}`, current[index2], next[index2]);
     }
     current.splice(next.length);
   }
@@ -148588,9 +148587,9 @@ function AssertKey(key) {
   if (guard_exports.IsUnsafePropertyKey(key))
     throw Error("Attempted to Mutate with unsafe property key");
 }
-function FromObject17(root, path7, current, next) {
+function FromObject17(root, path9, current, next) {
   if (!guard_exports.IsObjectNotArray(current)) {
-    pointer_exports.Set(root, path7, Clone2(next));
+    pointer_exports.Set(root, path9, Clone2(next));
   } else {
     const currentKeys = guard_exports.Keys(current);
     const nextKeys = guard_exports.Keys(next);
@@ -148608,25 +148607,25 @@ function FromObject17(root, path7, current, next) {
     }
     for (const nextKey of nextKeys) {
       AssertKey(nextKey);
-      FromValue5(root, `${path7}/${nextKey}`, current[nextKey], next[nextKey]);
+      FromValue5(root, `${path9}/${nextKey}`, current[nextKey], next[nextKey]);
     }
   }
 }
 
 // node_modules/typebox/build/value/mutate/from_unknown.mjs
-function FromUnknown2(root, path7, current, next) {
+function FromUnknown2(root, path9, current, next) {
   if (current === next)
     return;
-  pointer_exports.Set(root, path7, next);
+  pointer_exports.Set(root, path9, next);
 }
 
 // node_modules/typebox/build/value/mutate/from_value.mjs
-function FromValue5(root, path7, current, next) {
+function FromValue5(root, path9, current, next) {
   if (guard_exports.IsArray(next))
-    return FromArray14(root, path7, current, next);
+    return FromArray14(root, path9, current, next);
   if (guard_exports.IsObject(next))
-    return FromObject17(root, path7, current, next);
-  return FromUnknown2(root, path7, current, next);
+    return FromObject17(root, path9, current, next);
+  return FromUnknown2(root, path9, current, next);
 }
 
 // node_modules/typebox/build/value/mutate/mutate.mjs
@@ -148676,23 +148675,23 @@ function Parse(...args) {
 }
 
 // node_modules/typebox/build/value/delta/diff.mjs
-function CreateUpdate(path7, value) {
-  return { type: "update", path: path7, value };
+function CreateUpdate(path9, value) {
+  return { type: "update", path: path9, value };
 }
-function CreateInsert(path7, value) {
-  return { type: "insert", path: path7, value };
+function CreateInsert(path9, value) {
+  return { type: "insert", path: path9, value };
 }
-function CreateDelete(path7) {
-  return { type: "delete", path: path7 };
+function CreateDelete(path9) {
+  return { type: "delete", path: path9 };
 }
 function AssertCanDiffObject(value) {
   if (guard_exports.IsObject(value) && guard_exports.IsEqual(guard_exports.Symbols(value).length, 0))
     return;
   throw new Error("Cannot create diffs for objects with symbols keys");
 }
-function* FromObject18(path7, left, right) {
+function* FromObject18(path9, left, right) {
   if (!guard_exports.IsObject(right) || guard_exports.IsArray(right))
-    return yield CreateUpdate(path7, right);
+    return yield CreateUpdate(path9, right);
   AssertCanDiffObject(left);
   AssertCanDiffObject(right);
   const leftKeys = guard_exports.Keys(left);
@@ -148702,7 +148701,7 @@ function* FromObject18(path7, left, right) {
       continue;
     if (guard_exports.IsUnsafePropertyKey(key))
       continue;
-    yield CreateInsert(`${path7}/${key}`, right[key]);
+    yield CreateInsert(`${path9}/${key}`, right[key]);
   }
   for (const key of leftKeys) {
     if (!guard_exports.HasPropertyKey(right, key))
@@ -148711,52 +148710,52 @@ function* FromObject18(path7, left, right) {
       continue;
     if (Equal(left, right))
       continue;
-    yield* FromValue6(`${path7}/${key}`, left[key], right[key]);
+    yield* FromValue6(`${path9}/${key}`, left[key], right[key]);
   }
   for (const key of leftKeys) {
     if (guard_exports.HasPropertyKey(right, key))
       continue;
     if (guard_exports.IsUnsafePropertyKey(key))
       continue;
-    yield CreateDelete(`${path7}/${key}`);
+    yield CreateDelete(`${path9}/${key}`);
   }
 }
-function* FromArray15(path7, left, right) {
+function* FromArray15(path9, left, right) {
   if (!guard_exports.IsArray(right))
-    return yield CreateUpdate(path7, right);
+    return yield CreateUpdate(path9, right);
   for (let i2 = 0; i2 < Math.min(left.length, right.length); i2++) {
-    yield* FromValue6(`${path7}/${i2}`, left[i2], right[i2]);
+    yield* FromValue6(`${path9}/${i2}`, left[i2], right[i2]);
   }
   for (let i2 = 0; i2 < right.length; i2++) {
     if (i2 < left.length)
       continue;
-    yield CreateInsert(`${path7}/${i2}`, right[i2]);
+    yield CreateInsert(`${path9}/${i2}`, right[i2]);
   }
   for (let i2 = left.length - 1; i2 >= 0; i2--) {
     if (i2 < right.length)
       continue;
-    yield CreateDelete(`${path7}/${i2}`);
+    yield CreateDelete(`${path9}/${i2}`);
   }
 }
-function* FromTypedArray2(path7, left, right) {
+function* FromTypedArray2(path9, left, right) {
   const typeLeft = globalThis.Object.getPrototypeOf(left).constructor.name;
   const typeRight = globalThis.Object.getPrototypeOf(right).constructor.name;
   const predicate = globals_exports.IsTypeArray(right) && guard_exports.IsEqual(left.length, right.length) && guard_exports.IsEqual(typeLeft, typeRight);
   if (predicate) {
     for (let index2 = 0; index2 < Math.min(left.length, right.length); index2++) {
-      yield* FromValue6(`${path7}/${index2}`, left[index2], right[index2]);
+      yield* FromValue6(`${path9}/${index2}`, left[index2], right[index2]);
     }
   } else {
-    return yield CreateUpdate(path7, right);
+    return yield CreateUpdate(path9, right);
   }
 }
-function* FromUnknown3(path7, left, right) {
+function* FromUnknown3(path9, left, right) {
   if (left === right)
     return;
-  yield CreateUpdate(path7, right);
+  yield CreateUpdate(path9, right);
 }
-function* FromValue6(path7, left, right) {
-  return globals_exports.IsTypeArray(left) ? yield* FromTypedArray2(path7, left, right) : guard_exports.IsArray(left) ? yield* FromArray15(path7, left, right) : guard_exports.IsObject(left) ? yield* FromObject18(path7, left, right) : yield* FromUnknown3(path7, left, right);
+function* FromValue6(path9, left, right) {
+  return globals_exports.IsTypeArray(left) ? yield* FromTypedArray2(path9, left, right) : guard_exports.IsArray(left) ? yield* FromArray15(path9, left, right) : guard_exports.IsObject(left) ? yield* FromObject18(path9, left, right) : yield* FromUnknown3(path9, left, right);
 }
 function Diff(current, next) {
   return [...FromValue6("", current, next)];
@@ -149399,8 +149398,8 @@ function formatValidationPath(error51) {
       return basePath ? `${basePath}.${requiredProperty}` : requiredProperty;
     }
   }
-  const path7 = error51.instancePath.replace(/^\//, "").replace(/\//g, ".");
-  return path7 || "root";
+  const path9 = error51.instancePath.replace(/^\//, "").replace(/\//g, ".");
+  return path9 || "root";
 }
 function validateToolArguments(tool, toolCall) {
   const args = structuredClone(toolCall.arguments);
@@ -149498,13 +149497,13 @@ var azureOpenAIResponsesApi = () => lazyApi(() => Promise.resolve().then(() => (
 // node_modules/@earendil-works/pi-ai/dist/api/bedrock-converse-stream.lazy.js
 init_lazy();
 var import_meta = {};
-var __rewriteRelativeImportExtension2 = function(path7, preserveJsx) {
-  if (typeof path7 === "string" && /^\.\.?\//.test(path7)) {
-    return path7.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
+var __rewriteRelativeImportExtension2 = function(path9, preserveJsx) {
+  if (typeof path9 === "string" && /^\.\.?\//.test(path9)) {
+    return path9.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
       return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m2 : d + ext + "." + cm.toLowerCase() + "js";
     });
   }
-  return path7;
+  return path9;
 };
 var importNodeOnlyApi = (specifier) => {
   const runtimeSpecifier = import_meta.url.endsWith(".js") ? specifier.replace(/\.ts$/, ".js") : specifier;
@@ -149535,13 +149534,13 @@ var openAIResponsesApi = () => lazyApi(() => Promise.resolve().then(() => (init_
 
 // node_modules/@earendil-works/pi-ai/dist/env-api-keys.js
 init_provider_env();
-var __rewriteRelativeImportExtension4 = function(path7, preserveJsx) {
-  if (typeof path7 === "string" && /^\.\.?\//.test(path7)) {
-    return path7.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
+var __rewriteRelativeImportExtension4 = function(path9, preserveJsx) {
+  if (typeof path9 === "string" && /^\.\.?\//.test(path9)) {
+    return path9.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
       return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m2 : d + ext + "." + cm.toLowerCase() + "js";
     });
   }
-  return path7;
+  return path9;
 };
 var _existsSync = null;
 var _homedir = null;
@@ -167642,13 +167641,13 @@ init_models();
 
 // node_modules/@earendil-works/pi-ai/dist/utils/oauth/load.js
 var import_meta2 = {};
-var __rewriteRelativeImportExtension5 = function(path7, preserveJsx) {
-  if (typeof path7 === "string" && /^\.\.?\//.test(path7)) {
-    return path7.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
+var __rewriteRelativeImportExtension5 = function(path9, preserveJsx) {
+  if (typeof path9 === "string" && /^\.\.?\//.test(path9)) {
+    return path9.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
       return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m2 : d + ext + "." + cm.toLowerCase() + "js";
     });
   }
-  return path7;
+  return path9;
 };
 var importOAuthModule = (specifier) => {
   const runtimeSpecifier = import_meta2.url.endsWith(".js") ? specifier.replace(/\.ts$/, ".js") : specifier;
@@ -169404,6 +169403,2625 @@ ${opts.diff}`);
   };
 }
 
+// src/orchestrate.ts
+var import_node_fs4 = require("fs");
+var import_node_path6 = __toESM(require("path"), 1);
+
+// node_modules/js-yaml/dist/js-yaml.mjs
+var NOT_RESOLVED = /* @__PURE__ */ Symbol("NOT_RESOLVED");
+var MERGE_KEY = /* @__PURE__ */ Symbol("MERGE_KEY");
+function defineScalarTag(tagName, options) {
+  return {
+    tagName,
+    nodeKind: "scalar",
+    implicit: options.implicit ?? false,
+    matchByTagPrefix: options.matchByTagPrefix ?? false,
+    implicitFirstChars: options.implicitFirstChars ?? null,
+    resolve: options.resolve,
+    identify: options.identify ?? null,
+    represent: options.represent ?? ((data) => String(data)),
+    representTagName: options.representTagName ?? null
+  };
+}
+function defineSequenceTag(tagName, options) {
+  const carrierIsResult = options.finalize === void 0;
+  return {
+    tagName,
+    nodeKind: "sequence",
+    implicit: false,
+    matchByTagPrefix: options.matchByTagPrefix ?? false,
+    create: options.create,
+    addItem: options.addItem,
+    finalize: options.finalize ?? ((carrier) => carrier),
+    carrierIsResult,
+    identify: options.identify ?? null,
+    represent: options.represent ?? ((data) => data),
+    representTagName: options.representTagName ?? null
+  };
+}
+function defineMappingTag(tagName, options) {
+  const carrierIsResult = options.finalize === void 0;
+  return {
+    tagName,
+    nodeKind: "mapping",
+    implicit: false,
+    matchByTagPrefix: options.matchByTagPrefix ?? false,
+    create: options.create,
+    addPair: options.addPair,
+    has: options.has,
+    keys: options.keys,
+    get: options.get,
+    finalize: options.finalize ?? ((carrier) => carrier),
+    carrierIsResult,
+    identify: options.identify ?? null,
+    represent: options.represent ?? ((data) => data),
+    representTagName: options.representTagName ?? null
+  };
+}
+var strTag = defineScalarTag("tag:yaml.org,2002:str", {
+  resolve: (source) => source,
+  identify: (data) => typeof data === "string"
+});
+var NULL_VALUES$1 = [
+  "",
+  "~",
+  "null",
+  "Null",
+  "NULL"
+];
+var nullCoreTag = defineScalarTag("tag:yaml.org,2002:null", {
+  implicit: true,
+  implicitFirstChars: [
+    "",
+    "~",
+    "n",
+    "N"
+  ],
+  resolve: (source) => {
+    if (NULL_VALUES$1.indexOf(source) !== -1) return null;
+    return NOT_RESOLVED;
+  },
+  identify: (object2) => object2 === null,
+  represent: () => "null"
+});
+var nullJsonTag = defineScalarTag("tag:yaml.org,2002:null", {
+  implicit: true,
+  implicitFirstChars: ["n"],
+  resolve: (source, isExplicit) => {
+    if (source === "null" || isExplicit && source === "") return null;
+    return NOT_RESOLVED;
+  },
+  identify: (object2) => object2 === null,
+  represent: () => "null"
+});
+var NULL_VALUES = [
+  "",
+  "~",
+  "null",
+  "Null",
+  "NULL"
+];
+var nullYaml11Tag = defineScalarTag("tag:yaml.org,2002:null", {
+  implicit: true,
+  implicitFirstChars: [
+    "",
+    "~",
+    "n",
+    "N"
+  ],
+  resolve: (source) => {
+    if (NULL_VALUES.indexOf(source) !== -1) return null;
+    return NOT_RESOLVED;
+  },
+  identify: (object2) => object2 === null,
+  represent: () => "null"
+});
+var TRUE_VALUES$2 = [
+  "true",
+  "True",
+  "TRUE"
+];
+var FALSE_VALUES$2 = [
+  "false",
+  "False",
+  "FALSE"
+];
+var boolCoreTag = defineScalarTag("tag:yaml.org,2002:bool", {
+  implicit: true,
+  implicitFirstChars: [
+    "t",
+    "T",
+    "f",
+    "F"
+  ],
+  resolve: (source) => {
+    if (TRUE_VALUES$2.indexOf(source) !== -1) return true;
+    if (FALSE_VALUES$2.indexOf(source) !== -1) return false;
+    return NOT_RESOLVED;
+  },
+  identify: (object2) => Object.prototype.toString.call(object2) === "[object Boolean]",
+  represent: (object2) => object2 ? "true" : "false"
+});
+var TRUE_VALUES$1 = ["true"];
+var FALSE_VALUES$1 = ["false"];
+var boolJsonTag = defineScalarTag("tag:yaml.org,2002:bool", {
+  implicit: true,
+  implicitFirstChars: ["t", "f"],
+  resolve: (source) => {
+    if (TRUE_VALUES$1.indexOf(source) !== -1) return true;
+    if (FALSE_VALUES$1.indexOf(source) !== -1) return false;
+    return NOT_RESOLVED;
+  },
+  identify: (object2) => Object.prototype.toString.call(object2) === "[object Boolean]",
+  represent: (object2) => object2 ? "true" : "false"
+});
+var TRUE_VALUES = [
+  "true",
+  "True",
+  "TRUE",
+  "y",
+  "Y",
+  "yes",
+  "Yes",
+  "YES",
+  "on",
+  "On",
+  "ON"
+];
+var FALSE_VALUES = [
+  "false",
+  "False",
+  "FALSE",
+  "n",
+  "N",
+  "no",
+  "No",
+  "NO",
+  "off",
+  "Off",
+  "OFF"
+];
+var boolYaml11Tag = defineScalarTag("tag:yaml.org,2002:bool", {
+  implicit: true,
+  implicitFirstChars: [
+    "y",
+    "Y",
+    "n",
+    "N",
+    "t",
+    "T",
+    "f",
+    "F",
+    "o",
+    "O"
+  ],
+  resolve: (source) => {
+    if (TRUE_VALUES.indexOf(source) !== -1) return true;
+    if (FALSE_VALUES.indexOf(source) !== -1) return false;
+    return NOT_RESOLVED;
+  },
+  identify: (object2) => Object.prototype.toString.call(object2) === "[object Boolean]",
+  represent: (object2) => object2 ? "true" : "false"
+});
+var YAML_INTEGER_IMPLICIT_PATTERN$1 = /* @__PURE__ */ new RegExp("^(?:0o[0-7]+|0x[0-9a-fA-F]+|[-+]?[0-9]+)$");
+var YAML_INTEGER_EXPLICIT_PATTERN$1 = /* @__PURE__ */ new RegExp("^(?:[-+]?0b[0-1]+|[-+]?0o[0-7]+|[-+]?0x[0-9a-fA-F]+|[-+]?[0-9]+)$");
+function parseYamlInteger$2(source) {
+  let value = source;
+  let sign = 1;
+  if (value[0] === "-" || value[0] === "+") {
+    if (value[0] === "-") sign = -1;
+    value = value.slice(1);
+  }
+  if (value.startsWith("0b")) return sign * parseInt(value.slice(2), 2);
+  if (value.startsWith("0o")) return sign * parseInt(value.slice(2), 8);
+  if (value.startsWith("0x")) return sign * parseInt(value.slice(2), 16);
+  return sign * parseInt(value, 10);
+}
+function resolveYamlInteger$2(source, isExplicit) {
+  if (isExplicit) {
+    if (!YAML_INTEGER_EXPLICIT_PATTERN$1.test(source)) return NOT_RESOLVED;
+  } else if (!YAML_INTEGER_IMPLICIT_PATTERN$1.test(source)) return NOT_RESOLVED;
+  const result = parseYamlInteger$2(source);
+  return Number.isFinite(result) ? result : NOT_RESOLVED;
+}
+var intCoreTag = defineScalarTag("tag:yaml.org,2002:int", {
+  implicit: true,
+  implicitFirstChars: [
+    "-",
+    "+",
+    ..."0123456789"
+  ],
+  resolve: resolveYamlInteger$2,
+  identify: (object2) => Object.prototype.toString.call(object2) === "[object Number]" && object2 % 1 === 0 && !Object.is(object2, -0),
+  represent: (object2) => object2.toString(10)
+});
+var YAML_INTEGER_IMPLICIT_PATTERN = /* @__PURE__ */ new RegExp("^-?(?:0|[1-9][0-9]*)$");
+var YAML_INTEGER_EXPLICIT_PATTERN = /* @__PURE__ */ new RegExp("^(?:[-+]?0b[0-1]+|[-+]?0o[0-7]+|[-+]?0x[0-9a-fA-F]+|[-+]?[0-9]+)$");
+function parseYamlInteger$1(source) {
+  let value = source;
+  let sign = 1;
+  if (value[0] === "-" || value[0] === "+") {
+    if (value[0] === "-") sign = -1;
+    value = value.slice(1);
+  }
+  if (value.startsWith("0b")) return sign * parseInt(value.slice(2), 2);
+  if (value.startsWith("0o")) return sign * parseInt(value.slice(2), 8);
+  if (value.startsWith("0x")) return sign * parseInt(value.slice(2), 16);
+  return sign * parseInt(value, 10);
+}
+function resolveYamlInteger$1(source, isExplicit) {
+  if (isExplicit) {
+    if (!YAML_INTEGER_EXPLICIT_PATTERN.test(source)) return NOT_RESOLVED;
+  } else if (!YAML_INTEGER_IMPLICIT_PATTERN.test(source)) return NOT_RESOLVED;
+  const result = parseYamlInteger$1(source);
+  return Number.isFinite(result) ? result : NOT_RESOLVED;
+}
+var intJsonTag = defineScalarTag("tag:yaml.org,2002:int", {
+  implicit: true,
+  implicitFirstChars: ["-", ..."0123456789"],
+  resolve: resolveYamlInteger$1,
+  identify: (object2) => Object.prototype.toString.call(object2) === "[object Number]" && object2 % 1 === 0 && !Object.is(object2, -0),
+  represent: (object2) => object2.toString(10)
+});
+var YAML_INTEGER_PATTERN = /* @__PURE__ */ new RegExp("^(?:[-+]?0b[0-1_]+|[-+]?0[0-7_]+|[-+]?0x[0-9a-fA-F_]+|[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+|[-+]?(?:0|[1-9][0-9_]*))$");
+function parseYamlInteger(source) {
+  let value = source.replace(/_/g, "");
+  let sign = 1;
+  if (value[0] === "-" || value[0] === "+") {
+    if (value[0] === "-") sign = -1;
+    value = value.slice(1);
+  }
+  if (value.startsWith("0b")) return sign * parseInt(value.slice(2), 2);
+  if (value.startsWith("0x")) return sign * parseInt(value.slice(2), 16);
+  if (value.includes(":")) {
+    let result = 0;
+    for (const part of value.split(":")) result = result * 60 + Number(part);
+    return sign * result;
+  }
+  if (value !== "0" && value[0] === "0") return sign * parseInt(value, 8);
+  return sign * parseInt(value, 10);
+}
+function resolveYamlInteger(source) {
+  if (!YAML_INTEGER_PATTERN.test(source)) return NOT_RESOLVED;
+  const result = parseYamlInteger(source);
+  return Number.isFinite(result) ? result : NOT_RESOLVED;
+}
+var intYaml11Tag = defineScalarTag("tag:yaml.org,2002:int", {
+  implicit: true,
+  implicitFirstChars: [
+    "-",
+    "+",
+    ..."0123456789"
+  ],
+  resolve: resolveYamlInteger,
+  identify: (object2) => Object.prototype.toString.call(object2) === "[object Number]" && object2 % 1 === 0 && !Object.is(object2, -0),
+  represent: (object2) => object2.toString(10)
+});
+var YAML_FLOAT_PATTERN$1 = /* @__PURE__ */ new RegExp("^(?:[-+]?[0-9]+(?:\\.[0-9]*)?(?:[eE][-+]?[0-9]+)?|[-+]?\\.[0-9]+(?:[eE][-+]?[0-9]+)?|[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$");
+var YAML_FLOAT_SPECIAL_PATTERN$1 = /* @__PURE__ */ new RegExp("^(?:[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$");
+function resolveYamlFloat$2(source) {
+  if (!YAML_FLOAT_PATTERN$1.test(source)) return NOT_RESOLVED;
+  let value = source.toLowerCase();
+  const sign = value[0] === "-" ? -1 : 1;
+  if ("+-".includes(value[0])) value = value.slice(1);
+  if (value === ".inf") return sign === 1 ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY;
+  if (value === ".nan") return NaN;
+  const result = sign * parseFloat(value);
+  if (Number.isFinite(result) || YAML_FLOAT_SPECIAL_PATTERN$1.test(source)) return result;
+  return NOT_RESOLVED;
+}
+function representYamlFloat$2(object2) {
+  if (isNaN(object2)) return ".nan";
+  if (object2 === Number.POSITIVE_INFINITY) return ".inf";
+  if (object2 === Number.NEGATIVE_INFINITY) return "-.inf";
+  if (Object.is(object2, -0)) return "-0.0";
+  const result = object2.toString(10);
+  return /^[-+]?[0-9]+e/.test(result) ? result.replace("e", ".e") : result;
+}
+var floatCoreTag = defineScalarTag("tag:yaml.org,2002:float", {
+  implicit: true,
+  implicitFirstChars: [
+    "-",
+    "+",
+    ".",
+    ..."0123456789"
+  ],
+  resolve: resolveYamlFloat$2,
+  identify: (object2) => Object.prototype.toString.call(object2) === "[object Number]" && (object2 % 1 !== 0 || Object.is(object2, -0)),
+  represent: representYamlFloat$2
+});
+var YAML_FLOAT_IMPLICIT_PATTERN = /* @__PURE__ */ new RegExp("^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]*)?(?:[eE][-+]?[0-9]+)?$");
+var YAML_FLOAT_EXPLICIT_PATTERN = /* @__PURE__ */ new RegExp("^(?:[-+]?[0-9]+(?:\\.[0-9]*)?(?:[eE][-+]?[0-9]+)?|[-+]?\\.[0-9]+(?:[eE][-+]?[0-9]+)?|[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$");
+function resolveYamlFloat$1(source, isExplicit) {
+  if (isExplicit) {
+    if (!YAML_FLOAT_EXPLICIT_PATTERN.test(source)) return NOT_RESOLVED;
+    let value = source.toLowerCase();
+    const sign = value[0] === "-" ? -1 : 1;
+    if ("+-".includes(value[0])) value = value.slice(1);
+    if (value === ".inf") return sign === 1 ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY;
+    if (value === ".nan") return NaN;
+    const result2 = sign * parseFloat(value);
+    return Number.isFinite(result2) ? result2 : NOT_RESOLVED;
+  }
+  if (!YAML_FLOAT_IMPLICIT_PATTERN.test(source)) return NOT_RESOLVED;
+  const result = Number(source);
+  if (Number.isFinite(result)) return result;
+  return NOT_RESOLVED;
+}
+function representYamlFloat$1(object2) {
+  if (isNaN(object2)) return ".nan";
+  if (object2 === Number.POSITIVE_INFINITY) return ".inf";
+  if (object2 === Number.NEGATIVE_INFINITY) return "-.inf";
+  if (Object.is(object2, -0)) return "-0.0";
+  const result = object2.toString(10);
+  return /^[-+]?[0-9]+e/.test(result) ? result.replace("e", ".e") : result;
+}
+var floatJsonTag = defineScalarTag("tag:yaml.org,2002:float", {
+  implicit: true,
+  implicitFirstChars: ["-", ..."0123456789"],
+  resolve: resolveYamlFloat$1,
+  identify: (object2) => Object.prototype.toString.call(object2) === "[object Number]" && (object2 % 1 !== 0 || Object.is(object2, -0)),
+  represent: representYamlFloat$1
+});
+var YAML_FLOAT_PATTERN = /* @__PURE__ */ new RegExp("^(?:[-+]?(?:(?:[0-9][0-9_]*)?\\.[0-9_]*)(?:[eE][-+][0-9]+)?|[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\\.[0-9_]*|[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$");
+var YAML_FLOAT_SPECIAL_PATTERN = /* @__PURE__ */ new RegExp("^(?:[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$");
+function resolveYamlFloat(source) {
+  if (!YAML_FLOAT_PATTERN.test(source)) return NOT_RESOLVED;
+  let value = source.toLowerCase().replace(/_/g, "");
+  const sign = value[0] === "-" ? -1 : 1;
+  if ("+-".includes(value[0])) value = value.slice(1);
+  if (value === ".inf") return sign === 1 ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY;
+  if (value === ".nan") return NaN;
+  let result = 0;
+  if (value.includes(":")) {
+    for (const part of value.split(":")) result = result * 60 + Number(part);
+    result *= sign;
+  } else result = sign * parseFloat(value);
+  if (Number.isFinite(result) || YAML_FLOAT_SPECIAL_PATTERN.test(source)) return result;
+  return NOT_RESOLVED;
+}
+function representYamlFloat(object2) {
+  if (isNaN(object2)) return ".nan";
+  if (object2 === Number.POSITIVE_INFINITY) return ".inf";
+  if (object2 === Number.NEGATIVE_INFINITY) return "-.inf";
+  if (Object.is(object2, -0)) return "-0.0";
+  const result = object2.toString(10);
+  return /^[-+]?[0-9]+e/.test(result) ? result.replace("e", ".e") : result;
+}
+var floatYaml11Tag = defineScalarTag("tag:yaml.org,2002:float", {
+  implicit: true,
+  implicitFirstChars: [
+    "-",
+    "+",
+    ".",
+    ..."0123456789"
+  ],
+  resolve: resolveYamlFloat,
+  identify: (object2) => Object.prototype.toString.call(object2) === "[object Number]" && (object2 % 1 !== 0 || Object.is(object2, -0)),
+  represent: representYamlFloat
+});
+var mergeTag = defineScalarTag("tag:yaml.org,2002:merge", {
+  implicit: true,
+  implicitFirstChars: ["<"],
+  resolve: (source, isExplicit) => {
+    if (source === "<<" || isExplicit && source === "") return MERGE_KEY;
+    return NOT_RESOLVED;
+  }
+});
+var BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/;
+function resolveYamlBinary(source) {
+  const input = source.replace(/\s/g, "");
+  if (input.length % 4 !== 0 || !BASE64_PATTERN.test(input)) return NOT_RESOLVED;
+  const binary = atob(input);
+  const result = new Uint8Array(binary.length);
+  for (let index2 = 0; index2 < binary.length; index2++) result[index2] = binary.charCodeAt(index2);
+  return result;
+}
+function representYamlBinary(object2) {
+  let binary = "";
+  for (let index2 = 0; index2 < object2.length; index2++) binary += String.fromCharCode(object2[index2]);
+  return btoa(binary);
+}
+var binaryTag = defineScalarTag("tag:yaml.org,2002:binary", {
+  resolve: resolveYamlBinary,
+  identify: (object2) => Object.prototype.toString.call(object2) === "[object Uint8Array]",
+  represent: representYamlBinary
+});
+var YAML_DATE_REGEXP = /* @__PURE__ */ new RegExp("^([0-9][0-9][0-9][0-9])-([0-9][0-9])-([0-9][0-9])$");
+var YAML_TIMESTAMP_REGEXP = /* @__PURE__ */ new RegExp("^([0-9][0-9][0-9][0-9])-([0-9][0-9]?)-([0-9][0-9]?)(?:[Tt]|[ \\t]+)([0-9][0-9]?):([0-9][0-9]):([0-9][0-9])(?:\\.([0-9]*))?(?:[ \\t]*(Z|([-+])([0-9][0-9]?)(?::([0-9][0-9]))?))?$");
+function resolveYamlTimestamp(source) {
+  let match2 = YAML_DATE_REGEXP.exec(source);
+  if (match2 === null) match2 = YAML_TIMESTAMP_REGEXP.exec(source);
+  if (match2 === null) return NOT_RESOLVED;
+  const year = +match2[1];
+  const month = +match2[2] - 1;
+  const day = +match2[3];
+  if (!match2[4]) {
+    const date6 = new Date(Date.UTC(year, month, day));
+    if (date6.getUTCFullYear() !== year || date6.getUTCMonth() !== month || date6.getUTCDate() !== day) return NOT_RESOLVED;
+    return date6;
+  }
+  const hour = +match2[4];
+  const minute = +match2[5];
+  const second = +match2[6];
+  let fraction = 0;
+  if (hour > 23 || minute > 59 || second > 59) return NOT_RESOLVED;
+  if (match2[7]) {
+    let value = match2[7].slice(0, 3);
+    while (value.length < 3) value += "0";
+    fraction = +value;
+  }
+  const date5 = new Date(Date.UTC(year, month, day, hour, minute, second, fraction));
+  if (date5.getUTCFullYear() !== year || date5.getUTCMonth() !== month || date5.getUTCDate() !== day) return NOT_RESOLVED;
+  if (match2[9]) {
+    const offsetHour = +match2[10];
+    const offsetMinute = +(match2[11] || 0);
+    if (offsetHour > 23 || offsetMinute > 59) return NOT_RESOLVED;
+    const offset = (offsetHour * 60 + offsetMinute) * 6e4;
+    date5.setTime(date5.getTime() - (match2[9] === "-" ? -offset : offset));
+  }
+  return date5;
+}
+var timestampTag = defineScalarTag("tag:yaml.org,2002:timestamp", {
+  implicit: true,
+  implicitFirstChars: [..."0123456789"],
+  resolve: resolveYamlTimestamp,
+  identify: (object2) => object2 instanceof Date,
+  represent: (object2) => object2.toISOString()
+});
+var seqTag = defineSequenceTag("tag:yaml.org,2002:seq", {
+  create: () => [],
+  addItem: (container, item) => {
+    container.push(item);
+  },
+  identify: Array.isArray
+});
+var omapTag = defineSequenceTag("tag:yaml.org,2002:omap", {
+  create: () => [],
+  addItem: (container, item) => {
+    if (Object.prototype.toString.call(item) !== "[object Object]") return "cannot resolve an ordered map item";
+    const object2 = item;
+    const itemKeys = Object.keys(object2);
+    if (itemKeys.length !== 1) return "cannot resolve an ordered map item";
+    for (const existing of container) if (Object.prototype.hasOwnProperty.call(existing, itemKeys[0])) return "cannot resolve an ordered map item";
+    container.push(object2);
+    return "";
+  }
+});
+var pairsTag = defineSequenceTag("tag:yaml.org,2002:pairs", {
+  create: () => [],
+  addItem: (container, item) => {
+    if (item instanceof Map) {
+      if (item.size !== 1) return "cannot resolve a pairs item";
+      container.push(item.entries().next().value);
+      return "";
+    }
+    if (Object.prototype.toString.call(item) !== "[object Object]") return "cannot resolve a pairs item";
+    const object2 = item;
+    const keys = Object.keys(object2);
+    if (keys.length !== 1) return "cannot resolve a pairs item";
+    container.push([keys[0], object2[keys[0]]]);
+    return "";
+  }
+});
+function isPlainObject3(data) {
+  if (data === null || typeof data !== "object" || Array.isArray(data)) return false;
+  const prototype = Object.getPrototypeOf(data);
+  return prototype === null || prototype === Object.prototype;
+}
+function pick2(object2, keys) {
+  const result = {};
+  for (const key of keys) if (object2[key] !== void 0) result[key] = object2[key];
+  return result;
+}
+var mapTag = defineMappingTag("tag:yaml.org,2002:map", {
+  create: () => ({}),
+  identify: isPlainObject3,
+  represent: (o) => {
+    const map2 = /* @__PURE__ */ new Map();
+    for (const key of Object.keys(o)) map2.set(key, o[key]);
+    return map2;
+  },
+  addPair: (container, key, value) => {
+    if (key !== null && typeof key === "object") return "object-based map does not support complex keys";
+    const normalizedKey = String(key);
+    if (normalizedKey === "__proto__") Object.defineProperty(container, normalizedKey, {
+      value,
+      enumerable: true,
+      configurable: true,
+      writable: true
+    });
+    else container[normalizedKey] = value;
+    return "";
+  },
+  has: (container, key) => {
+    if (key !== null && typeof key === "object") return false;
+    return Object.prototype.hasOwnProperty.call(container, String(key));
+  },
+  keys: (container) => Object.keys(container),
+  get: (container, key) => container[String(key)]
+});
+var setTag = defineMappingTag("tag:yaml.org,2002:set", {
+  create: () => /* @__PURE__ */ new Set(),
+  identify: (data) => data instanceof Set,
+  represent: (data) => {
+    const map2 = /* @__PURE__ */ new Map();
+    for (const key of data) map2.set(key, null);
+    return map2;
+  },
+  addPair: (container, key, value) => {
+    if (value !== null) return "cannot resolve a set item";
+    container.add(key);
+    return "";
+  },
+  has: (container, key) => container.has(key),
+  keys: (container) => container.keys(),
+  get: () => null
+});
+function createTagDefinitionMap() {
+  return {
+    scalar: {},
+    sequence: {},
+    mapping: {}
+  };
+}
+function createTagDefinitionListMap() {
+  return {
+    scalar: [],
+    sequence: [],
+    mapping: []
+  };
+}
+function compileTags(tags) {
+  const result = [];
+  for (const tag of tags) {
+    let index2 = result.length;
+    for (let previousIndex = 0; previousIndex < result.length; previousIndex++) {
+      const previous = result[previousIndex];
+      if (previous.nodeKind === tag.nodeKind && previous.tagName === tag.tagName && previous.matchByTagPrefix === tag.matchByTagPrefix) {
+        index2 = previousIndex;
+        break;
+      }
+    }
+    result[index2] = tag;
+  }
+  return result;
+}
+var Schema = class Schema2 {
+  tags;
+  implicitScalarTags;
+  implicitScalarByFirstChar;
+  implicitScalarAnyFirstChar;
+  defaultScalarTag;
+  defaultSequenceTag;
+  defaultMappingTag;
+  exact;
+  prefix;
+  constructor(tags) {
+    const compiledTags = compileTags(tags);
+    const implicitScalarTags = [];
+    const exact = createTagDefinitionMap();
+    const prefix = createTagDefinitionListMap();
+    for (const tag of compiledTags) {
+      if (tag.nodeKind === "scalar" && tag.implicit) {
+        if (tag.matchByTagPrefix) throw new Error("Implicit scalar tags cannot match by tag prefix");
+        implicitScalarTags.push(tag);
+      }
+      switch (tag.nodeKind) {
+        case "scalar":
+          if (tag.matchByTagPrefix) prefix.scalar.push(tag);
+          else exact.scalar[tag.tagName] = tag;
+          break;
+        case "sequence":
+          if (tag.matchByTagPrefix) prefix.sequence.push(tag);
+          else exact.sequence[tag.tagName] = tag;
+          break;
+        case "mapping":
+          if (tag.matchByTagPrefix) prefix.mapping.push(tag);
+          else exact.mapping[tag.tagName] = tag;
+          break;
+      }
+    }
+    const implicitScalarAnyFirstChar = implicitScalarTags.filter((tag) => tag.implicitFirstChars === null);
+    const keys = /* @__PURE__ */ new Set();
+    for (const tag of implicitScalarTags) if (tag.implicitFirstChars !== null) for (const key of tag.implicitFirstChars) keys.add(key);
+    const implicitScalarByFirstChar = /* @__PURE__ */ new Map();
+    for (const key of keys) implicitScalarByFirstChar.set(key, implicitScalarTags.filter((tag) => tag.implicitFirstChars === null || tag.implicitFirstChars.indexOf(key) !== -1));
+    const defaultScalarTag = exact.scalar["tag:yaml.org,2002:str"];
+    if (!defaultScalarTag) throw new Error("schema does not define the default scalar tag (tag:yaml.org,2002:str)");
+    this.tags = compiledTags;
+    this.implicitScalarTags = implicitScalarTags;
+    this.implicitScalarByFirstChar = implicitScalarByFirstChar;
+    this.implicitScalarAnyFirstChar = implicitScalarAnyFirstChar;
+    this.defaultScalarTag = defaultScalarTag;
+    this.defaultSequenceTag = exact.sequence["tag:yaml.org,2002:seq"];
+    this.defaultMappingTag = exact.mapping["tag:yaml.org,2002:map"];
+    this.exact = exact;
+    this.prefix = prefix;
+  }
+  withTags(...tags) {
+    let flatTags = [];
+    for (const tag of tags) flatTags = flatTags.concat(tag);
+    return new Schema2([...this.tags, ...flatTags]);
+  }
+};
+var FAILSAFE_SCHEMA = new Schema([
+  strTag,
+  seqTag,
+  mapTag
+]);
+var JSON_SCHEMA = new Schema([
+  ...FAILSAFE_SCHEMA.tags,
+  nullJsonTag,
+  boolJsonTag,
+  intJsonTag,
+  floatJsonTag
+]);
+var CORE_SCHEMA = new Schema([
+  ...FAILSAFE_SCHEMA.tags,
+  nullCoreTag,
+  boolCoreTag,
+  intCoreTag,
+  floatCoreTag
+]);
+var YAML11_SCHEMA = new Schema([
+  ...FAILSAFE_SCHEMA.tags,
+  nullYaml11Tag,
+  boolYaml11Tag,
+  intYaml11Tag,
+  floatYaml11Tag,
+  timestampTag,
+  mergeTag,
+  binaryTag,
+  omapTag,
+  pairsTag,
+  setTag
+]);
+var realMapTag = defineMappingTag("tag:yaml.org,2002:map", {
+  create: () => /* @__PURE__ */ new Map(),
+  addPair: (container, key, value) => {
+    container.set(key, value);
+    return "";
+  },
+  has: (container, key) => container.has(key),
+  keys: (container) => container.keys(),
+  get: (container, key) => container.get(key),
+  identify: (data) => data instanceof Map || isPlainObject3(data),
+  represent: (data) => {
+    if (data instanceof Map) return data;
+    const map2 = /* @__PURE__ */ new Map();
+    const obj = data;
+    for (const key of Object.keys(obj)) map2.set(key, obj[key]);
+    return map2;
+  }
+});
+function normalizeKey(key) {
+  if (Array.isArray(key)) {
+    const array2 = Array.prototype.slice.call(key);
+    for (let index2 = 0; index2 < array2.length; index2++) {
+      if (Array.isArray(array2[index2])) return null;
+      if (typeof array2[index2] === "object" && Object.prototype.toString.call(array2[index2]) === "[object Object]") array2[index2] = "[object Object]";
+    }
+    return String(array2);
+  }
+  if (typeof key === "object" && Object.prototype.toString.call(key) === "[object Object]") return "[object Object]";
+  return String(key);
+}
+var legacyMapTag = defineMappingTag("tag:yaml.org,2002:map", {
+  create: () => ({}),
+  identify: isPlainObject3,
+  represent: (o) => {
+    const map2 = /* @__PURE__ */ new Map();
+    for (const key of Object.keys(o)) map2.set(key, o[key]);
+    return map2;
+  },
+  addPair: (container, key, value) => {
+    const normalizedKey = normalizeKey(key);
+    if (normalizedKey === null) return "nested arrays are not supported inside keys";
+    if (normalizedKey === "__proto__") Object.defineProperty(container, normalizedKey, {
+      value,
+      enumerable: true,
+      configurable: true,
+      writable: true
+    });
+    else container[normalizedKey] = value;
+    return "";
+  },
+  has: (container, key) => {
+    const normalizedKey = normalizeKey(key);
+    return normalizedKey !== null && Object.prototype.hasOwnProperty.call(container, normalizedKey);
+  },
+  keys: (container) => Object.keys(container),
+  get: (container, key) => container[String(key)]
+});
+var DEFAULT_SNIPPET_OPTIONS = {
+  maxLength: 79,
+  indent: 1,
+  linesBefore: 3,
+  linesAfter: 2
+};
+function getLine(buffer, lineStart, lineEnd, position, maxLineLength) {
+  let head = "";
+  let tail = "";
+  const maxHalfLength = Math.floor(maxLineLength / 2) - 1;
+  if (position - lineStart > maxHalfLength) {
+    head = " ... ";
+    lineStart = position - maxHalfLength + head.length;
+  }
+  if (lineEnd - position > maxHalfLength) {
+    tail = " ...";
+    lineEnd = position + maxHalfLength - tail.length;
+  }
+  return {
+    str: head + buffer.slice(lineStart, lineEnd).replace(/\t/g, "\u2192") + tail,
+    pos: position - lineStart + head.length
+  };
+}
+function padStart(string4, max) {
+  return " ".repeat(Math.max(max - string4.length, 0)) + string4;
+}
+function makeSnippet(mark, options) {
+  if (!mark.buffer) return null;
+  const opts = {
+    ...DEFAULT_SNIPPET_OPTIONS,
+    ...options
+  };
+  const re2 = /\r?\n|\r|\0/g;
+  const lineStarts = [0];
+  const lineEnds = [];
+  let match2;
+  let foundLineNo = -1;
+  while (match2 = re2.exec(mark.buffer)) {
+    lineEnds.push(match2.index);
+    lineStarts.push(match2.index + match2[0].length);
+    if (mark.position <= match2.index && foundLineNo < 0) foundLineNo = lineStarts.length - 2;
+  }
+  if (foundLineNo < 0) foundLineNo = lineStarts.length - 1;
+  let result = "";
+  const lineNoLength = Math.min(mark.line + opts.linesAfter, lineEnds.length).toString().length;
+  const maxLineLength = opts.maxLength - (opts.indent + lineNoLength + 3);
+  for (let i2 = 1; i2 <= opts.linesBefore; i2++) {
+    if (foundLineNo - i2 < 0) break;
+    const line2 = getLine(mark.buffer, lineStarts[foundLineNo - i2], lineEnds[foundLineNo - i2], mark.position - (lineStarts[foundLineNo] - lineStarts[foundLineNo - i2]), maxLineLength);
+    result = `${" ".repeat(opts.indent)}${padStart((mark.line - i2 + 1).toString(), lineNoLength)} | ${line2.str}
+${result}`;
+  }
+  const line = getLine(mark.buffer, lineStarts[foundLineNo], lineEnds[foundLineNo], mark.position, maxLineLength);
+  result += `${" ".repeat(opts.indent)}${padStart((mark.line + 1).toString(), lineNoLength)} | ${line.str}
+`;
+  result += `${"-".repeat(opts.indent + lineNoLength + 3 + line.pos)}^
+`;
+  for (let i2 = 1; i2 <= opts.linesAfter; i2++) {
+    if (foundLineNo + i2 >= lineEnds.length) break;
+    const line2 = getLine(mark.buffer, lineStarts[foundLineNo + i2], lineEnds[foundLineNo + i2], mark.position - (lineStarts[foundLineNo] - lineStarts[foundLineNo + i2]), maxLineLength);
+    result += `${" ".repeat(opts.indent)}${padStart((mark.line + i2 + 1).toString(), lineNoLength)} | ${line2.str}
+`;
+  }
+  return result.replace(/\n$/, "");
+}
+function formatError2(exception, compact2) {
+  let where = "";
+  if (!exception.mark) return exception.reason;
+  if (exception.mark.name) where += `in "${exception.mark.name}" `;
+  where += `(${exception.mark.line + 1}:${exception.mark.column + 1})`;
+  if (!compact2 && exception.mark.snippet) where += `
+
+${exception.mark.snippet}`;
+  return `${exception.reason} ${where}`;
+}
+var YAMLException = class extends Error {
+  reason;
+  mark;
+  constructor(reason, mark) {
+    super();
+    this.name = "YAMLException";
+    this.reason = reason;
+    this.mark = mark;
+    this.message = formatError2(this, false);
+    if (Error.captureStackTrace) Error.captureStackTrace(this, this.constructor);
+  }
+  toString(compact2) {
+    return `${this.name}: ${formatError2(this, compact2)}`;
+  }
+};
+function throwErrorAt(source, position, message, filename = "") {
+  let line = 0;
+  let lineStart = 0;
+  for (let index2 = 0; index2 < position; index2++) {
+    const ch = source.charCodeAt(index2);
+    if (ch === 10) {
+      line++;
+      lineStart = index2 + 1;
+    } else if (ch === 13) {
+      line++;
+      if (source.charCodeAt(index2 + 1) === 10) index2++;
+      lineStart = index2 + 1;
+    }
+  }
+  const mark = {
+    name: filename,
+    buffer: source,
+    position,
+    line,
+    column: position - lineStart
+  };
+  mark.snippet = makeSnippet(mark);
+  throw new YAMLException(message, mark);
+}
+var NO_RANGE$3 = -1;
+function simpleEscapeSequence(c) {
+  switch (c) {
+    case 48:
+      return "\0";
+    case 97:
+      return "\x07";
+    case 98:
+      return "\b";
+    case 116:
+      return "	";
+    case 9:
+      return "	";
+    case 110:
+      return "\n";
+    case 118:
+      return "\v";
+    case 102:
+      return "\f";
+    case 114:
+      return "\r";
+    case 101:
+      return "\x1B";
+    case 32:
+      return " ";
+    case 34:
+      return '"';
+    case 47:
+      return "/";
+    case 92:
+      return "\\";
+    case 78:
+      return "\x85";
+    case 95:
+      return "\xA0";
+    case 76:
+      return "\u2028";
+    case 80:
+      return "\u2029";
+    default:
+      return "";
+  }
+}
+var simpleEscapeCheck = new Array(256);
+var simpleEscapeMap = new Array(256);
+for (let i2 = 0; i2 < 256; i2++) {
+  simpleEscapeCheck[i2] = simpleEscapeSequence(i2) ? 1 : 0;
+  simpleEscapeMap[i2] = simpleEscapeSequence(i2);
+}
+function charFromCodepoint(c) {
+  if (c <= 65535) return String.fromCharCode(c);
+  return String.fromCharCode((c - 65536 >> 10) + 55296, (c - 65536 & 1023) + 56320);
+}
+function fromHexCode$1(c) {
+  if (c >= 48 && c <= 57) return c - 48;
+  return (c | 32) - 97 + 10;
+}
+function escapedHexLen$1(c) {
+  if (c === 120) return 2;
+  if (c === 117) return 4;
+  return 8;
+}
+function skipFoldedBreaks(input, position, end) {
+  let breaks = 0;
+  while (position < end) {
+    const ch = input.charCodeAt(position);
+    if (ch === 10) {
+      breaks++;
+      position++;
+    } else if (ch === 13) {
+      breaks++;
+      position++;
+      if (input.charCodeAt(position) === 10) position++;
+    } else if (ch === 32 || ch === 9) position++;
+    else break;
+  }
+  return {
+    position,
+    breaks
+  };
+}
+function foldedBreaks(count) {
+  if (count === 1) return " ";
+  return "\n".repeat(count - 1);
+}
+function getPlainValue(input, start, end) {
+  let result = "";
+  let position = start;
+  let captureStart = start;
+  let captureEnd = start;
+  while (position < end) {
+    const ch = input.charCodeAt(position);
+    if (ch === 10 || ch === 13) {
+      result += input.slice(captureStart, captureEnd);
+      const fold = skipFoldedBreaks(input, position, end);
+      result += foldedBreaks(fold.breaks);
+      position = captureStart = captureEnd = fold.position;
+    } else {
+      position++;
+      if (ch !== 32 && ch !== 9) captureEnd = position;
+    }
+  }
+  return result + input.slice(captureStart, captureEnd);
+}
+function getSingleQuotedValue(input, start, end) {
+  let result = "";
+  let position = start;
+  let captureStart = start;
+  let captureEnd = start;
+  while (position < end) {
+    const ch = input.charCodeAt(position);
+    if (ch === 39) {
+      result += input.slice(captureStart, position) + "'";
+      position += 2;
+      captureStart = captureEnd = position;
+    } else if (ch === 10 || ch === 13) {
+      result += input.slice(captureStart, captureEnd);
+      const fold = skipFoldedBreaks(input, position, end);
+      result += foldedBreaks(fold.breaks);
+      position = captureStart = captureEnd = fold.position;
+    } else {
+      position++;
+      if (ch !== 32 && ch !== 9) captureEnd = position;
+    }
+  }
+  return result + input.slice(captureStart, end);
+}
+function getDoubleQuotedValue(input, start, end) {
+  let result = "";
+  let position = start;
+  let captureStart = start;
+  let captureEnd = start;
+  while (position < end) {
+    const ch = input.charCodeAt(position);
+    if (ch === 92) {
+      result += input.slice(captureStart, position);
+      position++;
+      const escaped = input.charCodeAt(position);
+      if (escaped === 10 || escaped === 13) position = skipFoldedBreaks(input, position, end).position;
+      else if (escaped < 256 && simpleEscapeCheck[escaped]) {
+        result += simpleEscapeMap[escaped];
+        position++;
+      } else {
+        let hexLength = escapedHexLen$1(escaped);
+        let hexResult = 0;
+        for (; hexLength > 0; hexLength--) {
+          position++;
+          const digit = fromHexCode$1(input.charCodeAt(position));
+          hexResult = (hexResult << 4) + digit;
+        }
+        result += charFromCodepoint(hexResult);
+        position++;
+      }
+      captureStart = captureEnd = position;
+    } else if (ch === 10 || ch === 13) {
+      result += input.slice(captureStart, captureEnd);
+      const fold = skipFoldedBreaks(input, position, end);
+      result += foldedBreaks(fold.breaks);
+      position = captureStart = captureEnd = fold.position;
+    } else {
+      position++;
+      if (ch !== 32 && ch !== 9) captureEnd = position;
+    }
+  }
+  return result + input.slice(captureStart, end);
+}
+function getBlockValue(input, start, end, indent, chomping, folded) {
+  const textIndent = indent < 0 ? 0 : indent;
+  const region = input.slice(start, end).replace(/\r\n?/g, "\n");
+  const lines = region === "" ? [] : (region.endsWith("\n") ? region.slice(0, -1) : region).split("\n");
+  let result = "";
+  let didReadContent = false;
+  let emptyLines = 0;
+  let atMoreIndented = false;
+  for (const line of lines) {
+    let column = 0;
+    while (column < textIndent && line.charCodeAt(column) === 32) column++;
+    if (indent < 0 || column >= line.length) {
+      emptyLines++;
+      continue;
+    }
+    const content = line.slice(textIndent);
+    const first = content.charCodeAt(0);
+    if (folded) if (first === 32 || first === 9) {
+      atMoreIndented = true;
+      result += "\n".repeat(didReadContent ? 1 + emptyLines : emptyLines);
+    } else if (atMoreIndented) {
+      atMoreIndented = false;
+      result += "\n".repeat(emptyLines + 1);
+    } else if (emptyLines === 0) {
+      if (didReadContent) result += " ";
+    } else result += "\n".repeat(emptyLines);
+    else result += "\n".repeat(didReadContent ? 1 + emptyLines : emptyLines);
+    result += content;
+    didReadContent = true;
+    emptyLines = 0;
+  }
+  if (chomping === 3) result += "\n".repeat(didReadContent ? 1 + emptyLines : emptyLines);
+  else if (chomping !== 2) {
+    if (didReadContent) result += "\n";
+  }
+  return result;
+}
+function getScalarValue(input, scalar) {
+  if (scalar.valueStart === NO_RANGE$3) return "";
+  const { valueStart, valueEnd } = scalar;
+  if (scalar.fast) return input.slice(valueStart, valueEnd);
+  switch (scalar.style) {
+    case 2:
+      return getSingleQuotedValue(input, valueStart, valueEnd);
+    case 3:
+      return getDoubleQuotedValue(input, valueStart, valueEnd);
+    case 4:
+      return getBlockValue(input, valueStart, valueEnd, scalar.indent, scalar.chomping, false);
+    case 5:
+      return getBlockValue(input, valueStart, valueEnd, scalar.indent, scalar.chomping, true);
+    default:
+      return getPlainValue(input, valueStart, valueEnd);
+  }
+}
+var DEFAULT_TAG_HANDLERS = {
+  "!": "!",
+  "!!": "tag:yaml.org,2002:"
+};
+function tagNameFull(rawTag, tagHandlers) {
+  if (rawTag.startsWith("!<") && rawTag.endsWith(">")) return decodeURIComponent(rawTag.slice(2, -1));
+  const handleEnd = rawTag.indexOf("!", 1);
+  const handle = handleEnd === -1 ? "!" : rawTag.slice(0, handleEnd + 1);
+  const prefix = tagHandlers?.[handle] ?? DEFAULT_TAG_HANDLERS[handle] ?? handle;
+  return decodeURIComponent(prefix) + decodeURIComponent(rawTag.slice(handle.length));
+}
+var NO_RANGE$2 = -1;
+var DEFAULT_CONSTRUCTOR_OPTIONS = {
+  filename: "",
+  schema: CORE_SCHEMA,
+  json: false,
+  maxMergeSeqLength: 20
+};
+function eventPosition$1(event) {
+  if ("tagStart" in event && event.tagStart !== NO_RANGE$2) return event.tagStart;
+  if ("anchorStart" in event && event.anchorStart !== NO_RANGE$2) return event.anchorStart;
+  if ("valueStart" in event && event.valueStart !== NO_RANGE$2) return event.valueStart;
+  if ("start" in event) return event.start;
+  return 0;
+}
+function throwError$1(state2, message) {
+  throwErrorAt(state2.source, state2.position, message, state2.filename);
+}
+function finalizeCollection(state2, position, tag, carrier) {
+  try {
+    return tag.finalize(carrier);
+  } catch (error51) {
+    if (error51 instanceof YAMLException) throw error51;
+    throwErrorAt(state2.source, position, error51 instanceof Error ? error51.message : String(error51), state2.filename);
+  }
+}
+function lookupTag(exact, prefix, tagName) {
+  const exactTag = exact[tagName];
+  if (exactTag) return exactTag;
+  for (const tag of prefix) if (tagName.startsWith(tag.tagName)) return tag;
+}
+function findExplicitTag(state2, exact, prefix, tagName, nodeKind) {
+  const tag = lookupTag(exact, prefix, tagName);
+  if (tag) return tag;
+  throwError$1(state2, `unknown ${nodeKind} tag !<${tagName}>`);
+}
+function constructScalar(state2, event) {
+  const source = getScalarValue(state2.source, event);
+  const rawTag = event.tagStart === NO_RANGE$2 ? "" : state2.source.slice(event.tagStart, event.tagEnd);
+  const strTag2 = state2.schema.defaultScalarTag;
+  if (rawTag !== "") {
+    if (rawTag === "!") return {
+      value: source,
+      tag: strTag2
+    };
+    const tagName = tagNameFull(rawTag, state2.tagHandlers);
+    const scalarTag = lookupTag(state2.schema.exact.scalar, state2.schema.prefix.scalar, tagName);
+    if (scalarTag) {
+      const result = scalarTag.resolve(source, true, tagName);
+      if (result === NOT_RESOLVED) throwError$1(state2, `cannot resolve a node with !<${tagName}> explicit tag`);
+      return {
+        value: result,
+        tag: scalarTag
+      };
+    }
+    const collectionTagDef = lookupTag(state2.schema.exact.mapping, state2.schema.prefix.mapping, tagName) ?? lookupTag(state2.schema.exact.sequence, state2.schema.prefix.sequence, tagName);
+    if (collectionTagDef) {
+      if (source !== "") throwError$1(state2, `cannot resolve a node with !<${tagName}> explicit tag`);
+      const carrier = collectionTagDef.create(tagName);
+      return {
+        value: collectionTagDef.carrierIsResult ? carrier : finalizeCollection(state2, state2.position, collectionTagDef, carrier),
+        tag: collectionTagDef
+      };
+    }
+    throwError$1(state2, `unknown scalar tag !<${tagName}>`);
+  }
+  if (event.style === 1) {
+    const candidates = state2.schema.implicitScalarByFirstChar.get(source.charAt(0)) ?? state2.schema.implicitScalarAnyFirstChar;
+    for (const tag of candidates) {
+      const result = tag.resolve(source, false, tag.tagName);
+      if (result !== NOT_RESOLVED) return {
+        value: result,
+        tag
+      };
+    }
+  }
+  return {
+    value: strTag2.resolve(source, false, strTag2.tagName),
+    tag: strTag2
+  };
+}
+function collectionTag(state2, event, exact, prefix, defaultTagName, nodeKind) {
+  const rawTag = event.tagStart === NO_RANGE$2 ? "" : state2.source.slice(event.tagStart, event.tagEnd);
+  const tagName = rawTag === "" || rawTag === "!" ? defaultTagName : tagNameFull(rawTag, state2.tagHandlers);
+  return {
+    tagName,
+    tag: findExplicitTag(state2, exact, prefix, tagName, nodeKind)
+  };
+}
+function isMappingTag(tag) {
+  return tag.nodeKind === "mapping";
+}
+function mergeKeys(state2, frame, source, sourceTag) {
+  for (const sourceKey of sourceTag.keys(source)) {
+    if (frame.tag.has(frame.value, sourceKey)) continue;
+    const err2 = frame.tag.addPair(frame.value, sourceKey, sourceTag.get(source, sourceKey));
+    if (err2) throwError$1(state2, err2);
+    (frame.overridable ??= /* @__PURE__ */ new Set()).add(sourceKey);
+  }
+}
+function mergeSource(state2, frame, source, sourceTag) {
+  state2.position = frame.keyPosition;
+  if (isMappingTag(sourceTag)) mergeKeys(state2, frame, source, sourceTag);
+  else if (sourceTag.nodeKind === "sequence" && Array.isArray(source)) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const element of source) {
+      if (seen.has(element)) continue;
+      seen.add(element);
+      mergeKeys(state2, frame, element, frame.tag);
+    }
+  } else throwError$1(state2, "cannot merge mappings; the provided source object is unacceptable");
+}
+function addMappingValue(state2, frame, key, value, tag) {
+  state2.position = frame.keyPosition;
+  if (key === MERGE_KEY) {
+    mergeSource(state2, frame, value, tag);
+    return;
+  }
+  if (!state2.json && frame.tag.has(frame.value, key) && !frame.overridable?.has(key)) throwError$1(state2, "duplicated mapping key");
+  const err2 = frame.tag.addPair(frame.value, key, value);
+  if (err2) throwError$1(state2, err2);
+  frame.overridable?.delete(key);
+}
+function addValue(state2, value, tag) {
+  const frame = state2.frames[state2.frames.length - 1];
+  if (frame.kind === "document") {
+    frame.value = value;
+    frame.hasValue = true;
+  } else if (frame.kind === "sequence") {
+    if (frame.merge) {
+      if (!isMappingTag(tag)) throwError$1(state2, "cannot merge mappings; the provided source object is unacceptable");
+      if (frame.index >= state2.maxMergeSeqLength) throwError$1(state2, `merge sequence length exceeded maxMergeSeqLength (${state2.maxMergeSeqLength})`);
+    }
+    const err2 = frame.tag.addItem(frame.value, value, frame.index++);
+    if (err2) throwError$1(state2, err2);
+  } else if (frame.hasKey) {
+    const key = frame.key;
+    frame.key = void 0;
+    frame.hasKey = false;
+    addMappingValue(state2, frame, key, value, tag);
+  } else {
+    frame.key = value;
+    frame.keyPosition = state2.position;
+    frame.hasKey = true;
+  }
+}
+function storeAnchor(state2, event, value, tag, isValueFinal) {
+  if (event.anchorStart !== NO_RANGE$2) {
+    const anchor = {
+      value,
+      tag,
+      isValueFinal
+    };
+    state2.anchors.set(state2.source.slice(event.anchorStart, event.anchorEnd), anchor);
+    return anchor;
+  }
+  return null;
+}
+function constructFromEvents(events, options) {
+  const state2 = {
+    ...DEFAULT_CONSTRUCTOR_OPTIONS,
+    ...options,
+    events,
+    documents: [],
+    eventIndex: 0,
+    position: 0,
+    frames: [],
+    anchors: /* @__PURE__ */ new Map(),
+    tagHandlers: /* @__PURE__ */ Object.create(null)
+  };
+  while (state2.eventIndex < state2.events.length) {
+    const event = state2.events[state2.eventIndex++];
+    state2.position = eventPosition$1(event);
+    switch (event.type) {
+      case 1:
+        state2.anchors = /* @__PURE__ */ new Map();
+        state2.tagHandlers = /* @__PURE__ */ Object.create(null);
+        for (const directive of event.directives) if (directive.kind === "tag") state2.tagHandlers[directive.handle] = directive.prefix;
+        state2.frames.push({
+          kind: "document",
+          position: state2.position,
+          value: void 0,
+          hasValue: false
+        });
+        break;
+      case 4: {
+        const { value, tag } = constructScalar(state2, event);
+        storeAnchor(state2, event, value, tag, true);
+        addValue(state2, value, tag);
+        break;
+      }
+      case 2: {
+        const definition = collectionTag(state2, event, state2.schema.exact.sequence, state2.schema.prefix.sequence, "tag:yaml.org,2002:seq", "sequence");
+        const value = definition.tag.create(definition.tagName);
+        const anchor = storeAnchor(state2, event, value, definition.tag, definition.tag.carrierIsResult);
+        const parent = state2.frames[state2.frames.length - 1];
+        const merge2 = parent !== void 0 && parent.kind === "mapping" && parent.hasKey && parent.key === MERGE_KEY;
+        state2.frames.push({
+          kind: "sequence",
+          position: state2.position,
+          value,
+          tag: definition.tag,
+          anchor,
+          index: 0,
+          merge: merge2
+        });
+        break;
+      }
+      case 3: {
+        const definition = collectionTag(state2, event, state2.schema.exact.mapping, state2.schema.prefix.mapping, "tag:yaml.org,2002:map", "mapping");
+        const value = definition.tag.create(definition.tagName);
+        const anchor = storeAnchor(state2, event, value, definition.tag, definition.tag.carrierIsResult);
+        state2.frames.push({
+          kind: "mapping",
+          position: state2.position,
+          value,
+          tag: definition.tag,
+          anchor,
+          key: void 0,
+          keyPosition: state2.position,
+          hasKey: false,
+          overridable: null
+        });
+        break;
+      }
+      case 5: {
+        const name = state2.source.slice(event.anchorStart, event.anchorEnd);
+        const anchor = state2.anchors.get(name);
+        if (!anchor) throwError$1(state2, `unidentified alias "${name}"`);
+        if (!anchor.isValueFinal) throwError$1(state2, `recursive alias "${name}" is not supported for tag ${anchor.tag.tagName} because it uses finalize()`);
+        addValue(state2, anchor.value, anchor.tag);
+        break;
+      }
+      case 6: {
+        const frame = state2.frames.pop();
+        if (frame.kind === "document") state2.documents.push(frame.value);
+        else {
+          const value = frame.tag.carrierIsResult ? frame.value : finalizeCollection(state2, frame.position, frame.tag, frame.value);
+          if (frame.anchor) {
+            frame.anchor.value = value;
+            frame.anchor.isValueFinal = true;
+          }
+          addValue(state2, value, frame.tag);
+        }
+        break;
+      }
+    }
+  }
+  return state2.documents;
+}
+var NO_RANGE$1 = -1;
+var HAS_OWN = Object.prototype.hasOwnProperty;
+var CONTEXT_FLOW_IN = 1;
+var CONTEXT_FLOW_OUT = 2;
+var CONTEXT_BLOCK_IN = 3;
+var CONTEXT_BLOCK_OUT = 4;
+var PATTERN_NON_PRINTABLE = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x84\x86-\x9F\uFFFE\uFFFF]|[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/;
+var PATTERN_FLOW_INDICATORS = /[,\[\]{}]/;
+var PATTERN_TAG_HANDLE = /^(?:!|!!|![0-9A-Za-z-]+!)$/;
+var NS_URI_CHAR = String.raw`(?:%[0-9A-Fa-f]{2}|[0-9A-Za-z\-#;/?:@&=+$,_.!~*'()\[\]])`;
+var NS_TAG_CHAR = String.raw`(?:%[0-9A-Fa-f]{2}|[0-9A-Za-z\-#;/?:@&=+$.~*'()_])`;
+var PATTERN_TAG_URI = new RegExp(`^(?:${NS_URI_CHAR})*$`);
+var PATTERN_TAG_SUFFIX = new RegExp(`^(?:${NS_TAG_CHAR})+$`);
+var PATTERN_TAG_PREFIX = new RegExp(`^(?:!(?:${NS_URI_CHAR})*|${NS_TAG_CHAR}(?:${NS_URI_CHAR})*)$`);
+var DEFAULT_PARSER_OPTIONS = {
+  filename: "",
+  maxDepth: 100
+};
+function addDocumentEvent(state2, explicitStart, explicitEnd) {
+  state2.events.push({
+    type: 1,
+    explicitStart,
+    explicitEnd,
+    directives: state2.directives
+  });
+}
+function addSequenceEvent(state2, start, anchorStart, anchorEnd, tagStart, tagEnd, style) {
+  state2.events.push({
+    type: 2,
+    start,
+    anchorStart,
+    anchorEnd,
+    tagStart,
+    tagEnd,
+    style
+  });
+}
+function addMappingEvent(state2, start, anchorStart, anchorEnd, tagStart, tagEnd, style) {
+  state2.events.push({
+    type: 3,
+    start,
+    anchorStart,
+    anchorEnd,
+    tagStart,
+    tagEnd,
+    style
+  });
+}
+function addScalarEvent(state2, valueStart, valueEnd, anchorStart, anchorEnd, tagStart, tagEnd, style, chomping = 1, indent = -1, fast = false) {
+  state2.events.push({
+    type: 4,
+    valueStart,
+    valueEnd,
+    anchorStart,
+    anchorEnd,
+    tagStart,
+    tagEnd,
+    style,
+    chomping,
+    indent,
+    fast
+  });
+}
+function addAliasEvent(state2, anchorStart, anchorEnd) {
+  state2.events.push({
+    type: 5,
+    anchorStart,
+    anchorEnd
+  });
+}
+function addPopEvent(state2) {
+  state2.events.push({ type: 6 });
+}
+function addEmptyScalarEvent(state2) {
+  addScalarEvent(state2, NO_RANGE$1, NO_RANGE$1, NO_RANGE$1, NO_RANGE$1, NO_RANGE$1, NO_RANGE$1, 1);
+}
+function emptyProperties() {
+  return {
+    anchorStart: NO_RANGE$1,
+    anchorEnd: NO_RANGE$1,
+    tagStart: NO_RANGE$1,
+    tagEnd: NO_RANGE$1
+  };
+}
+function snapshotState(state2) {
+  return {
+    position: state2.position,
+    line: state2.line,
+    lineStart: state2.lineStart,
+    lineIndent: state2.lineIndent,
+    firstTabInLine: state2.firstTabInLine,
+    eventsLength: state2.events.length
+  };
+}
+function restoreState(state2, snapshot) {
+  state2.position = snapshot.position;
+  state2.line = snapshot.line;
+  state2.lineStart = snapshot.lineStart;
+  state2.lineIndent = snapshot.lineIndent;
+  state2.firstTabInLine = snapshot.firstTabInLine;
+  state2.events.length = snapshot.eventsLength;
+}
+function throwError(state2, message) {
+  throwErrorAt(state2.input.slice(0, state2.length), state2.position, message, state2.filename);
+}
+function isEol(c) {
+  return c === 10 || c === 13;
+}
+function isWhiteSpace(c) {
+  return c === 9 || c === 32;
+}
+function isWsOrEol(c) {
+  return isWhiteSpace(c) || isEol(c);
+}
+function isWsOrEolOrEnd(c) {
+  return c === 0 || isWsOrEol(c);
+}
+function isFlowIndicator(c) {
+  return c === 44 || c === 91 || c === 93 || c === 123 || c === 125;
+}
+function fromDecimalCode(c) {
+  return c >= 48 && c <= 57 ? c - 48 : -1;
+}
+function fromHexCode(c) {
+  if (c >= 48 && c <= 57) return c - 48;
+  const lc = c | 32;
+  if (lc >= 97 && lc <= 102) return lc - 97 + 10;
+  return -1;
+}
+function escapedHexLen(c) {
+  if (c === 120) return 2;
+  if (c === 117) return 4;
+  if (c === 85) return 8;
+  return 0;
+}
+function isSimpleEscape(c) {
+  return c === 48 || c === 97 || c === 98 || c === 116 || c === 9 || c === 110 || c === 118 || c === 102 || c === 114 || c === 101 || c === 32 || c === 34 || c === 47 || c === 92 || c === 78 || c === 95 || c === 76 || c === 80;
+}
+function consumeLineBreak(state2) {
+  if (state2.input.charCodeAt(state2.position) === 10) state2.position++;
+  else {
+    state2.position++;
+    if (state2.input.charCodeAt(state2.position) === 10) state2.position++;
+  }
+  state2.line++;
+  state2.lineStart = state2.position;
+  state2.lineIndent = 0;
+  state2.firstTabInLine = -1;
+}
+function skipSeparationSpace(state2, allowComments) {
+  let lineBreaks = 0;
+  let ch = state2.input.charCodeAt(state2.position);
+  let hasSeparation = state2.position === state2.lineStart || isWsOrEol(state2.input.charCodeAt(state2.position - 1));
+  while (ch !== 0) {
+    while (isWhiteSpace(ch)) {
+      hasSeparation = true;
+      if (ch === 9 && state2.firstTabInLine === -1) state2.firstTabInLine = state2.position;
+      ch = state2.input.charCodeAt(++state2.position);
+    }
+    if (allowComments && hasSeparation && ch === 35) do
+      ch = state2.input.charCodeAt(++state2.position);
+    while (!isEol(ch) && ch !== 0);
+    if (!isEol(ch)) break;
+    consumeLineBreak(state2);
+    lineBreaks++;
+    hasSeparation = true;
+    ch = state2.input.charCodeAt(state2.position);
+    while (ch === 32) {
+      state2.lineIndent++;
+      ch = state2.input.charCodeAt(++state2.position);
+    }
+  }
+  return lineBreaks;
+}
+function testDocumentSeparator(state2, position = state2.position) {
+  const ch = state2.input.charCodeAt(position);
+  if ((ch === 45 || ch === 46) && ch === state2.input.charCodeAt(position + 1) && ch === state2.input.charCodeAt(position + 2)) {
+    const following = state2.input.charCodeAt(position + 3);
+    return following === 0 || isWsOrEol(following);
+  }
+  return false;
+}
+function skipUntilLineEnd(state2) {
+  let ch = state2.input.charCodeAt(state2.position);
+  while (ch !== 0 && !isEol(ch)) ch = state2.input.charCodeAt(++state2.position);
+}
+function checkPrintable(state2, start, end) {
+  if (PATTERN_NON_PRINTABLE.test(state2.input.slice(start, end))) throwError(state2, "the stream contains non-printable characters");
+}
+function readTagProperty(state2, props, inFlow) {
+  if (state2.input.charCodeAt(state2.position) !== 33) return false;
+  if (props.tagStart !== NO_RANGE$1) throwError(state2, "duplication of a tag property");
+  const start = state2.position;
+  let isVerbatim = false;
+  let isNamed = false;
+  let tagHandle = "!";
+  let ch = state2.input.charCodeAt(++state2.position);
+  if (ch === 60) {
+    isVerbatim = true;
+    ch = state2.input.charCodeAt(++state2.position);
+  } else if (ch === 33) {
+    isNamed = true;
+    tagHandle = "!!";
+    ch = state2.input.charCodeAt(++state2.position);
+  }
+  let suffixStart = state2.position;
+  let tagName;
+  if (isVerbatim) {
+    while (ch !== 0 && ch !== 62) ch = state2.input.charCodeAt(++state2.position);
+    if (ch !== 62) throwError(state2, "unexpected end of the stream within a verbatim tag");
+    tagName = state2.input.slice(suffixStart, state2.position);
+    state2.position++;
+  } else {
+    while (ch !== 0 && !isWsOrEol(ch) && !(inFlow && isFlowIndicator(ch))) {
+      if (ch === 33) if (!isNamed) {
+        tagHandle = state2.input.slice(suffixStart - 1, state2.position + 1);
+        if (!PATTERN_TAG_HANDLE.test(tagHandle)) throwError(state2, "named tag handle cannot contain such characters");
+        isNamed = true;
+        suffixStart = state2.position + 1;
+      } else throwError(state2, "tag suffix cannot contain exclamation marks");
+      ch = state2.input.charCodeAt(++state2.position);
+    }
+    tagName = state2.input.slice(suffixStart, state2.position);
+    if (PATTERN_FLOW_INDICATORS.test(tagName)) throwError(state2, "tag suffix cannot contain flow indicator characters");
+  }
+  if (tagName && !(isVerbatim ? PATTERN_TAG_URI.test(tagName) : PATTERN_TAG_SUFFIX.test(tagName))) throwError(state2, `tag name cannot contain such characters: ${tagName}`);
+  if (!isVerbatim && tagHandle !== "!" && tagHandle !== "!!" && !HAS_OWN.call(state2.tagHandlers, tagHandle)) throwError(state2, `undeclared tag handle "${tagHandle}"`);
+  props.tagStart = start;
+  props.tagEnd = state2.position;
+  return true;
+}
+function readAnchorProperty(state2, props) {
+  if (state2.input.charCodeAt(state2.position) !== 38) return false;
+  if (props.anchorStart !== NO_RANGE$1) throwError(state2, "duplication of an anchor property");
+  state2.position++;
+  const start = state2.position;
+  while (state2.input.charCodeAt(state2.position) !== 0 && !isWsOrEol(state2.input.charCodeAt(state2.position)) && !isFlowIndicator(state2.input.charCodeAt(state2.position))) state2.position++;
+  if (state2.position === start) throwError(state2, "name of an anchor node must contain at least one character");
+  props.anchorStart = start;
+  props.anchorEnd = state2.position;
+  return true;
+}
+function readAlias(state2, props) {
+  if (state2.input.charCodeAt(state2.position) !== 42) return false;
+  if (props.anchorStart !== NO_RANGE$1 || props.tagStart !== NO_RANGE$1) throwError(state2, "alias node should not have any properties");
+  state2.position++;
+  const start = state2.position;
+  while (state2.input.charCodeAt(state2.position) !== 0 && !isWsOrEol(state2.input.charCodeAt(state2.position)) && !isFlowIndicator(state2.input.charCodeAt(state2.position))) state2.position++;
+  if (state2.position === start) throwError(state2, "name of an alias node must contain at least one character");
+  addAliasEvent(state2, start, state2.position);
+  return true;
+}
+function readFlowScalarBreak(state2, nodeIndent) {
+  skipSeparationSpace(state2, false);
+  if (state2.lineIndent < nodeIndent) throwError(state2, "deficient indentation");
+}
+function readSingleQuotedScalar(state2, nodeIndent, props) {
+  if (state2.input.charCodeAt(state2.position) !== 39) return false;
+  state2.position++;
+  const start = state2.position;
+  let simple = true;
+  while (state2.input.charCodeAt(state2.position) !== 0) {
+    const ch = state2.input.charCodeAt(state2.position);
+    if (ch === 39) {
+      if (state2.input.charCodeAt(state2.position + 1) === 39) {
+        simple = false;
+        state2.position += 2;
+        continue;
+      }
+      const end = state2.position;
+      state2.position++;
+      addScalarEvent(state2, start, end, props.anchorStart, props.anchorEnd, props.tagStart, props.tagEnd, 2, 1, -1, simple);
+      return true;
+    }
+    if (isEol(ch)) {
+      simple = false;
+      readFlowScalarBreak(state2, nodeIndent);
+    } else if (state2.position === state2.lineStart && testDocumentSeparator(state2)) throwError(state2, "unexpected end of the document within a single quoted scalar");
+    else if (ch !== 9 && ch < 32) throwError(state2, "expected valid JSON character");
+    else state2.position++;
+  }
+  throwError(state2, "unexpected end of the stream within a single quoted scalar");
+}
+function readDoubleQuotedScalar(state2, nodeIndent, props) {
+  if (state2.input.charCodeAt(state2.position) !== 34) return false;
+  state2.position++;
+  const start = state2.position;
+  let simple = true;
+  while (state2.input.charCodeAt(state2.position) !== 0) {
+    const ch = state2.input.charCodeAt(state2.position);
+    if (ch === 34) {
+      const end = state2.position;
+      state2.position++;
+      addScalarEvent(state2, start, end, props.anchorStart, props.anchorEnd, props.tagStart, props.tagEnd, 3, 1, -1, simple);
+      return true;
+    }
+    if (ch === 92) {
+      simple = false;
+      const escaped = state2.input.charCodeAt(++state2.position);
+      if (isEol(escaped)) readFlowScalarBreak(state2, nodeIndent);
+      else if (isSimpleEscape(escaped)) state2.position++;
+      else {
+        let hexLength = escapedHexLen(escaped);
+        if (hexLength === 0) throwError(state2, "unknown escape sequence");
+        while (hexLength-- > 0) {
+          state2.position++;
+          if (fromHexCode(state2.input.charCodeAt(state2.position)) < 0) throwError(state2, "expected hexadecimal character");
+        }
+        state2.position++;
+      }
+    } else if (isEol(ch)) {
+      simple = false;
+      readFlowScalarBreak(state2, nodeIndent);
+    } else if (state2.position === state2.lineStart && testDocumentSeparator(state2)) throwError(state2, "unexpected end of the document within a double quoted scalar");
+    else if (ch !== 9 && ch < 32) throwError(state2, "expected valid JSON character");
+    else state2.position++;
+  }
+  throwError(state2, "unexpected end of the stream within a double quoted scalar");
+}
+function readBlockScalar(state2, parentIndent, props) {
+  const ch = state2.input.charCodeAt(state2.position);
+  let chomping = 1;
+  let indent = -1;
+  let detectedIndent = false;
+  if (ch !== 124 && ch !== 62) return false;
+  const style = ch === 124 ? 4 : 5;
+  state2.position++;
+  while (state2.input.charCodeAt(state2.position) !== 0) {
+    const current = state2.input.charCodeAt(state2.position);
+    const digit = fromDecimalCode(current);
+    if (current === 43 || current === 45) {
+      if (chomping !== 1) throwError(state2, "repeat of a chomping mode identifier");
+      chomping = current === 43 ? 3 : 2;
+      state2.position++;
+    } else if (digit >= 0) {
+      if (digit === 0) throwError(state2, "bad explicit indentation width of a block scalar; it cannot be less than one");
+      if (detectedIndent) throwError(state2, "repeat of an indentation width identifier");
+      indent = parentIndent + digit - 1;
+      detectedIndent = true;
+      state2.position++;
+    } else break;
+  }
+  let hadWhitespace = false;
+  while (isWhiteSpace(state2.input.charCodeAt(state2.position))) {
+    hadWhitespace = true;
+    state2.position++;
+  }
+  if (hadWhitespace && state2.input.charCodeAt(state2.position) === 35) skipUntilLineEnd(state2);
+  if (isEol(state2.input.charCodeAt(state2.position))) consumeLineBreak(state2);
+  else if (state2.input.charCodeAt(state2.position) !== 0) throwError(state2, "a line break is expected");
+  let contentIndent = detectedIndent ? indent : -1;
+  let maxLeadingIndent = 0;
+  const valueStart = state2.position;
+  let valueEnd = state2.position;
+  while (state2.input.charCodeAt(state2.position) !== 0) {
+    const linePosition = state2.position;
+    let column = 0;
+    while (state2.input.charCodeAt(linePosition + column) === 32) column++;
+    const first = state2.input.charCodeAt(linePosition + column);
+    if (first === 0) {
+      if (contentIndent >= 0) {
+        if (column > contentIndent) valueEnd = linePosition + column;
+      } else if (column > 0) valueEnd = linePosition + column;
+      break;
+    }
+    if (linePosition === state2.lineStart && testDocumentSeparator(state2, linePosition)) break;
+    if (!detectedIndent && contentIndent === -1 && isEol(first)) maxLeadingIndent = Math.max(maxLeadingIndent, column);
+    if (!detectedIndent && contentIndent === -1 && !isEol(first)) {
+      if (first === 9 && column < parentIndent) {
+        state2.position = linePosition + column;
+        throwError(state2, "tab characters must not be used in indentation");
+      }
+      if (column < maxLeadingIndent) {
+        state2.position = linePosition + column;
+        throwError(state2, "bad indentation of a mapping entry");
+      }
+    }
+    if (contentIndent === -1 && first !== 0 && !isEol(first) && column < parentIndent) {
+      state2.lineIndent = column;
+      state2.position = linePosition + column;
+      break;
+    }
+    if (!detectedIndent && first !== 0 && !isEol(first) && contentIndent === -1) contentIndent = column;
+    const requiredIndent = contentIndent === -1 ? parentIndent + 1 : contentIndent;
+    if (first !== 0 && !isEol(first) && column < requiredIndent) {
+      state2.lineIndent = column;
+      state2.position = linePosition + column;
+      break;
+    }
+    skipUntilLineEnd(state2);
+    valueEnd = state2.position;
+    if (isEol(state2.input.charCodeAt(state2.position))) {
+      consumeLineBreak(state2);
+      valueEnd = state2.position;
+    }
+  }
+  checkPrintable(state2, valueStart, valueEnd);
+  addScalarEvent(state2, valueStart, valueEnd, props.anchorStart, props.anchorEnd, props.tagStart, props.tagEnd, style, chomping, contentIndent);
+  return true;
+}
+function canStartPlainScalar(state2, nodeContext) {
+  const ch = state2.input.charCodeAt(state2.position);
+  const inFlow = nodeContext === CONTEXT_FLOW_IN;
+  if (ch === 0 || isWsOrEol(ch) || ch === 35 || ch === 38 || ch === 42 || ch === 33 || ch === 124 || ch === 62 || ch === 39 || ch === 34 || ch === 37 || ch === 64 || ch === 96 || inFlow && isFlowIndicator(ch)) return false;
+  if (ch === 63 || ch === 45) {
+    const following = state2.input.charCodeAt(state2.position + 1);
+    if (isWsOrEolOrEnd(following) || inFlow && isFlowIndicator(following)) return false;
+  }
+  return true;
+}
+function readPlainScalar(state2, nodeIndent, nodeContext, props) {
+  if (!canStartPlainScalar(state2, nodeContext)) return false;
+  const start = state2.position;
+  let end = state2.position;
+  let ch = state2.input.charCodeAt(state2.position);
+  const inFlow = nodeContext === CONTEXT_FLOW_IN;
+  let multiline = false;
+  while (ch !== 0) {
+    if (state2.position === state2.lineStart && testDocumentSeparator(state2)) break;
+    if (ch === 58) {
+      const following = state2.input.charCodeAt(state2.position + 1);
+      if (isWsOrEolOrEnd(following) || inFlow && isFlowIndicator(following)) break;
+    } else if (ch === 35) {
+      if (isWsOrEol(state2.input.charCodeAt(state2.position - 1))) break;
+    } else if (inFlow && isFlowIndicator(ch)) break;
+    else if (isEol(ch)) {
+      const savedPosition = state2.position;
+      const savedLine = state2.line;
+      const savedLineStart = state2.lineStart;
+      const savedLineIndent = state2.lineIndent;
+      skipSeparationSpace(state2, false);
+      if (state2.lineIndent >= nodeIndent) {
+        multiline = true;
+        ch = state2.input.charCodeAt(state2.position);
+        continue;
+      }
+      state2.position = savedPosition;
+      state2.line = savedLine;
+      state2.lineStart = savedLineStart;
+      state2.lineIndent = savedLineIndent;
+      break;
+    }
+    if (!isWhiteSpace(ch)) end = state2.position + 1;
+    ch = state2.input.charCodeAt(++state2.position);
+  }
+  if (end === start) return false;
+  checkPrintable(state2, start, end);
+  addScalarEvent(state2, start, end, props.anchorStart, props.anchorEnd, props.tagStart, props.tagEnd, 1, 1, -1, !multiline);
+  return true;
+}
+function skipFlowSeparationSpace(state2, nodeIndent) {
+  const startLine = state2.line;
+  skipSeparationSpace(state2, true);
+  if (state2.line > startLine && state2.lineIndent < nodeIndent || state2.firstTabInLine !== -1 && state2.lineIndent < nodeIndent) throwError(state2, "deficient indentation");
+}
+function readFlowCollection(state2, nodeIndent, props) {
+  const ch = state2.input.charCodeAt(state2.position);
+  const isMapping = ch === 123;
+  const start = state2.position;
+  let readNext = true;
+  if (ch !== 91 && ch !== 123) return false;
+  const terminator = isMapping ? 125 : 93;
+  if (isMapping) addMappingEvent(state2, start, props.anchorStart, props.anchorEnd, props.tagStart, props.tagEnd, 2);
+  else addSequenceEvent(state2, start, props.anchorStart, props.anchorEnd, props.tagStart, props.tagEnd, 2);
+  state2.position++;
+  while (state2.input.charCodeAt(state2.position) !== 0) {
+    skipFlowSeparationSpace(state2, nodeIndent);
+    let ch2 = state2.input.charCodeAt(state2.position);
+    if (ch2 === terminator) {
+      state2.position++;
+      addPopEvent(state2);
+      return true;
+    } else if (!readNext) throwError(state2, "missed comma between flow collection entries");
+    else if (ch2 === 44) throwError(state2, "expected the node content, but found ','");
+    let isPair = false;
+    let isExplicitPair = false;
+    if (ch2 === 63 && isWsOrEol(state2.input.charCodeAt(state2.position + 1))) {
+      isPair = isExplicitPair = true;
+      state2.position += 1;
+      skipFlowSeparationSpace(state2, nodeIndent);
+    }
+    const entryLine = state2.line;
+    const entryStart = snapshotState(state2);
+    const keyWasRead = parseNode(state2, nodeIndent, CONTEXT_FLOW_IN, false, true);
+    skipFlowSeparationSpace(state2, nodeIndent);
+    ch2 = state2.input.charCodeAt(state2.position);
+    if ((isMapping || isExplicitPair || state2.line === entryLine) && ch2 === 58) {
+      isPair = true;
+      state2.position++;
+      skipFlowSeparationSpace(state2, nodeIndent);
+      if (!isMapping) {
+        restoreState(state2, entryStart);
+        addMappingEvent(state2, entryStart.position, NO_RANGE$1, NO_RANGE$1, NO_RANGE$1, NO_RANGE$1, 2);
+        if (!parseNode(state2, nodeIndent, CONTEXT_FLOW_IN, false, true)) addEmptyScalarEvent(state2);
+        skipFlowSeparationSpace(state2, nodeIndent);
+        state2.position++;
+        skipFlowSeparationSpace(state2, nodeIndent);
+      } else if (!keyWasRead) addEmptyScalarEvent(state2);
+      if (!parseNode(state2, nodeIndent, CONTEXT_FLOW_IN, false, true)) addEmptyScalarEvent(state2);
+      skipFlowSeparationSpace(state2, nodeIndent);
+      if (!isMapping) addPopEvent(state2);
+    } else if (isMapping && isPair) {
+      if (!keyWasRead) addEmptyScalarEvent(state2);
+      addEmptyScalarEvent(state2);
+    } else if (isMapping) addEmptyScalarEvent(state2);
+    else if (isPair) {
+      restoreState(state2, entryStart);
+      addMappingEvent(state2, entryStart.position, NO_RANGE$1, NO_RANGE$1, NO_RANGE$1, NO_RANGE$1, 2);
+      parseNode(state2, nodeIndent, CONTEXT_FLOW_IN, false, true);
+      addEmptyScalarEvent(state2);
+      addPopEvent(state2);
+    }
+    ch2 = state2.input.charCodeAt(state2.position);
+    if (ch2 === 44) {
+      readNext = true;
+      state2.position++;
+    } else readNext = false;
+  }
+  throwError(state2, "unexpected end of the stream within a flow collection");
+}
+function readBlockSequence(state2, nodeIndent, props) {
+  if (state2.firstTabInLine !== -1 || state2.input.charCodeAt(state2.position) !== 45 || !isWsOrEolOrEnd(state2.input.charCodeAt(state2.position + 1))) return false;
+  addSequenceEvent(state2, state2.position, props.anchorStart, props.anchorEnd, props.tagStart, props.tagEnd, 1);
+  while (state2.input.charCodeAt(state2.position) === 45 && isWsOrEolOrEnd(state2.input.charCodeAt(state2.position + 1))) {
+    if (state2.firstTabInLine !== -1) {
+      state2.position = state2.firstTabInLine;
+      throwError(state2, "tab characters must not be used in indentation");
+    }
+    const entryLine = state2.line;
+    state2.position++;
+    const hadBreak = skipSeparationSpace(state2, true) > 0;
+    if (state2.firstTabInLine !== -1 && state2.input.charCodeAt(state2.position) === 45 && isWsOrEolOrEnd(state2.input.charCodeAt(state2.position + 1))) throwError(state2, "bad indentation of a sequence entry");
+    if (hadBreak && state2.lineIndent <= nodeIndent) addEmptyScalarEvent(state2);
+    else parseNode(state2, nodeIndent, CONTEXT_BLOCK_IN, false, true);
+    skipSeparationSpace(state2, true);
+    if (state2.lineIndent < nodeIndent || state2.position >= state2.length) break;
+    if (state2.lineIndent > nodeIndent) throwError(state2, "bad indentation of a sequence entry");
+    if (state2.line === entryLine && state2.input.charCodeAt(state2.position) === 45 && isWsOrEolOrEnd(state2.input.charCodeAt(state2.position + 1))) throwError(state2, "bad indentation of a sequence entry");
+  }
+  addPopEvent(state2);
+  return true;
+}
+function readBlockMapping(state2, nodeIndent, flowIndent, props) {
+  let atExplicitKey = false;
+  let detected = false;
+  let mappingOpened = false;
+  let pendingExplicitKey = false;
+  if (state2.firstTabInLine !== -1) return false;
+  let ch = state2.input.charCodeAt(state2.position);
+  while (ch !== 0) {
+    if (!atExplicitKey && state2.firstTabInLine !== -1) {
+      state2.position = state2.firstTabInLine;
+      throwError(state2, "tab characters must not be used in indentation");
+    }
+    const following = state2.input.charCodeAt(state2.position + 1);
+    const entryLine = state2.line;
+    if ((ch === 63 || ch === 58) && isWsOrEolOrEnd(following)) {
+      if (!mappingOpened) {
+        addMappingEvent(state2, state2.position, props.anchorStart, props.anchorEnd, props.tagStart, props.tagEnd, 1);
+        mappingOpened = true;
+      }
+      if (ch === 63) {
+        if (atExplicitKey) addEmptyScalarEvent(state2);
+        detected = true;
+        atExplicitKey = true;
+      } else if (atExplicitKey) atExplicitKey = false;
+      else {
+        addEmptyScalarEvent(state2);
+        detected = true;
+        atExplicitKey = false;
+      }
+      state2.position += 1;
+      pendingExplicitKey = true;
+    } else {
+      if (atExplicitKey) {
+        addEmptyScalarEvent(state2);
+        atExplicitKey = false;
+      }
+      const beforeKey = snapshotState(state2);
+      if (!parseNode(state2, flowIndent, CONTEXT_FLOW_OUT, false, true)) break;
+      if (state2.line === entryLine) {
+        ch = state2.input.charCodeAt(state2.position);
+        while (isWhiteSpace(ch)) ch = state2.input.charCodeAt(++state2.position);
+        if (ch === 58) {
+          ch = state2.input.charCodeAt(++state2.position);
+          if (!isWsOrEolOrEnd(ch)) throwError(state2, "a whitespace character is expected after the key-value separator within a block mapping");
+          if (!mappingOpened) {
+            restoreState(state2, beforeKey);
+            addMappingEvent(state2, beforeKey.position, props.anchorStart, props.anchorEnd, props.tagStart, props.tagEnd, 1);
+            mappingOpened = true;
+            parseNode(state2, flowIndent, CONTEXT_FLOW_OUT, false, true);
+            ch = state2.input.charCodeAt(state2.position);
+            while (isWhiteSpace(ch)) ch = state2.input.charCodeAt(++state2.position);
+            state2.position++;
+          }
+          detected = true;
+          atExplicitKey = false;
+          pendingExplicitKey = false;
+        } else if (detected) throwError(state2, "expected ':' after a mapping key");
+        else {
+          if (props.anchorStart !== NO_RANGE$1 || props.tagStart !== NO_RANGE$1) {
+            restoreState(state2, beforeKey);
+            return false;
+          }
+          return true;
+        }
+      } else if (detected) throwError(state2, "can not read a block mapping entry; a multiline key may not be an implicit key");
+      else {
+        if (props.anchorStart !== NO_RANGE$1 || props.tagStart !== NO_RANGE$1) {
+          restoreState(state2, beforeKey);
+          return false;
+        }
+        return true;
+      }
+    }
+    if (parseNode(state2, nodeIndent, CONTEXT_BLOCK_OUT, true, pendingExplicitKey)) pendingExplicitKey = false;
+    if (!atExplicitKey) {
+      if (pendingExplicitKey) {
+        addEmptyScalarEvent(state2);
+        pendingExplicitKey = false;
+      }
+    }
+    skipSeparationSpace(state2, true);
+    ch = state2.input.charCodeAt(state2.position);
+    if ((state2.line === entryLine || state2.lineIndent > nodeIndent) && ch !== 0) throwError(state2, "bad indentation of a mapping entry");
+    else if (state2.lineIndent < nodeIndent) break;
+  }
+  if (!detected) return false;
+  if (atExplicitKey) addEmptyScalarEvent(state2);
+  if (mappingOpened) addPopEvent(state2);
+  return true;
+}
+function parseNode(state2, parentIndent, nodeContext, allowToSeek, allowCompact, allowPropertyMapping = true) {
+  if (state2.depth >= state2.maxDepth) throwError(state2, `nesting exceeded maxDepth (${state2.maxDepth})`);
+  state2.depth++;
+  let indentStatus = 1;
+  let atNewLine = false;
+  let hasContent = false;
+  let propertyStart = null;
+  const props = emptyProperties();
+  let allowBlockScalars = nodeContext === CONTEXT_BLOCK_OUT || nodeContext === CONTEXT_BLOCK_IN;
+  let allowBlockCollections = allowBlockScalars;
+  const allowBlockStyles = allowBlockScalars;
+  if (allowToSeek && skipSeparationSpace(state2, true)) {
+    atNewLine = true;
+    if (state2.lineIndent > parentIndent) indentStatus = 1;
+    else if (state2.lineIndent === parentIndent) indentStatus = 0;
+    else indentStatus = -1;
+  }
+  if (state2.position === state2.lineStart && testDocumentSeparator(state2)) {
+    state2.depth--;
+    return false;
+  }
+  if (indentStatus === 1) while (true) {
+    const ch = state2.input.charCodeAt(state2.position);
+    const propertyState = snapshotState(state2);
+    if (atNewLine && indentStatus !== 1 && (ch === 33 || ch === 38)) break;
+    if (atNewLine && allowBlockStyles && (props.tagStart !== NO_RANGE$1 || props.anchorStart !== NO_RANGE$1) && (ch === 33 || ch === 38)) {
+      const fallbackState = snapshotState(state2);
+      const flowIndent = parentIndent + 1;
+      if (readBlockMapping(state2, state2.position - state2.lineStart, flowIndent, props) && state2.events[fallbackState.eventsLength]?.type === 3) {
+        state2.depth--;
+        return true;
+      }
+      restoreState(state2, fallbackState);
+    }
+    if (atNewLine && (ch === 33 && props.tagStart !== NO_RANGE$1 || ch === 38 && props.anchorStart !== NO_RANGE$1)) break;
+    if (!readTagProperty(state2, props, nodeContext === CONTEXT_FLOW_IN) && !readAnchorProperty(state2, props)) break;
+    if (propertyStart === null) propertyStart = propertyState;
+    if (skipSeparationSpace(state2, true)) {
+      atNewLine = true;
+      allowBlockCollections = allowBlockStyles;
+      if (state2.lineIndent > parentIndent) indentStatus = 1;
+      else if (state2.lineIndent === parentIndent) indentStatus = 0;
+      else indentStatus = -1;
+    } else allowBlockCollections = false;
+  }
+  if (allowBlockCollections) allowBlockCollections = atNewLine || allowCompact;
+  if (indentStatus === 1 || nodeContext === CONTEXT_BLOCK_OUT) {
+    const flowIndent = nodeContext === CONTEXT_FLOW_IN || nodeContext === CONTEXT_FLOW_OUT ? parentIndent : parentIndent + 1;
+    const blockIndent = state2.position - state2.lineStart;
+    if (indentStatus === 1) if (allowBlockCollections && (readBlockSequence(state2, blockIndent, props) || readBlockMapping(state2, blockIndent, flowIndent, props)) || readFlowCollection(state2, flowIndent, props)) hasContent = true;
+    else {
+      const ch = state2.input.charCodeAt(state2.position);
+      if (propertyStart !== null && allowPropertyMapping && allowBlockStyles && !allowBlockCollections && ch !== 124 && ch !== 62) {
+        const fallbackState = snapshotState(state2);
+        const propertyIndent = propertyStart.position - propertyStart.lineStart;
+        restoreState(state2, propertyStart);
+        if (readBlockMapping(state2, propertyIndent, flowIndent, emptyProperties()) && state2.events[fallbackState.eventsLength]?.type === 3) hasContent = true;
+        else restoreState(state2, fallbackState);
+      }
+      if (!hasContent && (allowBlockScalars && readBlockScalar(state2, flowIndent, props) || readSingleQuotedScalar(state2, flowIndent, props) || readDoubleQuotedScalar(state2, flowIndent, props) || readAlias(state2, props) || readPlainScalar(state2, flowIndent, nodeContext, props))) hasContent = true;
+    }
+    else if (indentStatus === 0) hasContent = allowBlockCollections && readBlockSequence(state2, blockIndent, props);
+  }
+  allowBlockScalars = allowBlockScalars && !hasContent;
+  if (!hasContent && (props.anchorStart !== NO_RANGE$1 || props.tagStart !== NO_RANGE$1 || allowBlockScalars)) {
+    addScalarEvent(state2, NO_RANGE$1, NO_RANGE$1, props.anchorStart, props.anchorEnd, props.tagStart, props.tagEnd, 1);
+    hasContent = true;
+  }
+  state2.depth--;
+  return hasContent || props.anchorStart !== NO_RANGE$1 || props.tagStart !== NO_RANGE$1;
+}
+function readDirective(state2) {
+  if (state2.lineIndent > 0 || state2.input.charCodeAt(state2.position) !== 37) return false;
+  state2.position++;
+  const nameStart = state2.position;
+  while (state2.input.charCodeAt(state2.position) !== 0 && !isWsOrEol(state2.input.charCodeAt(state2.position))) state2.position++;
+  const name = state2.input.slice(nameStart, state2.position);
+  const args = [];
+  if (name.length === 0) throwError(state2, "directive name must not be less than one character in length");
+  while (state2.input.charCodeAt(state2.position) !== 0 && !isEol(state2.input.charCodeAt(state2.position))) {
+    while (isWhiteSpace(state2.input.charCodeAt(state2.position))) state2.position++;
+    if (state2.input.charCodeAt(state2.position) === 35 || isEol(state2.input.charCodeAt(state2.position)) || state2.input.charCodeAt(state2.position) === 0) break;
+    const start = state2.position;
+    while (state2.input.charCodeAt(state2.position) !== 0 && !isWsOrEol(state2.input.charCodeAt(state2.position))) state2.position++;
+    args.push(state2.input.slice(start, state2.position));
+  }
+  if (isEol(state2.input.charCodeAt(state2.position))) consumeLineBreak(state2);
+  if (name === "YAML") {
+    if (state2.directives.some((directive) => directive.kind === "yaml")) throwError(state2, "duplication of %YAML directive");
+    if (args.length !== 1) throwError(state2, "YAML directive accepts exactly one argument");
+    const match2 = /^([0-9]+)\.([0-9]+)$/.exec(args[0]);
+    if (match2 === null) throwError(state2, "ill-formed argument of the YAML directive");
+    if (parseInt(match2[1], 10) !== 1) throwError(state2, "unacceptable YAML version of the document");
+    state2.directives.push({
+      kind: "yaml",
+      version: args[0]
+    });
+  } else if (name === "TAG") {
+    if (args.length !== 2) throwError(state2, "TAG directive accepts exactly two arguments");
+    const [handle, prefix] = args;
+    if (!PATTERN_TAG_HANDLE.test(handle)) throwError(state2, "ill-formed tag handle (first argument) of the TAG directive");
+    if (HAS_OWN.call(state2.tagHandlers, handle)) throwError(state2, `there is a previously declared suffix for "${handle}" tag handle`);
+    if (!PATTERN_TAG_PREFIX.test(prefix)) throwError(state2, "ill-formed tag prefix (second argument) of the TAG directive");
+    state2.tagHandlers[handle] = prefix;
+    state2.directives.push({
+      kind: "tag",
+      handle,
+      prefix
+    });
+  }
+  return true;
+}
+function readDocument(state2) {
+  state2.directives = [];
+  state2.tagHandlers = /* @__PURE__ */ Object.create(null);
+  let hasDirectives = false;
+  skipSeparationSpace(state2, true);
+  while (readDirective(state2)) {
+    hasDirectives = true;
+    skipSeparationSpace(state2, true);
+  }
+  let explicitStart = false;
+  let explicitEnd = false;
+  let allowCompact = true;
+  if (state2.lineIndent === 0 && state2.input.charCodeAt(state2.position) === 45 && state2.input.charCodeAt(state2.position + 1) === 45 && state2.input.charCodeAt(state2.position + 2) === 45 && isWsOrEolOrEnd(state2.input.charCodeAt(state2.position + 3))) {
+    explicitStart = true;
+    const markerLine = state2.line;
+    state2.position += 3;
+    skipSeparationSpace(state2, true);
+    allowCompact = state2.line > markerLine;
+  } else if (hasDirectives) throwError(state2, "directives end mark is expected");
+  const documentEventIndex = state2.events.length;
+  if (!explicitStart && state2.position === state2.lineStart && state2.input.charCodeAt(state2.position) === 46 && testDocumentSeparator(state2)) {
+    state2.position += 3;
+    skipSeparationSpace(state2, true);
+    return;
+  }
+  addDocumentEvent(state2, explicitStart, false);
+  if (!parseNode(state2, state2.lineIndent - 1, CONTEXT_BLOCK_OUT, false, allowCompact, allowCompact)) addEmptyScalarEvent(state2);
+  skipSeparationSpace(state2, true);
+  if (state2.position === state2.lineStart && testDocumentSeparator(state2)) {
+    explicitEnd = state2.input.charCodeAt(state2.position) === 46;
+    if (explicitEnd) {
+      const markerLine = state2.line;
+      state2.position += 3;
+      skipSeparationSpace(state2, true);
+      if (state2.line === markerLine && state2.position < state2.length) throwError(state2, "end of the stream or a document separator is expected");
+    }
+  }
+  const documentEvent = state2.events[documentEventIndex];
+  if (documentEvent?.type === 1) documentEvent.explicitEnd = explicitEnd;
+  addPopEvent(state2);
+  if (!explicitEnd && state2.position < state2.length && !(state2.position === state2.lineStart && testDocumentSeparator(state2))) throwError(state2, "end of the stream or a document separator is expected");
+}
+function parseEvents(input, options) {
+  const length = input.length;
+  const state2 = {
+    ...DEFAULT_PARSER_OPTIONS,
+    ...options,
+    input: `${input}\0`,
+    length,
+    position: 0,
+    line: 0,
+    lineStart: 0,
+    lineIndent: 0,
+    firstTabInLine: -1,
+    depth: 0,
+    directives: [],
+    tagHandlers: /* @__PURE__ */ Object.create(null),
+    events: []
+  };
+  const nullpos = input.indexOf("\0");
+  if (nullpos !== -1) throwErrorAt(input, nullpos, "null byte is not allowed in input", state2.filename);
+  if (state2.input.charCodeAt(state2.position) === 65279) state2.position++;
+  while (state2.position < state2.length) {
+    skipSeparationSpace(state2, true);
+    if (state2.position >= state2.length) break;
+    const documentStart = state2.position;
+    readDocument(state2);
+    if (state2.position === documentStart)
+      throwError(state2, "can not read a document");
+  }
+  return state2.events;
+}
+var DEFAULT_LOAD_OPTIONS = {
+  ...DEFAULT_PARSER_OPTIONS,
+  ...DEFAULT_CONSTRUCTOR_OPTIONS
+};
+function loadDocuments(input, options = {}) {
+  const opts = {
+    ...DEFAULT_LOAD_OPTIONS,
+    ...options
+  };
+  const source = String(input);
+  const PARSER_OPT_KEYS = Object.keys(DEFAULT_PARSER_OPTIONS);
+  const CONSTRUCTOR_OPT_KEYS = Object.keys(DEFAULT_CONSTRUCTOR_OPTIONS);
+  return constructFromEvents(parseEvents(source, pick2(opts, PARSER_OPT_KEYS)), {
+    ...pick2(opts, CONSTRUCTOR_OPT_KEYS),
+    source
+  });
+}
+function load(input, options) {
+  const documents = loadDocuments(input, options);
+  if (documents.length === 0) throw new YAMLException("expected a document, but the input is empty");
+  if (documents.length === 1) return documents[0];
+  throw new YAMLException("expected a single document in the stream, but found more");
+}
+var ESCAPE_SEQUENCES = {};
+ESCAPE_SEQUENCES[0] = "\\0";
+ESCAPE_SEQUENCES[7] = "\\a";
+ESCAPE_SEQUENCES[8] = "\\b";
+ESCAPE_SEQUENCES[9] = "\\t";
+ESCAPE_SEQUENCES[10] = "\\n";
+ESCAPE_SEQUENCES[11] = "\\v";
+ESCAPE_SEQUENCES[12] = "\\f";
+ESCAPE_SEQUENCES[13] = "\\r";
+ESCAPE_SEQUENCES[27] = "\\e";
+ESCAPE_SEQUENCES[34] = '\\"';
+ESCAPE_SEQUENCES[92] = "\\\\";
+ESCAPE_SEQUENCES[133] = "\\N";
+ESCAPE_SEQUENCES[160] = "\\_";
+ESCAPE_SEQUENCES[8232] = "\\L";
+ESCAPE_SEQUENCES[8233] = "\\P";
+var DEFAULT_PRESENTER_OPTIONS = {
+  indent: 2,
+  seqNoIndent: false,
+  seqInlineFirst: true,
+  sortKeys: false,
+  lineWidth: 80,
+  flowBracketPadding: false,
+  flowSkipCommaSpace: false,
+  flowSkipColonSpace: false,
+  quoteFlowKeys: false,
+  quoteStyle: "single",
+  forceQuotes: false,
+  tagBeforeAnchor: false
+};
+var DEFAULT_DUMP_SCHEMA = YAML11_SCHEMA.withTags({
+  ...intYaml11Tag,
+  resolve: (source, isExplicit, tagName) => {
+    const result = intYaml11Tag.resolve(source, isExplicit, tagName);
+    return result === NOT_RESOLVED ? intCoreTag.resolve(source, isExplicit, tagName) : result;
+  }
+}, {
+  ...floatYaml11Tag,
+  resolve: (source, isExplicit, tagName) => {
+    const result = floatYaml11Tag.resolve(source, isExplicit, tagName);
+    return result === NOT_RESOLVED ? floatCoreTag.resolve(source, isExplicit, tagName) : result;
+  }
+});
+var DEFAULT_DUMP_OPTIONS = {
+  ...DEFAULT_PRESENTER_OPTIONS,
+  schema: DEFAULT_DUMP_SCHEMA,
+  skipInvalid: false,
+  noRefs: false,
+  flowLevel: -1,
+  transform: () => {
+  }
+};
+
+// src/personas.ts
+var import_node_fs3 = require("fs");
+var import_node_path5 = __toESM(require("path"), 1);
+var DECISION_RULES = [
+  "Decision rules:",
+  "- Use 'CAN MERGE' only when there are no blocking issues.",
+  "- Use 'CONDITIONAL MERGE' when merge is acceptable only after specific issues are fixed.",
+  "- Use 'CANNOT MERGE' when there are blocking risks, correctness issues, or major concerns."
+].join("\n");
+var OUTPUT_FORMAT = [
+  "Output format:",
+  "- First line: the decision only (CAN MERGE / CONDITIONAL MERGE / CANNOT MERGE)",
+  "- Then a short summary",
+  "- Then 'Blocking Issues' listing required fixes; if none, write 'Blocking Issues: None'",
+  "- Then 'Warnings' listing non-blocking issues; if none, write 'Warnings: None'",
+  "- Then 'Suggestions' listing improvements; if none, write 'Suggestions: None'",
+  "",
+  "Do not use '#N' format to number items (GitHub turns these into issue/PR links). Use '1.' or '-' lists."
+].join("\n");
+function reviewerHead(focus, checks) {
+  return [
+    `You are a senior code reviewer focused on ${focus}.`,
+    "Read-only review: do not modify code, do not run bash or shell commands. You may use the `read` and `grep` tools to inspect surrounding source.",
+    "",
+    "Check:",
+    ...checks.map((c) => `- ${c}`),
+    "",
+    DECISION_RULES,
+    OUTPUT_FORMAT
+  ].join("\n");
+}
+var BUILT_IN_PERSONAS = [
+  {
+    name: "quality",
+    prompt: reviewerHead("code quality", [
+      "Code quality issues",
+      "Potential bugs or logic errors",
+      "Code style consistency",
+      "Error handling completeness"
+    ])
+  },
+  {
+    name: "security",
+    prompt: reviewerHead("security", [
+      "Input validation and sanitization",
+      "Auth/authz correctness",
+      "Secrets and sensitive data exposure",
+      "Injection and unsafe operations"
+    ])
+  },
+  {
+    name: "performance",
+    prompt: reviewerHead("performance", [
+      "Algorithm complexity and hot paths",
+      "Unnecessary allocations or copies",
+      "N+1 queries and redundant work",
+      "Resource leaks (file handles, connections)"
+    ])
+  },
+  {
+    name: "architecture",
+    prompt: reviewerHead("architecture", [
+      "Coupling: unnecessary dependencies between modules",
+      "Abstraction level: leaky or premature",
+      "Cohesion: unrelated concerns mixed",
+      "Boundaries: layering violations"
+    ])
+  },
+  {
+    name: "regression-test",
+    prompt: reviewerHead("regression test coverage", [
+      "Bug fixes: does the PR add a test that reproduces the bug?",
+      "Behavior changes: are observable changes tested?",
+      "New features: are happy-path and edge cases covered?",
+      "Refactors: are existing tests still meaningful?"
+    ])
+  },
+  {
+    name: "test-value",
+    prompt: reviewerHead("low-value tests", [
+      "Empty/soft assertions (no real assert, always-true checks)",
+      "Tests that duplicate the implementation instead of describing behavior",
+      "Tests that pass regardless of correctness",
+      "Tests covering trivial getters/setters with no logic"
+    ])
+  }
+];
+var BUILT_IN_BY_NAME = Object.fromEntries(
+  BUILT_IN_PERSONAS.map((p) => [p.name, p])
+);
+function isPersonaFile(v) {
+  if (typeof v !== "object" || v === null) return false;
+  if (!("name" in v) || !("prompt" in v)) return false;
+  const obj = v;
+  return typeof obj.name === "string" && typeof obj.prompt === "string";
+}
+function loadPersonas(cwd) {
+  const dir = import_node_path5.default.join(cwd, ".github", "reviewers");
+  let entries = [];
+  try {
+    entries = (0, import_node_fs3.readdirSync)(dir);
+  } catch {
+    return [...BUILT_IN_PERSONAS];
+  }
+  const byName = { ...BUILT_IN_BY_NAME };
+  const order = BUILT_IN_PERSONAS.map((p) => p.name);
+  for (const entry of entries) {
+    if (!/\.(ya?ml)$/.test(entry)) continue;
+    const full = import_node_path5.default.join(dir, entry);
+    const raw = (0, import_node_fs3.readFileSync)(full, "utf8");
+    const parsed = load(raw);
+    if (!isPersonaFile(parsed)) {
+      throw new Error(
+        `${full}: persona file must have string 'name' and string 'prompt' fields`
+      );
+    }
+    const persona = { name: parsed.name, prompt: parsed.prompt };
+    if (!byName[persona.name]) order.push(persona.name);
+    byName[persona.name] = persona;
+  }
+  return order.map((name) => byName[name]);
+}
+function resolveTeam(spec, available) {
+  if (!spec) {
+    return { personas: [...available], unknown: [] };
+  }
+  const byName = Object.fromEntries(
+    available.map((p) => [p.name, p])
+  );
+  const personas = [];
+  const unknown2 = [];
+  for (const part of spec.split(",")) {
+    const trimmed = part.trim();
+    if (!trimmed) continue;
+    const [name, countStr] = trimmed.split(":");
+    const count = countStr ? Math.max(1, Number(countStr) || 1) : 1;
+    const persona = byName[name ?? ""];
+    if (!persona) {
+      unknown2.push(name ?? "");
+      continue;
+    }
+    for (let i2 = 0; i2 < count; i2++) personas.push(persona);
+  }
+  return { personas, unknown: unknown2 };
+}
+
+// src/orchestrate.ts
+var COORDINATOR_PROMPT = [
+  "You are the review coordinator. Multiple specialist reviewers have analyzed",
+  "the same PR; their reports follow. Synthesize a single verdict.",
+  "",
+  "Steps:",
+  "1. Read every reviewer's decision and findings.",
+  "2. Deduplicate overlapping findings (same issue raised by multiple reviewers).",
+  "3. Resolve conflicts: if reviewers disagree on severity, pick the higher one",
+  "   unless the lower-severity reviewer provided concrete evidence the issue",
+  "   doesn't apply to the current code.",
+  "4. Decide the overall verdict:",
+  "   - CAN MERGE: no reviewer found blocking issues",
+  "   - CONDITIONAL MERGE: at least one blocking issue, but clearly scoped and",
+  "     fixable without re-review",
+  "   - CANNOT MERGE: blocking issues are broad, ambiguous, or correctness-breaking",
+  "",
+  "Output format:",
+  "- First line: one of CAN MERGE / CONDITIONAL MERGE / CANNOT MERGE",
+  "- Then a one-paragraph summary",
+  "- Then 'Blocking Issues' (merged + deduped)",
+  "- Then 'Warnings' (merged + deduped)",
+  "- Then 'Suggestions' (merged + deduped)"
+].join("\n");
+function coordinatorPersona() {
+  return { name: "coordinator", prompt: COORDINATOR_PROMPT };
+}
+function extractVerdict(text) {
+  const first = text.trim().split("\n")[0]?.toUpperCase() ?? "";
+  if (first.includes("CAN MERGE") && !first.includes("CANNOT")) return "CAN MERGE";
+  if (first.includes("CONDITIONAL")) return "CONDITIONAL MERGE";
+  if (first.includes("CANNOT")) return "CANNOT MERGE";
+  return "UNKNOWN";
+}
+function buildCoordinatorInput(reviews) {
+  const parts = [];
+  for (const r2 of reviews) {
+    parts.push(`## Reviewer: ${r2.persona}`);
+    parts.push("```");
+    parts.push(r2.result.content);
+    parts.push("```");
+    parts.push("");
+  }
+  return [
+    "Synthesize the following reviewer reports into a single verdict.",
+    "",
+    ...parts
+  ].join("\n");
+}
+async function runTeamReview(opts) {
+  const available = loadPersonas(opts.cwd);
+  const { personas, unknown: unknown2 } = resolveTeam(opts.team, available);
+  if (unknown2.length > 0) {
+    throw new Error(
+      `unknown personas in team spec: ${unknown2.join(", ")}. available: ${available.map((p) => p.name).join(", ")}`
+    );
+  }
+  if (personas.length === 0) {
+    throw new Error("no personas resolved; pass --team or add .github/reviewers/*.yaml");
+  }
+  const personaResults = await Promise.all(
+    personas.map(async (persona) => {
+      try {
+        const result = await runReview({
+          provider: opts.provider,
+          pr: opts.pr,
+          persona: persona.name,
+          diff: opts.diff,
+          sessionsRoot: opts.sessionsRoot,
+          cwd: opts.cwd,
+          systemPrompt: persona.prompt
+        });
+        return { persona: persona.name, result };
+      } catch (err2) {
+        const message = err2 instanceof Error ? err2.message : String(err2);
+        return {
+          persona: persona.name,
+          result: emptyReview(opts.pr, persona.name),
+          error: message
+        };
+      }
+    })
+  );
+  let coordinator = null;
+  if (!opts.skipCoordinator) {
+    const coord = coordinatorPersona();
+    const input = buildCoordinatorInput(personaResults);
+    try {
+      coordinator = await runReview({
+        provider: opts.provider,
+        pr: opts.pr,
+        persona: coord.name,
+        diff: input,
+        sessionsRoot: opts.sessionsRoot,
+        cwd: opts.cwd,
+        systemPrompt: coord.prompt
+      });
+    } catch (err2) {
+      process.stderr.write(
+        `coordinator failed: ${err2 instanceof Error ? err2.message : String(err2)}
+`
+      );
+    }
+  }
+  const verdictSource = coordinator?.content ?? personaResults[0]?.result.content ?? "";
+  const verdict = extractVerdict(verdictSource);
+  let totalCost = 0;
+  let totalCacheRead = 0;
+  for (const r2 of personaResults) {
+    totalCost += r2.result.usage.costTotal;
+    totalCacheRead += r2.result.usage.cacheRead;
+  }
+  if (coordinator) {
+    totalCost += coordinator.usage.costTotal;
+    totalCacheRead += coordinator.usage.cacheRead;
+  }
+  return {
+    personas: personaResults,
+    coordinator,
+    verdict,
+    totalCost,
+    totalCacheRead
+  };
+}
+function emptyReview(pr, persona) {
+  return {
+    content: "(review failed)",
+    usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, costTotal: 0 },
+    resumed: false,
+    sessionId: `${pr}-${persona}`,
+    newMessages: []
+  };
+}
+function renderTeamComment(result) {
+  const lines = [];
+  const icon = result.verdict === "CAN MERGE" ? "\u2705" : result.verdict === "CONDITIONAL MERGE" ? "\u26A0\uFE0F" : result.verdict === "CANNOT MERGE" ? "\u{1F6AB}" : "\u2753";
+  lines.push(`${icon} ${result.verdict}`);
+  lines.push("");
+  if (result.coordinator) {
+    lines.push("<details><summary><b>Coordinator synthesis</b></summary>");
+    lines.push("");
+    lines.push(result.coordinator.content);
+    lines.push("");
+    lines.push("</details>");
+    lines.push("");
+  }
+  for (const r2 of result.personas) {
+    const cacheNote = r2.result.usage.cacheRead > 0 ? ` \xB7 cacheRead ${r2.result.usage.cacheRead}` : "";
+    lines.push(`<details><summary><b>${r2.persona}</b> \xB7 $${r2.result.usage.costTotal.toFixed(6)}${cacheNote}</summary>`);
+    lines.push("");
+    lines.push(r2.error ? `_(review failed: ${r2.error})_` : r2.result.content);
+    lines.push("");
+    lines.push("</details>");
+    lines.push("");
+  }
+  lines.push("---");
+  lines.push(
+    `<sub>pi-review-agent \xB7 total cost $${result.totalCost.toFixed(6)} \xB7 cacheRead ${result.totalCacheRead}</sub>`
+  );
+  return lines.join("\n");
+}
+
+// src/pr-comment.ts
+var MARKER = "<!-- pi-review-agent -->";
+async function fetchJson(url2, init) {
+  const res = await fetch(url2, init);
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`GitHub API ${res.status} ${res.statusText}: ${text.slice(0, 500)}`);
+  }
+  return res.json();
+}
+function hasMarker(body) {
+  return body !== null && body.includes(MARKER);
+}
+async function listComments(ctx) {
+  const url2 = `${ctx.apiBase}/repos/${ctx.repository}/issues/${ctx.pr}/comments`;
+  const data = await fetchJson(url2, {
+    headers: {
+      Authorization: `Bearer ${ctx.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28"
+    }
+  });
+  return Array.isArray(data) ? data : [];
+}
+async function createComment(ctx, body) {
+  const url2 = `${ctx.apiBase}/repos/${ctx.repository}/issues/${ctx.pr}/comments`;
+  await fetchJson(url2, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${ctx.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ body })
+  });
+}
+async function updateComment(ctx, id, body) {
+  const url2 = `${ctx.apiBase}/repos/${ctx.repository}/issues/comments/${id}`;
+  await fetchJson(url2, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${ctx.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ body })
+  });
+}
+function withMarker(body) {
+  return `${MARKER}
+${body}`;
+}
+async function postPrComment(ctx, body) {
+  if (!ctx.token) {
+    process.stderr.write("postPrComment: no GITHUB_TOKEN; skipping\n");
+    return "skipped";
+  }
+  const payload = withMarker(body);
+  try {
+    const existing = await listComments(ctx);
+    const own = existing.find((c) => hasMarker(c.body));
+    if (own) {
+      await updateComment(ctx, own.id, payload);
+      return "updated";
+    }
+    await createComment(ctx, payload);
+    return "created";
+  } catch (err2) {
+    process.stderr.write(
+      `postPrComment: failed (${err2 instanceof Error ? err2.message : String(err2)}); skipping
+`
+    );
+    return "skipped";
+  }
+}
+function prCommentContextFromEnv(env2) {
+  const ref = env2.GITHUB_REF ?? "";
+  const match2 = ref.match(/refs\/pull\/(\d+)\//);
+  if (!match2) return null;
+  const pr = Number(match2[1]);
+  const repository = env2.GITHUB_REPOSITORY ?? "";
+  if (!repository) return null;
+  const token = env2.GITHUB_TOKEN ?? "";
+  if (!token) return null;
+  return {
+    apiBase: env2.GITHUB_API_URL ?? "https://api.github.com",
+    repository,
+    pr,
+    token
+  };
+}
+
 // src/index.ts
 function parseArgs(argv) {
   const args = {};
@@ -169415,26 +172033,39 @@ function parseArgs(argv) {
   if (!Number.isFinite(pr) || pr <= 0) {
     throw new Error(`--pr <number> (or PI_REVIEW_PR) required`);
   }
-  const persona = args.persona || process.env.PI_REVIEW_PERSONA || "";
-  if (!persona) throw new Error("--persona <name> (or PI_REVIEW_PERSONA) required");
+  const persona = args.persona || process.env.PI_REVIEW_PERSONA;
+  const team = args.team || process.env.PI_REVIEW_TEAM;
+  if (!persona && !team) {
+    throw new Error("--persona <name> or --team <spec> required");
+  }
   return {
     pr,
     diffFile: args["diff-file"] || process.env.PI_REVIEW_DIFF_FILE,
     diffInline: process.env.PI_REVIEW_DIFF,
     persona,
-    baseURL: args["base-url"] || process.env.LITELLM_BASE_URL || "https://llm.sun-praise.com/v1",
+    team,
+    skipCoordinator: Boolean(process.env.PI_REVIEW_SKIP_COORDINATOR) || args["skip-coordinator"] === "true",
+    baseURL: args["base-url"] || process.env.LITELLM_BASE_URL || "https://llm.sun-praise.com",
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
     cwd: args.cwd || process.cwd()
   };
 }
 function loadDiff(opts) {
   if (opts.diffInline) return opts.diffInline;
-  if (opts.diffFile) return (0, import_node_fs3.readFileSync)(opts.diffFile, "utf8");
+  if (opts.diffFile) return (0, import_node_fs5.readFileSync)(opts.diffFile, "utf8");
   throw new Error("no diff source: set --diff-file, PI_REVIEW_DIFF_FILE, or PI_REVIEW_DIFF");
 }
-function writeStepSummary(result, persona) {
-  const path7 = process.env.GITHUB_STEP_SUMMARY;
-  if (!path7) return;
+function appendStepSummary(markdown) {
+  const path9 = process.env.GITHUB_STEP_SUMMARY;
+  if (!path9) return;
+  (0, import_node_fs5.appendFileSync)(path9, markdown);
+}
+function appendOutputs(lines) {
+  const path9 = process.env.GITHUB_OUTPUT;
+  if (!path9) return;
+  (0, import_node_fs5.appendFileSync)(path9, lines.join("\n") + "\n");
+}
+function writeSingleSummary(result, persona) {
   const md = `### pi-review-agent \u2014 ${persona} (resumed=${result.resumed})
 
 | metric | value |
@@ -169451,47 +172082,113 @@ ${result.content}
 
 </details>
 `;
-  (0, import_node_fs4.appendFileSync)(path7, md);
+  appendStepSummary(md);
 }
-function writeOutputs(result) {
-  const path7 = process.env.GITHUB_OUTPUT;
-  if (!path7) return;
-  const lines = [
-    `cacheRead=${result.usage.cacheRead}`,
-    `costTotal=${result.usage.costTotal.toFixed(6)}`,
-    `resumed=${result.resumed}`,
-    `sessionId=${result.sessionId}`
-  ];
-  (0, import_node_fs4.appendFileSync)(path7, lines.join("\n") + "\n");
+function writeTeamSummary(result) {
+  const lines = [];
+  lines.push(`### pi-review-agent \u2014 team review (${result.personas.length} reviewers)`);
+  lines.push("");
+  lines.push("| persona | resumed | input | output | cacheRead | cost (USD) |");
+  lines.push("|---|---|---|---|---|---|");
+  for (const r2 of result.personas) {
+    lines.push(
+      `| ${r2.persona} | ${r2.result.resumed} | ${r2.result.usage.input} | ${r2.result.usage.output} | ${r2.result.usage.cacheRead} | $${r2.result.usage.costTotal.toFixed(6)} |`
+    );
+  }
+  if (result.coordinator) {
+    lines.push(
+      `| coordinator | ${result.coordinator.resumed} | ${result.coordinator.usage.input} | ${result.coordinator.usage.output} | ${result.coordinator.usage.cacheRead} | $${result.coordinator.usage.costTotal.toFixed(6)} |`
+    );
+  }
+  lines.push("");
+  lines.push(`**Verdict: ${result.verdict}**`);
+  lines.push(`**Total cost: $${result.totalCost.toFixed(6)} \xB7 cacheRead ${result.totalCacheRead}**`);
+  lines.push("");
+  appendStepSummary(lines.join("\n"));
+  appendOutputs([
+    `verdict=${result.verdict}`,
+    `totalCost=${result.totalCost.toFixed(6)}`,
+    `totalCacheRead=${result.totalCacheRead}`
+  ]);
 }
-async function main() {
-  const opts = parseArgs(process.argv);
+async function runSingle(opts) {
+  const persona = opts.persona;
   const diff = loadDiff(opts);
   const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL });
   const result = await runReview({
     provider,
     pr: opts.pr,
-    persona: opts.persona,
+    persona,
     diff,
     sessionsRoot: opts.sessionsRoot,
     cwd: opts.cwd
   });
   process.stdout.write(`
-=== review (${opts.persona}, resumed=${result.resumed}) ===
+=== review (${persona}, resumed=${result.resumed}) ===
 ${result.content}
 `);
   process.stdout.write(
-    `
-=== usage ===
-input:       ${result.usage.input}
-output:      ${result.usage.output}
-cacheRead:   ${result.usage.cacheRead}  (hit \u2192 discounted billing)
-cacheWrite:  ${result.usage.cacheWrite}
-cost total:  $${result.usage.costTotal.toFixed(6)}
+    `cacheRead: ${result.usage.cacheRead}  cost: $${result.usage.costTotal.toFixed(6)}
 `
   );
-  writeStepSummary(result, opts.persona);
-  writeOutputs(result);
+  writeSingleSummary(result, persona);
+  appendOutputs([
+    `cacheRead=${result.usage.cacheRead}`,
+    `costTotal=${result.usage.costTotal.toFixed(6)}`,
+    `resumed=${result.resumed}`,
+    `sessionId=${result.sessionId}`
+  ]);
+}
+async function runTeam(opts) {
+  const diff = loadDiff(opts);
+  const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL });
+  const result = await runTeamReview({
+    provider,
+    pr: opts.pr,
+    diff,
+    cwd: opts.cwd,
+    sessionsRoot: opts.sessionsRoot,
+    team: opts.team,
+    skipCoordinator: opts.skipCoordinator
+  });
+  process.stdout.write(`
+=== team review (${result.personas.length} personas) ===
+`);
+  process.stdout.write(`verdict: ${result.verdict}
+`);
+  process.stdout.write(
+    `total cost: $${result.totalCost.toFixed(6)} \xB7 cacheRead ${result.totalCacheRead}
+`
+  );
+  if (result.coordinator) {
+    process.stdout.write(`
+--- coordinator ---
+${result.coordinator.content}
+`);
+  }
+  for (const r2 of result.personas) {
+    process.stdout.write(`
+--- ${r2.persona} ---
+${r2.result.content}
+`);
+  }
+  writeTeamSummary(result);
+  const ctx = prCommentContextFromEnv(process.env);
+  if (ctx) {
+    const body = renderTeamComment(result);
+    const outcome = await postPrComment(ctx, body);
+    process.stdout.write(`
+PR comment: ${outcome}
+`);
+  }
+}
+async function main() {
+  const opts = parseArgs(process.argv);
+  if (opts.team) {
+    await runTeam(opts);
+  } else {
+    await runSingle(opts);
+  }
 }
 main().catch((err2) => {
   console.error("pi-review-agent failed:", err2);
@@ -169526,4 +172223,7 @@ safe-buffer/index.js:
    * Copyright 2025 Google LLC
    * SPDX-License-Identifier: Apache-2.0
    *)
+
+js-yaml/dist/js-yaml.mjs:
+  (*! js-yaml 5.1.0 https://github.com/nodeca/js-yaml @license MIT *)
 */

@@ -10,7 +10,7 @@ branding:
 
 inputs:
   github-token:
-    description: GitHub token for fetching the PR diff.
+    description: GitHub token for fetching the PR diff and posting the review comment.
     required: false
     default: ${{ github.token }}
   pr:
@@ -18,11 +18,24 @@ inputs:
     required: false
     default: ""
   persona:
-    description: Reviewer persona name (e.g. quality, security).
+    description: >
+      Single-persona mode. Ignored when `team` is set. Default "quality".
     required: false
     default: "quality"
+  team:
+    description: >
+      Team spec for multi-persona mode, e.g. "quality:1,security:1,performance:1".
+      When set, runs each persona in parallel plus a coordinator synthesis,
+      and posts a single review comment to the PR. Counts >1 are accepted but
+      currently run as 1 (compat with opencode-actions spec).
+    required: false
+    default: ""
+  skip-coordinator:
+    description: Skip the coordinator synthesis step (team mode only).
+    required: false
+    default: "false"
   litellm-url:
-    description: LiteLLM proxy base URL.
+    description: LiteLLM proxy base URL (with or without trailing /v1).
     required: false
     default: ""
   litellm-api-key:
@@ -37,6 +50,17 @@ inputs:
     description: Repo checkout dir for read/grep tools. Defaults to GITHUB_WORKSPACE.
     required: false
     default: ""
+
+outputs:
+  verdict:
+    description: Coordinator verdict (CAN MERGE / CONDITIONAL MERGE / CANNOT MERGE). Single-persona mode echoes that run's first line.
+    value: ${{ steps.review.outputs.verdict }}
+  cacheRead:
+    description: Total cacheRead across all personas + coordinator.
+    value: ${{ steps.review.outputs.totalCacheRead }}
+  totalCost:
+    description: Total USD cost across all personas + coordinator.
+    value: ${{ steps.review.outputs.totalCost }}
 
 runs:
   using: composite
@@ -89,20 +113,29 @@ runs:
       uses: actions/cache@v4
       with:
         path: ${{ inputs.sessions-root != '' && inputs.sessions-root || format('{0}/.pi-review-sessions', runner.temp) }}
-        key: pi-review-session-${{ github.repository }}-${{ steps.pr.outputs.pr }}-${{ inputs.persona }}-${{ github.run_id }}
+        # Key per (repo, pr) so each PR gets its own session cache; persona/team
+        # is encoded into the filename inside sessions-root, so the same cache
+        key: pi-review-session-${{ github.repository }}-${{ steps.pr.outputs.pr }}-${{ github.run_id }}
         restore-keys: |
-          pi-review-session-${{ github.repository }}-${{ steps.pr.outputs.pr }}-${{ inputs.persona }}-
+          pi-review-session-${{ github.repository }}-${{ steps.pr.outputs.pr }}-
 
     - name: Run review
+      id: review
       shell: bash
       env:
         PI_REVIEW_PR: ${{ steps.pr.outputs.pr }}
         PI_REVIEW_DIFF_FILE: ${{ steps.diff.outputs.file }}
-        PI_REVIEW_PERSONA: ${{ inputs.persona }}
+        PI_REVIEW_PERSONA: ${{ inputs.team == '' && inputs.persona || '' }}
+        PI_REVIEW_TEAM: ${{ inputs.team }}
+        PI_REVIEW_SKIP_COORDINATOR: ${{ inputs.skip-coordinator }}
         PI_REVIEW_SESSIONS_ROOT: ${{ inputs.sessions-root != '' && inputs.sessions-root || format('{0}/.pi-review-sessions', runner.temp) }}
         LITELLM_BASE_URL: ${{ inputs.litellm-url }}
         LITELLM_API_KEY: ${{ inputs.litellm-api-key }}
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        # PR comment posting reads these:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GITHUB_REF: ${{ github.ref }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_WORKSPACE: ${{ github.workspace }}
       run: |
         set -euo pipefail
