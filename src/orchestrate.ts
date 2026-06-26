@@ -79,6 +79,42 @@ function extractVerdict(text: string): TeamReviewResult["verdict"] {
   return "UNKNOWN";
 }
 
+/**
+ * Verdict resolution with fallback chain:
+ *   1. coordinator first line (canonical)
+ *   2. coordinator full text (model sometimes puts verdict mid-body)
+ *   3. persona majority vote, broken by severity (CANNOT > CONDITIONAL > CAN)
+ *   4. UNKNOWN
+ *
+ * Severity-precedence tiebreak: if reviewers split, we trust the most cautious
+ * real finding rather than reporting we couldn't tell.
+ */
+function resolveVerdict(
+  coordinator: ReviewResult | null,
+  personas: PersonaReview[],
+): TeamReviewResult["verdict"] {
+  if (coordinator) {
+    const fromFirst = extractVerdict(coordinator.content);
+    if (fromFirst !== "UNKNOWN") return fromFirst;
+    const upper = coordinator.content.toUpperCase();
+    if (upper.includes("CANNOT MERGE")) return "CANNOT MERGE";
+    if (upper.includes("CONDITIONAL MERGE")) return "CONDITIONAL MERGE";
+    if (upper.includes("CAN MERGE")) return "CAN MERGE";
+  }
+  const severity: Record<TeamReviewResult["verdict"], number> = {
+    "CANNOT MERGE": 3,
+    "CONDITIONAL MERGE": 2,
+    "CAN MERGE": 1,
+    UNKNOWN: 0,
+  };
+  let highest: TeamReviewResult["verdict"] = "UNKNOWN";
+  for (const r of personas) {
+    const v = extractVerdict(r.result.content);
+    if (severity[v] > severity[highest]) highest = v;
+  }
+  return highest;
+}
+
 function buildCoordinatorInput(reviews: PersonaReview[]): string {
   const parts: string[] = [];
   for (const r of reviews) {
@@ -153,9 +189,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
     }
   }
 
-  const verdictSource = coordinator?.content ?? personaResults[0]?.result.content ?? "";
-  const verdict = extractVerdict(verdictSource);
-
+  const verdict = resolveVerdict(coordinator, personaResults);
   let totalCost = 0;
   let totalCacheRead = 0;
   for (const r of personaResults) {

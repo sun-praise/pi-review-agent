@@ -171800,6 +171800,28 @@ function extractVerdict(text) {
   if (first.includes("CANNOT")) return "CANNOT MERGE";
   return "UNKNOWN";
 }
+function resolveVerdict(coordinator, personas) {
+  if (coordinator) {
+    const fromFirst = extractVerdict(coordinator.content);
+    if (fromFirst !== "UNKNOWN") return fromFirst;
+    const upper = coordinator.content.toUpperCase();
+    if (upper.includes("CANNOT MERGE")) return "CANNOT MERGE";
+    if (upper.includes("CONDITIONAL MERGE")) return "CONDITIONAL MERGE";
+    if (upper.includes("CAN MERGE")) return "CAN MERGE";
+  }
+  const severity = {
+    "CANNOT MERGE": 3,
+    "CONDITIONAL MERGE": 2,
+    "CAN MERGE": 1,
+    UNKNOWN: 0
+  };
+  let highest = "UNKNOWN";
+  for (const r2 of personas) {
+    const v = extractVerdict(r2.result.content);
+    if (severity[v] > severity[highest]) highest = v;
+  }
+  return highest;
+}
 function buildCoordinatorInput(reviews) {
   const parts = [];
   for (const r2 of reviews) {
@@ -171870,8 +171892,7 @@ async function runTeamReview(opts) {
       );
     }
   }
-  const verdictSource = coordinator?.content ?? personaResults[0]?.result.content ?? "";
-  const verdict = extractVerdict(verdictSource);
+  const verdict = resolveVerdict(coordinator, personaResults);
   let totalCost = 0;
   let totalCacheRead = 0;
   for (const r2 of personaResults) {
