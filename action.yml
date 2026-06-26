@@ -1,0 +1,110 @@
+name: Pi Review Agent
+description: >
+  Multi-persona PR review agent built on Pi (earendil-works) with cross-runner
+  session resume and correct cache_read accounting. Surfaces DeepSeek prompt-cache
+  hits that OpenAI-compatible providers (litellm) return but other runtimes drop.
+
+branding:
+  icon: 'eye'
+  color: 'blue'
+
+inputs:
+  github-token:
+    description: GitHub token for fetching the PR diff.
+    required: false
+    default: ${{ github.token }}
+  pr:
+    description: PR number. Auto-detected from GITHUB_REF when blank.
+    required: false
+    default: ""
+  persona:
+    description: Reviewer persona name (e.g. quality, security).
+    required: false
+    default: "quality"
+  litellm-url:
+    description: LiteLLM proxy base URL.
+    required: false
+    default: ""
+  litellm-api-key:
+    description: LiteLLM API key.
+    required: false
+    default: ""
+  sessions-root:
+    description: Directory for per-PR session JSONL (resume cache).
+    required: false
+    default: ""
+  working-directory:
+    description: Repo checkout dir for read/grep tools. Defaults to GITHUB_WORKSPACE.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Detect PR number
+      id: pr
+      shell: bash
+      env:
+        INPUT_PR: ${{ inputs.pr }}
+        GITHUB_REF: ${{ github.ref }}
+      run: |
+        set -euo pipefail
+        pr="${INPUT_PR}"
+        if [[ -z "$pr" ]]; then
+          if [[ "$GITHUB_REF" =~ refs/pull/([0-9]+)/ ]]; then
+            pr="${BASH_REMATCH[1]}"
+          fi
+        fi
+        echo "pr=$pr" >> "$GITHUB_OUTPUT"
+
+    - name: Fetch PR diff
+      id: diff
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        PR: ${{ steps.pr.outputs.pr }}
+      run: |
+        set -euo pipefail
+        out="${RUNNER_TEMP}/pi-review-diff.txt"
+        : > "$out"
+        if [[ -z "$PR" ]]; then
+          echo "no PR number detected; diff empty" >&2
+          echo "file=$out" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        if command -v gh >/dev/null 2>&1; then
+          gh pr diff "$PR" > "$out" 2>/dev/null || true
+        fi
+        if [[ ! -s "$out" ]]; then
+          api="${GITHUB_API_URL:-https://api.github.com}/repos/${GITHUB_REPOSITORY}/pulls/${PR}.diff"
+          curl -sSf -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+               -H "Accept: application/vnd.github.v3.diff" \
+               "$api" > "$out" 2>/dev/null || true
+        fi
+        echo "file=$out" >> "$GITHUB_OUTPUT"
+
+    - name: Restore review session
+      id: session
+      if: ${{ steps.pr.outputs.pr != '' }}
+      uses: actions/cache@v4
+      with:
+        path: ${{ inputs.sessions-root != '' && inputs.sessions-root || format('{0}/.pi-review-sessions', runner.temp) }}
+        key: pi-review-session-${{ github.repository }}-${{ steps.pr.outputs.pr }}-${{ inputs.persona }}-${{ github.run_id }}
+        restore-keys: |
+          pi-review-session-${{ github.repository }}-${{ steps.pr.outputs.pr }}-${{ inputs.persona }}-
+
+    - name: Run review
+      shell: bash
+      env:
+        PI_REVIEW_PR: ${{ steps.pr.outputs.pr }}
+        PI_REVIEW_DIFF_FILE: ${{ steps.diff.outputs.file }}
+        PI_REVIEW_PERSONA: ${{ inputs.persona }}
+        PI_REVIEW_SESSIONS_ROOT: ${{ inputs.sessions-root != '' && inputs.sessions-root || format('{0}/.pi-review-sessions', runner.temp) }}
+        LITELLM_BASE_URL: ${{ inputs.litellm-url }}
+        LITELLM_API_KEY: ${{ inputs.litellm-api-key }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        GITHUB_WORKSPACE: ${{ github.workspace }}
+      run: |
+        set -euo pipefail
+        cd "${WORKING_DIRECTORY:-$GITHUB_WORKSPACE}"
+        node "${{ github.action_path }}/dist/index.cjs"

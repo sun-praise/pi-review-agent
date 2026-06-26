@@ -1,7 +1,7 @@
 node_modules/
-dist/
 sessions/
 *.log
 .DS_Store
 .env
 .env.*
+# dist/ is committed: the action runs `node dist/index.cjs` with no install.

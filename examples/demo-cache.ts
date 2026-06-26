@@ -54,7 +54,6 @@ async function main() {
       diff,
       sessionsRoot,
       systemPrompt: personaGuide,
-      maxOutputTokens: 200,
     });
     console.log(`\n=== run ${run} (resumed=${result.resumed}) ===`);
     console.log("review:", result.content.slice(0, 120));

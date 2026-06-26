@@ -1,0 +1,23 @@
+name: dogfood-review
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run pi-review-agent on this PR
+        uses: ./
+        with:
+          persona: quality
+          litellm-url: ${{ secrets.LITELLM_URL }}
+          litellm-api-key: ${{ secrets.LITELLM_API_KEY }}
