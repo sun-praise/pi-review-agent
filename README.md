@@ -64,3 +64,9 @@ MIT
 
 Re-pushing to a PR continues the prior session. The second run should show
 `resumed=true` and the agent recognizing the prior turn.
+
+## Team mode + PR comments
+
+Team mode runs N personas in parallel plus a coordinator synthesis, posting
+a single review comment to the PR. The comment is edited in place on re-push
+(via a hidden marker), not spammed.
