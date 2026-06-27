@@ -149485,7 +149485,7 @@ function createLiteLLMDeepSeekProvider(opts) {
 
 // src/review.ts
 var import_node_fs2 = require("fs");
-var import_node_path4 = __toESM(require("path"), 1);
+var import_node_path4 = __toESM(require("path"));
 
 // node_modules/@earendil-works/pi-ai/dist/api/anthropic-messages.lazy.js
 init_lazy();
@@ -169181,7 +169181,7 @@ var runtimeBuffer = globalThis.Buffer;
 
 // src/tools.ts
 var import_promises3 = require("fs/promises");
-var import_node_path2 = __toESM(require("path"), 1);
+var import_node_path2 = __toESM(require("path"));
 var readFileSchema = typebox_exports.Object({
   path: typebox_exports.String({ description: "Repository-relative or absolute path to read." }),
   offset: typebox_exports.Optional(typebox_exports.Number({ description: "1-indexed line to start at. Default 1." })),
@@ -169239,7 +169239,7 @@ function createGrepTool(cwd, walk) {
 
 // src/walk-grep.ts
 var import_promises4 = require("fs/promises");
-var import_node_path3 = __toESM(require("path"), 1);
+var import_node_path3 = __toESM(require("path"));
 var IGNORE = {
   node_modules: true,
   ".git": true,
@@ -169406,7 +169406,7 @@ ${opts.diff}`);
 
 // src/orchestrate.ts
 var import_node_fs4 = require("fs");
-var import_node_path6 = __toESM(require("path"), 1);
+var import_node_path6 = __toESM(require("path"));
 
 // node_modules/js-yaml/dist/js-yaml.mjs
 var NOT_RESOLVED = /* @__PURE__ */ Symbol("NOT_RESOLVED");
@@ -171623,7 +171623,7 @@ var DEFAULT_DUMP_OPTIONS = {
 
 // src/personas.ts
 var import_node_fs3 = require("fs");
-var import_node_path5 = __toESM(require("path"), 1);
+var import_node_path5 = __toESM(require("path"));
 var DECISION_RULES = [
   "Decision rules:",
   "- Use 'CAN MERGE' only when there are no blocking issues.",
@@ -172057,6 +172057,7 @@ function parseArgs(argv) {
   }
   const persona = args.persona || process.env.PI_REVIEW_PERSONA;
   const team = args.team || process.env.PI_REVIEW_TEAM;
+  const skipEnv = process.env.PI_REVIEW_SKIP_COORDINATOR;
   if (!persona && !team) {
     throw new Error("--persona <name> or --team <spec> required");
   }
@@ -172066,7 +172067,7 @@ function parseArgs(argv) {
     diffInline: process.env.PI_REVIEW_DIFF,
     persona,
     team,
-    skipCoordinator: Boolean(process.env.PI_REVIEW_SKIP_COORDINATOR) || args["skip-coordinator"] === "true",
+    skipCoordinator: skipEnv === "1" || skipEnv?.toLowerCase() === "true" || args["skip-coordinator"] === "true",
     baseURL: args["base-url"] || process.env.LITELLM_BASE_URL || "https://llm.sun-praise.com",
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
     modelId: args.model || process.env.PI_REVIEW_MODEL,

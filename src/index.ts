@@ -49,6 +49,10 @@ function parseArgs(argv: string[]): CliOptions {
   }
   const persona = args.persona || process.env.PI_REVIEW_PERSONA;
   const team = args.team || process.env.PI_REVIEW_TEAM;
+  // GitHub Actions always injects env vars as strings, so the literal "false"
+  // from action.yml inputs.skip-coordinator must NOT be truthy. Only "1"/"true"
+  // (case-insensitive) enable skipping.
+  const skipEnv = process.env.PI_REVIEW_SKIP_COORDINATOR;
   if (!persona && !team) {
     throw new Error("--persona <name> or --team <spec> required");
   }
@@ -58,7 +62,7 @@ function parseArgs(argv: string[]): CliOptions {
     diffInline: process.env.PI_REVIEW_DIFF,
     persona,
     team,
-    skipCoordinator: Boolean(process.env.PI_REVIEW_SKIP_COORDINATOR) || args["skip-coordinator"] === "true",
+    skipCoordinator: skipEnv === "1" || skipEnv?.toLowerCase() === "true" || args["skip-coordinator"] === "true",
     baseURL: args["base-url"] || process.env.LITELLM_BASE_URL || "https://llm.sun-praise.com",
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
     modelId: args.model || process.env.PI_REVIEW_MODEL,
