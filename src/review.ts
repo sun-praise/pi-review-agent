@@ -40,6 +40,14 @@ export interface RunReviewOptions {
   cwd?: string;
   modelId?: string;
   systemPrompt?: string;
+  /**
+   * Output language for the review prose (summary, findings, suggestions).
+   * Accepts short codes (zh, en, ja, ...) or full names (中文, English).
+   * Default undefined = English (no directive appended). The verdict
+   * keywords (CAN MERGE / CONDITIONAL MERGE / CANNOT MERGE) always stay
+   * English uppercase — they are parsed by machine.
+   */
+  language?: string;
   /** Inject a custom grep walker (tests). Defaults to the file-system walker. */
   grepWalker?: GrepWalker;
 }
@@ -68,6 +76,46 @@ function defaultSystemPrompt(persona: string): string {
     "remedies over generic advice. Do not invent issues if the diff is fine. " +
     "Focus on correctness, then security, then clarity, in that order. ".repeat(40);
   return padded + `\n\nReviewer persona: ${persona}.`;
+}
+// Short codes → display names. Unknown values pass through unchanged so
+// users can pass full language names directly (e.g. "中文", "Português").
+const LANGUAGE_ALIASES: Record<string, string> = {
+  zh: "中文",
+  cn: "中文",
+  "zh-cn": "中文",
+  "zh-tw": "繁體中文",
+  en: "English",
+  ja: "日本語",
+  jp: "日本語",
+  ko: "한국어",
+  fr: "Français",
+  de: "Deutsch",
+  es: "Español",
+  ru: "Русский",
+};
+
+function resolveLanguageName(lang: string): string {
+  const key = lang.trim().toLowerCase();
+  return LANGUAGE_ALIASES[key] ?? lang.trim();
+}
+
+/**
+ * Append a language directive to a system prompt. No-op for English (the
+ * prompts' native language) or when language is unset, so existing callers
+ * keep their behavior. The verdict keywords are exempt from translation —
+ * extractVerdict / resolveVerdict match them by machine.
+ */
+function appendLanguageDirective(base: string, lang: string | undefined): string {
+  if (!lang) return base;
+  const name = resolveLanguageName(lang);
+  if (name === "English") return base;
+  return (
+    base +
+    `\n\nWrite the summary, findings, and all prose in ${name}. ` +
+    `The verdict keywords (CAN MERGE / CONDITIONAL MERGE / CANNOT MERGE) ` +
+    `MUST stay in English uppercase on the first line — they are parsed by ` +
+    `machine and must never be translated.`
+  );
 }
 
 async function sessionFile(opts: RunReviewOptions): Promise<string> {
@@ -152,7 +200,10 @@ export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
   const file = await sessionFile(opts);
   const transcript = await loadTranscript(file);
   const resumed = transcript.length > 0;
-  const systemPrompt = opts.systemPrompt ?? defaultSystemPrompt(opts.persona);
+  const systemPrompt = appendLanguageDirective(
+    opts.systemPrompt ?? defaultSystemPrompt(opts.persona),
+    opts.language,
+  );
   const sessionId = `${opts.pr}-${opts.persona}`;
   const cwd = opts.cwd ?? process.cwd();
 
