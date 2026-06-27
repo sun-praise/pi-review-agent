@@ -169301,6 +169301,32 @@ function defaultSystemPrompt(persona) {
 
 Reviewer persona: ${persona}.`;
 }
+var LANGUAGE_ALIASES = {
+  zh: "\u4E2D\u6587",
+  cn: "\u4E2D\u6587",
+  "zh-cn": "\u4E2D\u6587",
+  "zh-tw": "\u7E41\u9AD4\u4E2D\u6587",
+  en: "English",
+  ja: "\u65E5\u672C\u8A9E",
+  jp: "\u65E5\u672C\u8A9E",
+  ko: "\uD55C\uAD6D\uC5B4",
+  fr: "Fran\xE7ais",
+  de: "Deutsch",
+  es: "Espa\xF1ol",
+  ru: "\u0420\u0443\u0441\u0441\u043A\u0438\u0439"
+};
+function resolveLanguageName(lang) {
+  const key = lang.trim().toLowerCase();
+  return LANGUAGE_ALIASES[key] ?? lang.trim();
+}
+function appendLanguageDirective(base, lang) {
+  if (!lang) return base;
+  const name = resolveLanguageName(lang);
+  if (name === "English") return base;
+  return base + `
+
+Write the summary, findings, and all prose in ${name}. The verdict keywords (CAN MERGE / CONDITIONAL MERGE / CANNOT MERGE) MUST stay in English uppercase on the first line \u2014 they are parsed by machine and must never be translated.`;
+}
 async function sessionFile(opts) {
   const dir = import_node_path4.default.join(opts.sessionsRoot, String(opts.pr));
   await import_node_fs2.promises.mkdir(dir, { recursive: true });
@@ -169363,7 +169389,10 @@ async function runReview(opts) {
   const file2 = await sessionFile(opts);
   const transcript = await loadTranscript(file2);
   const resumed = transcript.length > 0;
-  const systemPrompt = opts.systemPrompt ?? defaultSystemPrompt(opts.persona);
+  const systemPrompt = appendLanguageDirective(
+    opts.systemPrompt ?? defaultSystemPrompt(opts.persona),
+    opts.language
+  );
   const sessionId = `${opts.pr}-${opts.persona}`;
   const cwd = opts.cwd ?? process.cwd();
   const models = createModels();
@@ -171859,7 +171888,8 @@ async function runTeamReview(opts) {
           diff: opts.diff,
           sessionsRoot: opts.sessionsRoot,
           cwd: opts.cwd,
-          systemPrompt: persona.prompt
+          systemPrompt: persona.prompt,
+          language: opts.language
         });
         return { persona: persona.name, result };
       } catch (err2) {
@@ -171884,7 +171914,8 @@ async function runTeamReview(opts) {
         diff: input,
         sessionsRoot: opts.sessionsRoot,
         cwd: opts.cwd,
-        systemPrompt: coord.prompt
+        systemPrompt: coord.prompt,
+        language: opts.language
       });
     } catch (err2) {
       process.stderr.write(
@@ -172070,6 +172101,7 @@ function parseArgs(argv) {
     skipCoordinator: skipEnv === "1" || skipEnv?.toLowerCase() === "true" || args["skip-coordinator"] === "true",
     baseURL: args["base-url"] || process.env.LITELLM_BASE_URL || "https://llm.sun-praise.com",
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
+    language: args.language || process.env.PI_REVIEW_LANGUAGE || "zh",
     modelId: args.model || process.env.PI_REVIEW_MODEL,
     cwd: args.cwd || process.cwd()
   };
@@ -172145,7 +172177,8 @@ async function runSingle(opts) {
     persona,
     diff,
     sessionsRoot: opts.sessionsRoot,
-    cwd: opts.cwd
+    cwd: opts.cwd,
+    language: opts.language
   });
   process.stdout.write(`
 === review (${persona}, resumed=${result.resumed}) ===
@@ -172173,6 +172206,7 @@ async function runTeam(opts) {
     cwd: opts.cwd,
     sessionsRoot: opts.sessionsRoot,
     team: opts.team,
+    language: opts.language,
     skipCoordinator: opts.skipCoordinator
   });
   process.stdout.write(`

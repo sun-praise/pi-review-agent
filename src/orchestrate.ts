@@ -26,6 +26,8 @@ export interface TeamReviewOptions {
   team?: string;
   /** Skip the coordinator synthesis step. Default false. */
   skipCoordinator?: boolean;
+  /** Output language for review prose. Passed through to every reviewer + the coordinator. Default undefined = English. */
+  language?: string;
 }
 
 export interface PersonaReview {
@@ -155,6 +157,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
           sessionsRoot: opts.sessionsRoot,
           cwd: opts.cwd,
           systemPrompt: persona.prompt,
+          language: opts.language,
         });
         return { persona: persona.name, result };
       } catch (err: unknown) {
@@ -181,6 +184,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
         sessionsRoot: opts.sessionsRoot,
         cwd: opts.cwd,
         systemPrompt: coord.prompt,
+        language: opts.language,
       });
     } catch (err: unknown) {
       process.stderr.write(

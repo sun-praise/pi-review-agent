@@ -35,6 +35,8 @@ interface CliOptions {
   sessionsRoot: string;
   modelId: string | undefined;
   cwd: string;
+  /** Output language for review prose. Default "zh" (中文). */
+  language: string;
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -65,6 +67,7 @@ function parseArgs(argv: string[]): CliOptions {
     skipCoordinator: skipEnv === "1" || skipEnv?.toLowerCase() === "true" || args["skip-coordinator"] === "true",
     baseURL: args["base-url"] || process.env.LITELLM_BASE_URL || "https://llm.sun-praise.com",
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
+    language: args.language || process.env.PI_REVIEW_LANGUAGE || "zh",
     modelId: args.model || process.env.PI_REVIEW_MODEL,
     cwd: args.cwd || process.cwd(),
   };
@@ -140,6 +143,7 @@ async function runSingle(opts: CliOptions): Promise<void> {
     diff,
     sessionsRoot: opts.sessionsRoot,
     cwd: opts.cwd,
+    language: opts.language,
   });
   process.stdout.write(`\n=== review (${persona}, resumed=${result.resumed}) ===\n${result.content}\n`);
   process.stdout.write(
@@ -164,6 +168,7 @@ async function runTeam(opts: CliOptions): Promise<void> {
     cwd: opts.cwd,
     sessionsRoot: opts.sessionsRoot,
     team: opts.team,
+    language: opts.language,
     skipCoordinator: opts.skipCoordinator,
   });
   process.stdout.write(`\n=== team review (${result.personas.length} personas) ===\n`);

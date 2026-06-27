@@ -52,6 +52,15 @@ inputs:
       the verdict output falls back to persona severity vote.
     required: false
     default: "false"
+  language:
+    description: >
+      Output language for review prose (summary, findings, suggestions).
+      Accepts short codes (zh, en, ja, ko, fr, de, es, ru) or full names
+      (中文, English, 日本語). Default "zh" (中文). The verdict keywords
+      (CAN MERGE / CONDITIONAL MERGE / CANNOT MERGE) always stay in English
+      uppercase — they are parsed by machine and never translated.
+    required: false
+    default: "zh"
   litellm-url:
     description: >
       Base URL of a LiteLLM proxy or any OpenAI-compatible chat completions
@@ -169,6 +178,7 @@ runs:
         PI_REVIEW_TEAM: ${{ inputs.team }}
         PI_REVIEW_SKIP_COORDINATOR: ${{ inputs.skip-coordinator }}
         PI_REVIEW_MODEL: ${{ inputs.model }}
+        PI_REVIEW_LANGUAGE: ${{ inputs.language }}
         PI_REVIEW_SESSIONS_ROOT: ${{ inputs.sessions-root != '' && inputs.sessions-root || format('{0}/.pi-review-sessions', runner.temp) }}
         LITELLM_BASE_URL: ${{ inputs.litellm-url }}
         LITELLM_API_KEY: ${{ inputs.litellm-api-key }}
