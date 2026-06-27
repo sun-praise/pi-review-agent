@@ -71,6 +71,28 @@ The action:
 
 `pull-requests: write` permission is required for comment posting.
 
+## Install via agent skill
+
+This repo ships an installer skill ([`skills/setup-pi-review/`](./skills/setup-pi-review/)) discoverable by [`npx skills`](https://github.com/vercel-labs/skills). An agent loaded with the skill (Claude Code, Cursor, etc.) can set pi-review-agent up for any repository via natural language — it generates the workflow YAML, points you to the secrets, and reminds you of the required permissions.
+
+```bash
+# list available skills in this repo
+npx skills add sun-praise/pi-review-agent --list
+
+# install into the current project (creates .claude/skills/setup-pi-review/)
+npx skills add sun-praise/pi-review-agent
+
+# install globally (all sessions)
+npx skills add sun-praise/pi-review-agent --global
+
+# install only this one skill
+npx skills add sun-praise/pi-review-agent@setup-pi-review
+```
+
+After install, restart your agent session and ask it to set up pi-review-agent in the target repo. The skill walks through: workflow YAML generation, secrets (`LITELLM_URL`, `LITELLM_API_KEY`), `pull-requests: write` permission, and post-install verification (cacheRead > 0).
+
+Migration from opencode-actions/multi-review is handled by the same skill — mention "migrate from opencode" and it follows the drop-in path.
+
 ### Custom personas
 
 Drop `.yaml`/`.yml` files in `<repo>/.github/reviewers/` with `name` + `prompt` fields. They override built-ins of the same name and add new ones (format mirrors opencode-actions for drop-in compatibility).
