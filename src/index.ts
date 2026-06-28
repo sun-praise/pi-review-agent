@@ -85,7 +85,7 @@ function parseArgs(argv: string[]): CliOptions {
     language: args.language || process.env.PI_REVIEW_LANGUAGE || "zh",
     modelId: args.model || process.env.PI_REVIEW_MODEL,
     cwd: args.cwd || process.cwd(),
-    timeoutMs: intEnv(args["timeout-ms"], process.env.PI_REVIEW_TIMEOUT_MS, 600_000),
+    timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], process.env),
     maxAttempts: intEnv(args["max-attempts"], process.env.PI_REVIEW_MAX_ATTEMPTS, 3),
     retryBackoffMs: intEnv(
       args["retry-backoff-ms"],
@@ -112,6 +112,32 @@ function intEnv(argVal: string | undefined, envVal: string | undefined, fallback
   if (raw === undefined || raw === "") return fallback;
   const n = Number(raw);
   return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+/**
+ * Resolve the per-review timeout. Inputs accept seconds (matching the
+ * action.yml `timeout-seconds` input and opencode conventions); an explicit
+ * ms flag/env exists for precise control. Returns ms; 0 disables. The
+ * seconds→ms conversion is done here, NOT in action.yml expressions, because
+ * GitHub Actions expression syntax can't do arithmetic on hyphenated input
+ * names (parse-time failure).
+ */
+function resolveTimeoutMs(
+  secArg: string | undefined,
+  msArg: string | undefined,
+  env: NodeJS.ProcessEnv,
+): number {
+  const secRaw = secArg || env.PI_REVIEW_TIMEOUT_SECONDS;
+  if (secRaw !== undefined && secRaw !== "") {
+    const sec = Number(secRaw);
+    if (Number.isFinite(sec) && sec >= 0) return Math.round(sec * 1000);
+  }
+  const msRaw = msArg || env.PI_REVIEW_TIMEOUT_MS;
+  if (msRaw !== undefined && msRaw !== "") {
+    const ms = Number(msRaw);
+    if (Number.isFinite(ms) && ms >= 0) return ms;
+  }
+  return 600_000;
 }
 
 function parseFailMode(raw: string): "none" | "blocking" | "warning" {

@@ -172325,7 +172325,7 @@ function parseArgs(argv) {
     language: args.language || process.env.PI_REVIEW_LANGUAGE || "zh",
     modelId: args.model || process.env.PI_REVIEW_MODEL,
     cwd: args.cwd || process.cwd(),
-    timeoutMs: intEnv(args["timeout-ms"], process.env.PI_REVIEW_TIMEOUT_MS, 6e5),
+    timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], process.env),
     maxAttempts: intEnv(args["max-attempts"], process.env.PI_REVIEW_MAX_ATTEMPTS, 3),
     retryBackoffMs: intEnv(
       args["retry-backoff-ms"],
@@ -172348,6 +172348,19 @@ function intEnv(argVal, envVal, fallback) {
   if (raw === void 0 || raw === "") return fallback;
   const n = Number(raw);
   return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+function resolveTimeoutMs(secArg, msArg, env2) {
+  const secRaw = secArg || env2.PI_REVIEW_TIMEOUT_SECONDS;
+  if (secRaw !== void 0 && secRaw !== "") {
+    const sec = Number(secRaw);
+    if (Number.isFinite(sec) && sec >= 0) return Math.round(sec * 1e3);
+  }
+  const msRaw = msArg || env2.PI_REVIEW_TIMEOUT_MS;
+  if (msRaw !== void 0 && msRaw !== "") {
+    const ms = Number(msRaw);
+    if (Number.isFinite(ms) && ms >= 0) return ms;
+  }
+  return 6e5;
 }
 function parseFailMode(raw) {
   return raw === "blocking" || raw === "warning" ? raw : "none";

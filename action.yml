@@ -226,7 +226,7 @@ runs:
         LITELLM_BASE_URL: ${{ inputs.litellm-url }}
         LITELLM_API_KEY: ${{ inputs.litellm-api-key }}
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
-        PI_REVIEW_TIMEOUT_MS: ${{ inputs.timeout-seconds != '0' && (inputs.timeout-seconds * 1000) || '0' }}
+        PI_REVIEW_TIMEOUT_SECONDS: ${{ inputs.timeout-seconds }}
         PI_REVIEW_MAX_ATTEMPTS: ${{ inputs.max-attempts }}
         PI_REVIEW_RETRY_BACKOFF_MS: ${{ inputs.retry-backoff-ms }}
         PI_REVIEW_DIFF_EXCLUDE: ${{ inputs.diff-exclude }}
