@@ -91,6 +91,50 @@ inputs:
       to `github.workspace`.
     required: false
     default: ""
+  timeout-seconds:
+    description: >
+      Per-reviewer hard timeout in seconds. On expiry the attempt fails and,
+      if the error is transient (network blip), retries. Set 0 to disable
+      (not recommended). Default 600.
+    required: false
+    default: "600"
+  max-attempts:
+    description: >
+      Max attempts per reviewer. A transient upstream error triggers a
+      fresh-session retry with exponential backoff + jitter. Default 3.
+    required: false
+    default: "3"
+  retry-backoff-ms:
+    description: >
+      Base milliseconds for exponential backoff between retries.
+      Backoff = base * 2^(attempt-1) + jitter[0, base]. Default 1000.
+    required: false
+    default: "1000"
+  diff-exclude:
+    description: >
+      Comma-separated glob patterns for additional files to exclude from the
+      review diff (e.g. "*.generated.ts,vendor/**"). Lock files are always
+      excluded automatically. Patterns without "/" match the file basename;
+      patterns with "/" match the full file path (gitignore convention).
+    required: false
+    default: ""
+  diff-max-size-kb:
+    description: >
+      Maximum diff size in kilobytes after filtering. If exceeded, only the
+      leading file sections are kept and a truncation notice is appended.
+      Default 200 (200 KB) — large enough for normal PRs but small enough to
+      stay under LLM proxy body limits (HTTP 413). Set 0 to disable.
+    required: false
+    default: "200"
+  fail-on-severity:
+    description: >
+      Control the action exit code based on review severity. Allowed values:
+      "none" (default — always exit 0), "blocking" (exit 1 if blocking
+      issues found), "warning" (exit 1 if warning or blocking issues found).
+      Fail-closed: unparseable coordinator output or a missing reviewer
+      forces failure whenever the gate is armed.
+    required: false
+    default: "none"
 
 outputs:
   verdict:
@@ -183,6 +227,12 @@ runs:
         LITELLM_BASE_URL: ${{ inputs.litellm-url }}
         LITELLM_API_KEY: ${{ inputs.litellm-api-key }}
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        PI_REVIEW_TIMEOUT_SECONDS: ${{ inputs.timeout-seconds }}
+        PI_REVIEW_MAX_ATTEMPTS: ${{ inputs.max-attempts }}
+        PI_REVIEW_RETRY_BACKOFF_MS: ${{ inputs.retry-backoff-ms }}
+        PI_REVIEW_DIFF_EXCLUDE: ${{ inputs.diff-exclude }}
+        PI_REVIEW_DIFF_MAX_SIZE_KB: ${{ inputs.diff-max-size-kb }}
+        PI_REVIEW_FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
         # PR comment posting reads these:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GITHUB_REF: ${{ github.ref }}

@@ -15,6 +15,7 @@ import path from "node:path";
 import type { Provider } from "@earendil-works/pi-ai";
 import { runReview, type ReviewResult } from "./review.js";
 import { loadPersonas, resolveTeam, type Persona } from "./personas.js";
+import { parseSeverity, withFailedReviewerOverride, type Severity } from "./severity.js";
 
 export interface TeamReviewOptions {
   provider: Provider<"openai-completions">;
@@ -28,6 +29,11 @@ export interface TeamReviewOptions {
   skipCoordinator?: boolean;
   /** Output language for review prose. Passed through to every reviewer + the coordinator. Default undefined = English. */
   language?: string;
+  /** Per-review timeout/retry, passed through to every reviewer + coordinator.
+   *  Default: 10-min timeout, 3 attempts, 1s backoff base. */
+  timeoutMs?: number;
+  maxAttempts?: number;
+  retryBackoffMs?: number;
 }
 
 export interface PersonaReview {
@@ -43,6 +49,10 @@ export interface TeamReviewResult {
   verdict: "CAN MERGE" | "CONDITIONAL MERGE" | "CANNOT MERGE" | "UNKNOWN";
   totalCost: number;
   totalCacheRead: number;
+  /** Parsed severity from the coordinator output (fail-closed: missing
+   *  reviewers force a CANNOT-MERGE override before this is returned).
+   *  Consumers use this for the fail-on-severity exit gate. */
+  severity: Severity;
 }
 
 const COORDINATOR_PROMPT = [
@@ -158,6 +168,9 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
           cwd: opts.cwd,
           systemPrompt: persona.prompt,
           language: opts.language,
+          timeoutMs: opts.timeoutMs,
+          maxAttempts: opts.maxAttempts,
+          retryBackoffMs: opts.retryBackoffMs,
         });
         return { persona: persona.name, result };
       } catch (err: unknown) {
@@ -185,6 +198,9 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
         cwd: opts.cwd,
         systemPrompt: coord.prompt,
         language: opts.language,
+        timeoutMs: opts.timeoutMs,
+        maxAttempts: opts.maxAttempts,
+        retryBackoffMs: opts.retryBackoffMs,
       });
     } catch (err: unknown) {
       process.stderr.write(
@@ -205,12 +221,27 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
     totalCacheRead += coordinator.usage.cacheRead;
   }
 
+  // Fail-closed: a reviewer that produced no content is missing evidence,
+  // not a clean bill of health. Force CANNOT MERGE before the gate runs so
+  // the exit code and the PR comment both reflect incomplete evidence.
+  const baseText = coordinator?.content ?? "";
+  const failedReviewers = personaResults
+    .filter((r) => Boolean(r.error) || r.result.content.trim() === "")
+    .map((r) => r.persona);
+  const severity = withFailedReviewerOverride(parseSeverity(baseText), failedReviewers);
+  // Same fail-closed override applied to the verdict field: the PR comment
+  // renders `verdict`, the exit gate reads `severity`. Without this the two
+  // would disagree when reviewers fail — coordinator would say CAN MERGE
+  // (it saw empty inputs) while severity says CANNOT MERGE.
+  const finalVerdict: TeamReviewResult["verdict"] =
+    failedReviewers.length > 0 ? "CANNOT MERGE" : verdict;
   return {
     personas: personaResults,
     coordinator,
-    verdict,
+    verdict: finalVerdict,
     totalCost,
     totalCacheRead,
+    severity,
   };
 }
 
@@ -224,42 +255,10 @@ function emptyReview(pr: number, persona: string): ReviewResult {
   };
 }
 
-/** Render a team result as a markdown comment body for PR posting. */
-export function renderTeamComment(result: TeamReviewResult): string {
-  const lines: string[] = [];
-  const icon =
-    result.verdict === "CAN MERGE"
-      ? "✅"
-      : result.verdict === "CONDITIONAL MERGE"
-        ? "⚠️"
-        : result.verdict === "CANNOT MERGE"
-          ? "🚫"
-          : "❓";
-  lines.push(`${icon} ${result.verdict}`);
-  lines.push("");
-  if (result.coordinator) {
-    lines.push("<details><summary><b>Coordinator synthesis</b></summary>");
-    lines.push("");
-    lines.push(result.coordinator.content);
-    lines.push("");
-    lines.push("</details>");
-    lines.push("");
-  }
-  for (const r of result.personas) {
-    const cacheNote = r.result.usage.cacheRead > 0 ? ` · cacheRead ${r.result.usage.cacheRead}` : "";
-    lines.push(`<details><summary><b>${r.persona}</b> · $${r.result.usage.costTotal.toFixed(6)}${cacheNote}</summary>`);
-    lines.push("");
-    lines.push(r.error ? `_(review failed: ${r.error})_` : r.result.content);
-    lines.push("");
-    lines.push("</details>");
-    lines.push("");
-  }
-  lines.push("---");
-  lines.push(
-    `<sub>pi-review-agent · total cost $${result.totalCost.toFixed(6)} · cacheRead ${result.totalCacheRead}</sub>`,
-  );
-  return lines.join("\n");
-}
+// renderTeamComment lives in ./team-comment.ts (pure presentation, unit-tested
+// without dragging in the pi-agent-core runtime). Re-export for the existing
+// index.ts import site.
+export { renderTeamComment } from "./team-comment.js";
 
 // ensure dir helper kept here so callers that build paths don't need to repeat it.
 export async function ensureSessionsRoot(root: string): Promise<string> {
