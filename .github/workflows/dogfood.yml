@@ -16,7 +16,7 @@ jobs:
           fetch-depth: 0
 
       - name: Run pi-review-agent on this PR
-        uses: ./
+        uses: sun-praise/pi-review-agent@v1
         with:
           team: "quality:1,security:1,performance:1"
           litellm-url: ${{ secrets.LITELLM_URL }}
