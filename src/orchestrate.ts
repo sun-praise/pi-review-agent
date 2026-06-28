@@ -229,10 +229,16 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
     .filter((r) => Boolean(r.error) || r.result.content.trim() === "")
     .map((r) => r.persona);
   const severity = withFailedReviewerOverride(parseSeverity(baseText), failedReviewers);
+  // Same fail-closed override applied to the verdict field: the PR comment
+  // renders `verdict`, the exit gate reads `severity`. Without this the two
+  // would disagree when reviewers fail — coordinator would say CAN MERGE
+  // (it saw empty inputs) while severity says CANNOT MERGE.
+  const finalVerdict: TeamReviewResult["verdict"] =
+    failedReviewers.length > 0 ? "CANNOT MERGE" : verdict;
   return {
     personas: personaResults,
     coordinator,
-    verdict,
+    verdict: finalVerdict,
     totalCost,
     totalCacheRead,
     severity,
@@ -249,42 +255,10 @@ function emptyReview(pr: number, persona: string): ReviewResult {
   };
 }
 
-/** Render a team result as a markdown comment body for PR posting. */
-export function renderTeamComment(result: TeamReviewResult): string {
-  const lines: string[] = [];
-  const icon =
-    result.verdict === "CAN MERGE"
-      ? "✅"
-      : result.verdict === "CONDITIONAL MERGE"
-        ? "⚠️"
-        : result.verdict === "CANNOT MERGE"
-          ? "🚫"
-          : "❓";
-  lines.push(`${icon} ${result.verdict}`);
-  lines.push("");
-  if (result.coordinator) {
-    lines.push("<details><summary><b>Coordinator synthesis</b></summary>");
-    lines.push("");
-    lines.push(result.coordinator.content);
-    lines.push("");
-    lines.push("</details>");
-    lines.push("");
-  }
-  for (const r of result.personas) {
-    const cacheNote = r.result.usage.cacheRead > 0 ? ` · cacheRead ${r.result.usage.cacheRead}` : "";
-    lines.push(`<details><summary><b>${r.persona}</b> · $${r.result.usage.costTotal.toFixed(6)}${cacheNote}</summary>`);
-    lines.push("");
-    lines.push(r.error ? `_(review failed: ${r.error})_` : r.result.content);
-    lines.push("");
-    lines.push("</details>");
-    lines.push("");
-  }
-  lines.push("---");
-  lines.push(
-    `<sub>pi-review-agent · total cost $${result.totalCost.toFixed(6)} · cacheRead ${result.totalCacheRead}</sub>`,
-  );
-  return lines.join("\n");
-}
+// renderTeamComment lives in ./team-comment.ts (pure presentation, unit-tested
+// without dragging in the pi-agent-core runtime). Re-export for the existing
+// index.ts import site.
+export { renderTeamComment } from "./team-comment.js";
 
 // ensure dir helper kept here so callers that build paths don't need to repeat it.
 export async function ensureSessionsRoot(root: string): Promise<string> {

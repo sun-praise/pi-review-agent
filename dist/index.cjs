@@ -171917,6 +171917,45 @@ function withFailedReviewerOverride(severity, failedReviewerNames) {
   };
 }
 
+// src/team-comment.ts
+function renderTeamComment(result) {
+  const lines = [];
+  const icon = result.verdict === "CAN MERGE" ? "\u2705" : result.verdict === "CONDITIONAL MERGE" ? "\u26A0\uFE0F" : result.verdict === "CANNOT MERGE" ? "\u{1F6AB}" : "\u2753";
+  lines.push(`${icon} ${result.verdict}`);
+  lines.push("");
+  const failedNames = result.personas.filter((r2) => Boolean(r2.error) || r2.result.content.trim() === "").map((r2) => r2.persona);
+  if (failedNames.length > 0) {
+    lines.push(
+      `> \u26A0\uFE0F **Fail-closed:** ${failedNames.length} reviewer(s) produced no output (${failedNames.join(", ")}). Verdict forced to CANNOT MERGE \u2014 the coordinator's synthesis below was computed from incomplete evidence and must not be trusted.`
+    );
+    lines.push("");
+  }
+  if (result.coordinator) {
+    lines.push("<details><summary><b>Coordinator synthesis</b></summary>");
+    lines.push("");
+    lines.push(result.coordinator.content);
+    lines.push("");
+    lines.push("</details>");
+    lines.push("");
+  }
+  for (const r2 of result.personas) {
+    const cacheNote = r2.result.usage.cacheRead > 0 ? ` \xB7 cacheRead ${r2.result.usage.cacheRead}` : "";
+    lines.push(
+      `<details><summary><b>${r2.persona}</b> \xB7 $${r2.result.usage.costTotal.toFixed(6)}${cacheNote}</summary>`
+    );
+    lines.push("");
+    lines.push(r2.error ? `_(review failed: ${r2.error})_` : r2.result.content);
+    lines.push("");
+    lines.push("</details>");
+    lines.push("");
+  }
+  lines.push("---");
+  lines.push(
+    `<sub>pi-review-agent \xB7 total cost $${result.totalCost.toFixed(6)} \xB7 cacheRead ${result.totalCacheRead}</sub>`
+  );
+  return lines.join("\n");
+}
+
 // src/orchestrate.ts
 var COORDINATOR_PROMPT = [
   "You are the review coordinator. Multiple specialist reviewers have analyzed",
@@ -172065,10 +172104,11 @@ async function runTeamReview(opts) {
   const baseText = coordinator?.content ?? "";
   const failedReviewers = personaResults.filter((r2) => Boolean(r2.error) || r2.result.content.trim() === "").map((r2) => r2.persona);
   const severity = withFailedReviewerOverride(parseSeverity(baseText), failedReviewers);
+  const finalVerdict = failedReviewers.length > 0 ? "CANNOT MERGE" : verdict;
   return {
     personas: personaResults,
     coordinator,
-    verdict,
+    verdict: finalVerdict,
     totalCost,
     totalCacheRead,
     severity
@@ -172082,34 +172122,6 @@ function emptyReview(pr, persona) {
     sessionId: `${pr}-${persona}`,
     newMessages: []
   };
-}
-function renderTeamComment(result) {
-  const lines = [];
-  const icon = result.verdict === "CAN MERGE" ? "\u2705" : result.verdict === "CONDITIONAL MERGE" ? "\u26A0\uFE0F" : result.verdict === "CANNOT MERGE" ? "\u{1F6AB}" : "\u2753";
-  lines.push(`${icon} ${result.verdict}`);
-  lines.push("");
-  if (result.coordinator) {
-    lines.push("<details><summary><b>Coordinator synthesis</b></summary>");
-    lines.push("");
-    lines.push(result.coordinator.content);
-    lines.push("");
-    lines.push("</details>");
-    lines.push("");
-  }
-  for (const r2 of result.personas) {
-    const cacheNote = r2.result.usage.cacheRead > 0 ? ` \xB7 cacheRead ${r2.result.usage.cacheRead}` : "";
-    lines.push(`<details><summary><b>${r2.persona}</b> \xB7 $${r2.result.usage.costTotal.toFixed(6)}${cacheNote}</summary>`);
-    lines.push("");
-    lines.push(r2.error ? `_(review failed: ${r2.error})_` : r2.result.content);
-    lines.push("");
-    lines.push("</details>");
-    lines.push("");
-  }
-  lines.push("---");
-  lines.push(
-    `<sub>pi-review-agent \xB7 total cost $${result.totalCost.toFixed(6)} \xB7 cacheRead ${result.totalCacheRead}</sub>`
-  );
-  return lines.join("\n");
 }
 
 // src/pr-comment.ts
