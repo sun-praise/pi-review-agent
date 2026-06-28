@@ -1,6 +1,6 @@
 {
   "name": "pi-review-agent",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Multi-persona PR review agent on Pi with cross-runner session resume and correct cache_read accounting.",
   "license": "MIT",
   "bin": {
