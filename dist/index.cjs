@@ -169352,12 +169352,13 @@ async function appendTranscript(file2, messages) {
   await import_node_fs2.promises.appendFile(file2, block);
 }
 function isTextBlock(c) {
-  return typeof c === "object" && c !== null && c.type === "text";
+  return typeof c === "object" && c !== null && "type" in c && c.type === "text";
 }
 function collectFromAgent(agent, newMessages) {
   const { promise: promise2, resolve } = Promise.withResolvers();
   let lastAssistantText = "";
   let lastUsage = null;
+  let lastErrorMessage;
   agent.subscribe((ev) => {
     if (ev.type === "agent_end") {
       resolve({
@@ -169368,7 +169369,8 @@ function collectFromAgent(agent, newMessages) {
           cacheRead: lastUsage.cacheRead,
           cacheWrite: lastUsage.cacheWrite,
           costTotal: lastUsage.cost.total
-        } : null
+        } : null,
+        errorMessage: lastErrorMessage
       });
       return;
     }
@@ -169381,6 +169383,9 @@ function collectFromAgent(agent, newMessages) {
     if (text) lastAssistantText = text;
     if (msg.usage && (msg.usage.input || msg.usage.output || msg.usage.cacheRead)) {
       lastUsage = msg.usage;
+    }
+    if ("errorMessage" in msg && typeof msg.errorMessage === "string") {
+      lastErrorMessage = msg.errorMessage;
     }
   });
   return promise2;
@@ -169448,7 +169453,8 @@ ${opts.diff}`);
       await (timeoutMs > 0 ? withTimeout(promptP, timeoutMs, opts.persona) : promptP);
       const collected = await done;
       if (!collected.usage) {
-        throw new Error("review completed with no usage \u2014 stream likely errored");
+        const cause = collected.errorMessage ?? "no usage returned";
+        throw new Error(`review completed with no usage \u2014 ${cause}`);
       }
       await appendTranscript(file2, newMessages);
       return {

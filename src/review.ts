@@ -160,6 +160,14 @@ async function appendTranscript(file: string, messages: AgentMessage[]): Promise
 interface CollectedReview {
   content: string;
   usage: ReviewUsage | null;
+  /**
+   * Upstream error captured from pi-agent-core's failureMessage. When the
+   * stream errors, the loop emits a synthetic assistant message with empty
+   * usage and stopReason="error" + errorMessage=<real cause>. Without
+   * capturing this the real error is swallowed and the caller only sees
+   * "no usage" — useless for diagnosing transient vs permanent failures.
+   */
+  errorMessage?: string;
 }
 
 interface TextBlock {
@@ -168,7 +176,7 @@ interface TextBlock {
 }
 
 function isTextBlock(c: unknown): c is TextBlock {
-  return typeof c === "object" && c !== null && (c as { type?: unknown }).type === "text";
+  return typeof c === "object" && c !== null && "type" in c && c.type === "text";
 }
 
 /** Wire an Agent's event stream to a promise that resolves on agent_end. */
@@ -176,6 +184,7 @@ function collectFromAgent(agent: Agent, newMessages: AgentMessage[]): Promise<Co
   const { promise, resolve } = Promise.withResolvers<CollectedReview>();
   let lastAssistantText = "";
   let lastUsage: Usage | null = null;
+  let lastErrorMessage: string | undefined;
 
   agent.subscribe((ev: AgentEvent) => {
     if (ev.type === "agent_end") {
@@ -190,6 +199,7 @@ function collectFromAgent(agent: Agent, newMessages: AgentMessage[]): Promise<Co
               costTotal: lastUsage.cost.total,
             }
           : null,
+        errorMessage: lastErrorMessage,
       });
       return;
     }
@@ -202,6 +212,11 @@ function collectFromAgent(agent: Agent, newMessages: AgentMessage[]): Promise<Co
     if (text) lastAssistantText = text;
     if (msg.usage && (msg.usage.input || msg.usage.output || msg.usage.cacheRead)) {
       lastUsage = msg.usage;
+    }
+    // pi-agent-core's handleRunFailure emits a synthetic assistant message
+    // with empty usage, stopReason="error", and the real cause in errorMessage.
+    if ("errorMessage" in msg && typeof msg.errorMessage === "string") {
+      lastErrorMessage = msg.errorMessage;
     }
   });
 
@@ -288,7 +303,11 @@ export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
       await (timeoutMs > 0 ? withTimeout(promptP, timeoutMs, opts.persona) : promptP);
       const collected = await done;
       if (!collected.usage) {
-        throw new Error("review completed with no usage — stream likely errored");
+        // Stream errored without producing real content. The real cause is in
+        // collected.errorMessage (captured from pi-agent-core's failureMessage);
+        // surface it so transient/permanent classification and logs are useful.
+        const cause = collected.errorMessage ?? "no usage returned";
+        throw new Error(`review completed with no usage — ${cause}`);
       }
 
       // Only persist the transcript of a successful attempt — a partial
