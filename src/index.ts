@@ -99,7 +99,7 @@ function parseArgs(argv: string[]): CliOptions {
     diffMaxSizeKb: intEnv(
       args["diff-max-size-kb"],
       process.env.PI_REVIEW_DIFF_MAX_SIZE_KB,
-      0,
+      200,
     ),
     failOnSeverity: parseFailMode(
       args["fail-on-severity"] || process.env.PI_REVIEW_FAIL_ON_SEVERITY || "none",

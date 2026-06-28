@@ -169294,6 +169294,17 @@ function compileGlob(glob) {
   return (p) => full.test(p);
 }
 
+// src/transient-error.ts
+function isTransientReviewerError(err2) {
+  const msg = err2 instanceof Error ? err2.message : String(err2);
+  if (/\btimed out after \d+ms\b/.test(msg)) return false;
+  if (/\brate limit\b|\b429\b/i.test(msg)) return true;
+  if (/\b4[0-8]\d\b/.test(msg)) return false;
+  return /fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|EHOSTUNREACH|ENETUNREACH|UND_ERR|socket hang up|other side closed|request timeout|stream timeout|stream terminated|connection terminated|\b5\d\d\b/i.test(
+    msg
+  );
+}
+
 // src/review.ts
 function defaultSystemPrompt(persona) {
   const padded = "You are a senior code reviewer. Cite file:line for each finding, classify as blocker / warning / suggestion, and prefer specific concrete remedies over generic advice. Do not invent issues if the diff is fine. " + "Focus on correctness, then security, then clarity, in that order. ".repeat(40);
@@ -169402,13 +169413,6 @@ function sleep5(ms) {
   const { promise: promise2, resolve } = Promise.withResolvers();
   setTimeout(resolve, ms);
   return promise2;
-}
-function isTransientReviewerError(err2) {
-  const msg = err2 instanceof Error ? err2.message : String(err2);
-  if (/\btimed out after \d+ms\b/.test(msg)) return false;
-  return /fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|EHOSTUNREACH|ENETUNREACH|UND_ERR|socket hang up|other side closed|request timeout|stream timeout|stream terminated|connection terminated|no usage/i.test(
-    msg
-  );
 }
 async function runReview(opts) {
   const file2 = await sessionFile(opts);
@@ -172354,7 +172358,7 @@ function parseArgs(argv) {
     diffMaxSizeKb: intEnv(
       args["diff-max-size-kb"],
       process.env.PI_REVIEW_DIFF_MAX_SIZE_KB,
-      0
+      200
     ),
     failOnSeverity: parseFailMode(
       args["fail-on-severity"] || process.env.PI_REVIEW_FAIL_ON_SEVERITY || "none"

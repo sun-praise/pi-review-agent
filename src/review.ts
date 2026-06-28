@@ -28,6 +28,7 @@ import {
 } from "@earendil-works/pi-ai";
 import { createReadFileTool, createGrepTool, type GrepWalker } from "./tools.js";
 import { walkGrep } from "./walk-grep.js";
+import { isTransientReviewerError } from "./transient-error.js";
 
 export interface RunReviewOptions {
   provider: Provider<"openai-completions">;
@@ -238,22 +239,6 @@ function sleep(ms: number): Promise<void> {
   return promise;
 }
 
-/**
- * Classify an error as transient (worth retrying) vs permanent.
- *
- * pi-ai surfaces upstream stream resets as generic fetch failures; on long
- * reviews a single blip can wipe out a reviewer mid-stream. That must not
- * permanently fail the review. Our OWN deadline ("<label> timed out after
- * Nms") is excluded — it means the budget is spent, so retrying would just
- * immediately re-expire. "no usage" covers a stream that errored silently.
- */
-function isTransientReviewerError(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message : String(err);
-  if (/\btimed out after \d+ms\b/.test(msg)) return false;
-  return /fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|EHOSTUNREACH|ENETUNREACH|UND_ERR|socket hang up|other side closed|request timeout|stream timeout|stream terminated|connection terminated|no usage/i.test(
-    msg,
-  );
-}
 
 export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
   const file = await sessionFile(opts);

@@ -122,9 +122,10 @@ inputs:
     description: >
       Maximum diff size in kilobytes after filtering. If exceeded, only the
       leading file sections are kept and a truncation notice is appended.
-      Set 0 (default) to disable truncation.
+      Default 200 (200 KB) — large enough for normal PRs but small enough to
+      stay under LLM proxy body limits (HTTP 413). Set 0 to disable.
     required: false
-    default: "0"
+    default: "200"
   fail-on-severity:
     description: >
       Control the action exit code based on review severity. Allowed values:
