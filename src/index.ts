@@ -23,6 +23,8 @@ import { createLiteLLMDeepSeekProvider } from "./provider.js";
 import { runReview, type ReviewResult } from "./review.js";
 import { runTeamReview, renderTeamComment, type TeamReviewResult } from "./orchestrate.js";
 import { postPrComment, prCommentContextFromEnv } from "./pr-comment.js";
+import { filterDiff } from "./diff-filter.js";
+import { parseSeverity, shouldFail, type FailMode } from "./severity.js";
 
 interface CliOptions {
   pr: number;
@@ -37,6 +39,18 @@ interface CliOptions {
   cwd: string;
   /** Output language for review prose. Default "zh" (中文). */
   language: string;
+  /** Per-review hard timeout (ms). 0 = disable. Default 600000. */
+  timeoutMs: number;
+  /** Max attempts per review. Default 3. */
+  maxAttempts: number;
+  /** Retry backoff base (ms). Default 1000. */
+  retryBackoffMs: number;
+  /** Comma-separated globs to exclude from the diff (in addition to locks). */
+  diffExclude: string[];
+  /** Max diff size in KB after filtering. 0 = no limit. */
+  diffMaxSizeKb: number;
+  /** Fail-on-severity gate: "none" | "blocking" | "warning". */
+  failOnSeverity: "none" | "blocking" | "warning";
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -64,19 +78,74 @@ function parseArgs(argv: string[]): CliOptions {
     diffInline: process.env.PI_REVIEW_DIFF,
     persona,
     team,
-    skipCoordinator: skipEnv === "1" || skipEnv?.toLowerCase() === "true" || args["skip-coordinator"] === "true",
+    skipCoordinator:
+      skipEnv === "1" || skipEnv?.toLowerCase() === "true" || args["skip-coordinator"] === "true",
     baseURL: args["base-url"] || process.env.LITELLM_BASE_URL || "https://llm.sun-praise.com",
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
     language: args.language || process.env.PI_REVIEW_LANGUAGE || "zh",
     modelId: args.model || process.env.PI_REVIEW_MODEL,
     cwd: args.cwd || process.cwd(),
+    timeoutMs: intEnv(args["timeout-ms"], process.env.PI_REVIEW_TIMEOUT_MS, 600_000),
+    maxAttempts: intEnv(args["max-attempts"], process.env.PI_REVIEW_MAX_ATTEMPTS, 3),
+    retryBackoffMs: intEnv(
+      args["retry-backoff-ms"],
+      process.env.PI_REVIEW_RETRY_BACKOFF_MS,
+      1000,
+    ),
+    diffExclude: (args["diff-exclude"] || process.env.PI_REVIEW_DIFF_EXCLUDE || "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+    diffMaxSizeKb: intEnv(
+      args["diff-max-size-kb"],
+      process.env.PI_REVIEW_DIFF_MAX_SIZE_KB,
+      0,
+    ),
+    failOnSeverity: parseFailMode(
+      args["fail-on-severity"] || process.env.PI_REVIEW_FAIL_ON_SEVERITY || "none",
+    ),
   };
+}
+
+function intEnv(argVal: string | undefined, envVal: string | undefined, fallback: number): number {
+  const raw = argVal || envVal;
+  if (raw === undefined || raw === "") return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+function parseFailMode(raw: string): "none" | "blocking" | "warning" {
+  return raw === "blocking" || raw === "warning" ? raw : "none";
 }
 
 function loadDiff(opts: CliOptions): string {
   if (opts.diffInline) return opts.diffInline;
   if (opts.diffFile) return readFileSync(opts.diffFile, "utf8");
   throw new Error("no diff source: set --diff-file, PI_REVIEW_DIFF_FILE, or PI_REVIEW_DIFF");
+}
+
+/**
+ * Load + filter the diff. Lock files are always stripped; user globs add
+ * to the exclusion. A byte budget keeps the payload inside the model's
+ * context window. Logs what was dropped so the run summary reflects it.
+ */
+function prepareDiff(opts: CliOptions): string {
+  const raw = loadDiff(opts);
+  const r = filterDiff(raw, {
+    excludePatterns: opts.diffExclude.length > 0 ? opts.diffExclude : undefined,
+    maxSizeBytes: opts.diffMaxSizeKb > 0 ? opts.diffMaxSizeKb * 1024 : undefined,
+  });
+  if (r.removedFiles.length > 0) {
+    process.stderr.write(
+      `diff-filter: dropped ${r.removedFiles.length} file(s): ${r.removedFiles.join(", ")}\n`,
+    );
+  }
+  if (r.truncated) {
+    process.stderr.write(
+      `diff-filter: truncated to ${Math.round(r.filteredBytes / 1024)} KB after filtering\n`,
+    );
+  }
+  return r.filtered;
 }
 
 function appendStepSummary(markdown: string): void {
@@ -132,10 +201,10 @@ function writeTeamSummary(result: TeamReviewResult): void {
   ]);
 }
 
-async function runSingle(opts: CliOptions): Promise<void> {
+async function runSingle(opts: CliOptions): Promise<number> {
   const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
   const persona = opts.persona as string;
-  const diff = loadDiff(opts);
+  const diff = prepareDiff(opts);
   const result = await runReview({
     provider,
     pr: opts.pr,
@@ -144,6 +213,9 @@ async function runSingle(opts: CliOptions): Promise<void> {
     sessionsRoot: opts.sessionsRoot,
     cwd: opts.cwd,
     language: opts.language,
+    timeoutMs: opts.timeoutMs,
+    maxAttempts: opts.maxAttempts,
+    retryBackoffMs: opts.retryBackoffMs,
   });
   process.stdout.write(`\n=== review (${persona}, resumed=${result.resumed}) ===\n${result.content}\n`);
   process.stdout.write(
@@ -156,10 +228,14 @@ async function runSingle(opts: CliOptions): Promise<void> {
     `resumed=${result.resumed}`,
     `sessionId=${result.sessionId}`,
   ]);
+  // Single-persona mode has no coordinator: parse severity straight from
+  // the reviewer's output. The gate is fail-closed (unparseable → fail).
+  const severity = parseSeverity(result.content);
+  return shouldFail(severity, opts.failOnSeverity) ? 1 : 0;
 }
 
-async function runTeam(opts: CliOptions): Promise<void> {
-  const diff = loadDiff(opts);
+async function runTeam(opts: CliOptions): Promise<number> {
+  const diff = prepareDiff(opts);
   const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
   const result = await runTeamReview({
     provider,
@@ -170,6 +246,9 @@ async function runTeam(opts: CliOptions): Promise<void> {
     team: opts.team,
     language: opts.language,
     skipCoordinator: opts.skipCoordinator,
+    timeoutMs: opts.timeoutMs,
+    maxAttempts: opts.maxAttempts,
+    retryBackoffMs: opts.retryBackoffMs,
   });
   process.stdout.write(`\n=== team review (${result.personas.length} personas) ===\n`);
   process.stdout.write(`verdict: ${result.verdict}\n`);
@@ -190,18 +269,17 @@ async function runTeam(opts: CliOptions): Promise<void> {
     const outcome = await postPrComment(ctx, body);
     process.stdout.write(`\nPR comment: ${outcome}\n`);
   }
+  return shouldFail(result.severity, opts.failOnSeverity) ? 1 : 0;
 }
 
-async function main(): Promise<void> {
+async function main(): Promise<number> {
   const opts = parseArgs(process.argv);
-  if (opts.team) {
-    await runTeam(opts);
-  } else {
-    await runSingle(opts);
-  }
+  return opts.team ? runTeam(opts) : runSingle(opts);
 }
 
-main().catch((err) => {
-  console.error("pi-review-agent failed:", err);
-  process.exit(1);
-});
+main()
+  .then((code) => process.exit(code))
+  .catch((err) => {
+    console.error("pi-review-agent failed:", err);
+    process.exit(1);
+  });

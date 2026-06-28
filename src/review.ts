@@ -48,6 +48,18 @@ export interface RunReviewOptions {
    * English uppercase — they are parsed by machine.
    */
   language?: string;
+  /**
+   * Per-review hard timeout in ms. On expiry the attempt fails and, if the
+   * error is transient, retries. Default 600_000 (10 min). Set to 0 to
+   * disable (not recommended — a wedged stream would hang the whole batch).
+   */
+  timeoutMs?: number;
+  /** Max attempts per review. Default 3. A transient upstream blip triggers
+   *  a fresh-session retry with exponential backoff + jitter. */
+  maxAttempts?: number;
+  /** Base (ms) for exponential backoff between retries. Default 1000.
+   *  Backoff = base * 2^(attempt-1) + jitter[0, base]. */
+  retryBackoffMs?: number;
   /** Inject a custom grep walker (tests). Defaults to the file-system walker. */
   grepWalker?: GrepWalker;
 }
@@ -196,6 +208,38 @@ function collectFromAgent(agent: Agent, newMessages: AgentMessage[]): Promise<Co
   return promise;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  const { promise: timeout, reject } = Promise.withResolvers<never>();
+  const timer = setTimeout(
+    () => reject(new Error(`${label} timed out after ${ms}ms`)),
+    ms,
+  );
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+function sleep(ms: number): Promise<void> {
+  const { promise, resolve } = Promise.withResolvers<void>();
+  setTimeout(resolve, ms);
+  return promise;
+}
+
+/**
+ * Classify an error as transient (worth retrying) vs permanent.
+ *
+ * pi-ai surfaces upstream stream resets as generic fetch failures; on long
+ * reviews a single blip can wipe out a reviewer mid-stream. That must not
+ * permanently fail the review. Our OWN deadline ("<label> timed out after
+ * Nms") is excluded — it means the budget is spent, so retrying would just
+ * immediately re-expire. "no usage" covers a stream that errored silently.
+ */
+function isTransientReviewerError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/\btimed out after \d+ms\b/.test(msg)) return false;
+  return /fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|EHOSTUNREACH|ENETUNREACH|UND_ERR|socket hang up|other side closed|request timeout|stream timeout|stream terminated|connection terminated|no usage/i.test(
+    msg,
+  );
+}
+
 export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
   const file = await sessionFile(opts);
   const transcript = await loadTranscript(file);
@@ -214,39 +258,68 @@ export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
   if (!model) {
     throw new Error(`model ${modelId} not found in provider ${opts.provider.id}`);
   }
-
   const tools = [createReadFileTool(cwd), createGrepTool(cwd, opts.grepWalker ?? walkGrep)];
 
-  const agent = new Agent({
-    initialState: {
-      systemPrompt,
-      model: model as Model<Api>,
-      thinkingLevel: "off",
-      tools,
-      messages: transcript,
-    },
-    sessionId,
-    streamFn: async (m, ctx, streamOpts) =>
-      models.streamSimple(m, ctx, streamOpts ?? {}) as never,
-  });
+  const timeoutMs = opts.timeoutMs ?? 600_000;
+  const maxAttempts = opts.maxAttempts ?? 3;
+  const backoffBase = opts.retryBackoffMs ?? 1000;
 
-  const newMessages: AgentMessage[] = [];
-  const done = collectFromAgent(agent, newMessages);
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      // Fresh Agent per attempt: a half-run agent after a stream error is
+      // not safe to continue. The transcript seed is replayed each time;
+      // DeepSeek's prefix cache absorbs the replay at a discount.
+      const newMessages: AgentMessage[] = [];
+      const agent = new Agent({
+        initialState: {
+          systemPrompt,
+          model: model as Model<Api>,
+          thinkingLevel: "off",
+          tools,
+          messages: transcript,
+        },
+        sessionId,
+        streamFn: async (m, ctx, streamOpts) =>
+          models.streamSimple(m, ctx, streamOpts ?? {}) as never,
+      });
+      const done = collectFromAgent(agent, newMessages);
+      const promptP = agent.prompt(`Review this diff:\n\n${opts.diff}`);
+      await (timeoutMs > 0 ? withTimeout(promptP, timeoutMs, opts.persona) : promptP);
+      const collected = await done;
+      if (!collected.usage) {
+        throw new Error("review completed with no usage — stream likely errored");
+      }
 
-  await agent.prompt(`Review this diff:\n\n${opts.diff}`);
-  const collected = await done;
-
-  if (!collected.usage) {
-    throw new Error("review completed with no usage — stream likely errored");
+      // Only persist the transcript of a successful attempt — a partial
+      // transcript from a failed run would poison the next session's cache
+      // prefix and confuse the resume path.
+      await appendTranscript(file, newMessages);
+      return {
+        content: collected.content,
+        usage: collected.usage,
+        resumed,
+        sessionId,
+        newMessages,
+      };
+    } catch (err) {
+      lastError = err;
+      const transient = isTransientReviewerError(err);
+      if (attempt >= maxAttempts || !transient) throw err;
+      // Exponential backoff + jitter: the original failure mode was N
+      // reviewers dying in the same second, so without jitter they'd all
+      // retry in the same second too and re-impose identical burst load.
+      const backoff = backoffBase * 2 ** (attempt - 1) + Math.floor(Math.random() * backoffBase);
+      const msg = err instanceof Error ? err.message : String(err);
+      process.stderr.write(
+        `[${opts.persona}] attempt ${attempt}/${maxAttempts} failed (${msg}), retrying in ${backoff}ms\n`,
+      );
+      await sleep(backoff);
+    }
   }
-
-  await appendTranscript(file, newMessages);
-
-  return {
-    content: collected.content,
-    usage: collected.usage,
-    resumed,
-    sessionId,
-    newMessages,
-  };
+  // Unreachable — the loop returns on success and throws on terminal failure
+  // — but TS can't prove the for-loop never falls through.
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`review failed for ${opts.persona} without a captured error`);
 }
