@@ -186,6 +186,7 @@ runs:
         # PR comment posting reads these:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GITHUB_REF: ${{ github.ref }}
+        PI_REVIEW_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_WORKSPACE: ${{ github.workspace }}
       run: |

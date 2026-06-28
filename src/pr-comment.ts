@@ -19,6 +19,14 @@ export interface PrCommentContext {
   pr: number;
   /** GitHub token with PR comment write scope. */
   token: string;
+  /**
+   * PR head commit SHA. Comments are de-duplicated per head SHA: a re-run on
+   * the same SHA edits the prior comment in place, while a new commit (e.g.
+   * a push fixing review feedback) posts a fresh comment so the review
+   * iteration history stays visible. Empty when not injected (e.g. stale
+   * action.yml); in that case we always create, never edit.
+   */
+  headSha: string;
 }
 
 interface GithubComment {
@@ -35,9 +43,27 @@ async function fetchJson(url: string, init: RequestInit): Promise<unknown> {
   return res.json();
 }
 
-function hasMarker(body: string | null): boolean {
-  return body !== null && body.includes(MARKER);
+const SHA_LINE_PREFIX = "<!-- pi-review-agent-sha:";
+const SHA_LINE_SUFFIX = " -->";
+
+/**
+ * Find a prior review comment posted for the same head SHA. Returns its id,
+ * or undefined when none matches (different SHA, first run on this SHA, or
+ * legacy comment without the sha line).
+ */
+function findUpdatable(
+  comments: GithubComment[],
+  sha: string,
+): number | undefined {
+  const target = `${SHA_LINE_PREFIX}${sha}${SHA_LINE_SUFFIX}`;
+  for (const c of comments) {
+    if (c.body !== null && c.body.includes(MARKER) && c.body.includes(target)) {
+      return c.id;
+    }
+  }
+  return undefined;
 }
+
 
 async function listComments(ctx: PrCommentContext): Promise<GithubComment[]> {
   const url = `${ctx.apiBase}/repos/${ctx.repository}/issues/${ctx.pr}/comments`;
@@ -83,10 +109,6 @@ async function updateComment(
   });
 }
 
-export function withMarker(body: string): string {
-  return `${MARKER}\n${body}`;
-}
-
 /** Post or update the comment. Returns the action taken, or null if skipped. */
 export async function postPrComment(
   ctx: PrCommentContext,
@@ -96,13 +118,18 @@ export async function postPrComment(
     process.stderr.write("postPrComment: no GITHUB_TOKEN; skipping\n");
     return "skipped";
   }
-  const payload = withMarker(body);
+  const head = ctx.headSha
+    ? `${MARKER}\n${SHA_LINE_PREFIX}${ctx.headSha}${SHA_LINE_SUFFIX}`
+    : MARKER;
+  const payload = `${head}\n${body}`;
   try {
-    const existing = await listComments(ctx);
-    const own = existing.find((c) => hasMarker(c.body));
-    if (own) {
-      await updateComment(ctx, own.id, payload);
-      return "updated";
+    if (ctx.headSha) {
+      const existing = await listComments(ctx);
+      const id = findUpdatable(existing, ctx.headSha);
+      if (id !== undefined) {
+        await updateComment(ctx, id, payload);
+        return "updated";
+      }
     }
     await createComment(ctx, payload);
     return "created";
@@ -126,11 +153,11 @@ export function prCommentContextFromEnv(env: NodeJS.ProcessEnv): PrCommentContex
   const repository = env.GITHUB_REPOSITORY ?? "";
   if (!repository) return null;
   const token = env.GITHUB_TOKEN ?? "";
-  if (!token) return null;
   return {
     apiBase: env.GITHUB_API_URL ?? "https://api.github.com",
     repository,
     pr,
     token,
+    headSha: env.PI_REVIEW_HEAD_SHA ?? "",
   };
 }

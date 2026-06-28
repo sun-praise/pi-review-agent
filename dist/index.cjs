@@ -171991,8 +171991,16 @@ async function fetchJson(url2, init) {
   }
   return res.json();
 }
-function hasMarker(body) {
-  return body !== null && body.includes(MARKER);
+var SHA_LINE_PREFIX = "<!-- pi-review-agent-sha:";
+var SHA_LINE_SUFFIX = " -->";
+function findUpdatable(comments, sha) {
+  const target = `${SHA_LINE_PREFIX}${sha}${SHA_LINE_SUFFIX}`;
+  for (const c of comments) {
+    if (c.body !== null && c.body.includes(MARKER) && c.body.includes(target)) {
+      return c.id;
+    }
+  }
+  return void 0;
 }
 async function listComments(ctx) {
   const url2 = `${ctx.apiBase}/repos/${ctx.repository}/issues/${ctx.pr}/comments`;
@@ -172031,22 +172039,23 @@ async function updateComment(ctx, id, body) {
     body: JSON.stringify({ body })
   });
 }
-function withMarker(body) {
-  return `${MARKER}
-${body}`;
-}
 async function postPrComment(ctx, body) {
   if (!ctx.token) {
     process.stderr.write("postPrComment: no GITHUB_TOKEN; skipping\n");
     return "skipped";
   }
-  const payload = withMarker(body);
+  const head = ctx.headSha ? `${MARKER}
+${SHA_LINE_PREFIX}${ctx.headSha}${SHA_LINE_SUFFIX}` : MARKER;
+  const payload = `${head}
+${body}`;
   try {
-    const existing = await listComments(ctx);
-    const own = existing.find((c) => hasMarker(c.body));
-    if (own) {
-      await updateComment(ctx, own.id, payload);
-      return "updated";
+    if (ctx.headSha) {
+      const existing = await listComments(ctx);
+      const id = findUpdatable(existing, ctx.headSha);
+      if (id !== void 0) {
+        await updateComment(ctx, id, payload);
+        return "updated";
+      }
     }
     await createComment(ctx, payload);
     return "created";
@@ -172066,12 +172075,12 @@ function prCommentContextFromEnv(env2) {
   const repository = env2.GITHUB_REPOSITORY ?? "";
   if (!repository) return null;
   const token = env2.GITHUB_TOKEN ?? "";
-  if (!token) return null;
   return {
     apiBase: env2.GITHUB_API_URL ?? "https://api.github.com",
     repository,
     pr,
-    token
+    token,
+    headSha: env2.PI_REVIEW_HEAD_SHA ?? ""
   };
 }
 
