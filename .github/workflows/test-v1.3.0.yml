@@ -1,0 +1,27 @@
+name: test-v1.3.0
+
+# One-shot: verify the released @v1.3.0 consumes correctly on a real PR.
+# Uses the published action (NOT `uses: ./`) so we test what users get.
+# Delete this workflow after v1 moving tag is advanced.
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Run released pi-review-agent@v1.3.0
+        uses: sun-praise/pi-review-agent@v1.3.0
+        with:
+          team: "quality:1,security:1,performance:1"
+          litellm-url: ${{ secrets.LITELLM_URL }}
+          litellm-api-key: ${{ secrets.LITELLM_API_KEY }}

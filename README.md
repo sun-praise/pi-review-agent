@@ -67,9 +67,11 @@ The action:
 - restores the per-PR session via `actions/cache` so re-pushes continue the session
 - writes a cost table to `$GITHUB_STEP_SUMMARY` (per-persona, with cacheRead surfaced)
 - emits `verdict`, `cacheRead`, `totalCost` as step outputs
-- posts a single PR comment (edited in place across re-pushes via a hidden marker)
+- injects PR context (title, body, comments, prior reviews) into every
+  reviewer's prompt so reviewers see *why* the PR exists — disable with
+  `include-pr-context: false`
 
-`pull-requests: write` permission is required for comment posting.
+ `pull-requests: write` permission is required for comment posting.
 
 ## Install via agent skill
 
