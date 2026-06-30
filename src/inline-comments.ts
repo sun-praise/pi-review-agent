@@ -131,36 +131,51 @@ function tryParseArray(raw: string): unknown[] | null {
 }
 
 /**
- * Pull the `<inline_comments>` block out of the coordinator text. Returns the
- * inner payload (which may include a ```json fence) or null when absent.
+ * Find every `<inline_comments>...</inline_comments>` candidate payload in the
+ * coordinator text, in order of appearance.
+ *
+ * Why plural, not first-match: the coordinator routinely discusses its own
+ * output format in the surrounding prose (e.g. `coordinator.content.includes
+ * ("<inline_comments>")`), and a JSON body string value can also contain the
+ * literal tag name. Those textual mentions pair with a later closing tag and
+ * form "fake" candidate blocks ahead of the real one. Collecting every
+ * candidate and letting the parser try each is what makes self-referential
+ * coordinator output survivable: prose candidates fail JSON parsing and are
+ * skipped; the real block (a fenced JSON array) parses and wins.
+ *
+ * An unclosed `<inline_comments>` (no matching close) stops the scan — we
+ * don't guess where it ends.
  */
-function extractBlock(text: string): string | null {
-  const open = text.indexOf("<inline_comments>");
-  if (open === -1) return null;
-  const close = text.indexOf("</inline_comments>", open);
-  if (close === -1) return null; // unclosed — treat as absent, don't guess
-  return text.slice(open + "<inline_comments>".length, close);
+function extractAllBlocks(text: string): string[] {
+  const OPEN = "<inline_comments>";
+  const CLOSE = "</inline_comments>";
+  const payloads: string[] = [];
+  let idx = 0;
+  while (idx <= text.length - OPEN.length) {
+    const open = text.indexOf(OPEN, idx);
+    if (open === -1) break;
+    const close = text.indexOf(CLOSE, open + OPEN.length);
+    if (close === -1) break;
+    payloads.push(text.slice(open + OPEN.length, close));
+    idx = close + CLOSE.length;
+  }
+  return payloads;
 }
 
 /**
- * Parse structured inline comments from coordinator markdown.
- *
- * Returns the validated subset (possibly empty). Never throws: a missing or
- * malformed block degrades to [] so callers can branch on length alone.
- *
- * Order of fallback attempts on the inner payload:
+ * Parse one candidate payload into inline comments via the candidate chain:
  *   1. raw payload (may be a fenced ```json array)
  *   2. payload with a leading ```json / ``` fence stripped
  *   3. first balanced `[...]` anywhere in the payload
+ *
+ * Returns the validated comments (possibly empty — a JSON array that parsed
+ * but held zero valid entries), or null when no candidate parses as a JSON
+ * array at all. The null distinction lets the caller keep scanning other
+ * blocks instead of stopping at a prose candidate that isn't JSON.
  */
-export function parseInlineComments(text: string): InlineComment[] {
-  const payload = extractBlock(text);
-  if (payload === null) return [];
-  if (payload.trim().length === 0) return [];
-
+function parsePayload(payload: string): InlineComment[] | null {
   const candidates: string[] = [payload];
 
-  // Strip a wrapping ```json ... ``` or ``` ... ``` fence.
   const fence = payload.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   if (fence) candidates.push(fence[1]);
 
@@ -177,9 +192,28 @@ export function parseInlineComments(text: string): InlineComment[] {
       const c = toInlineComment(entry);
       if (c !== null) comments.push(c);
     }
-    if (comments.length > 0) return comments;
-    // Parsed a valid array but zero valid entries — stop, don't keep trying.
-    return [];
+    return comments;
+  }
+  return null;
+}
+
+/**
+ * Parse structured inline comments from coordinator markdown.
+ *
+ * Returns the validated subset (possibly empty). Never throws: a missing or
+ * malformed block degrades to [] so callers can branch on length alone.
+ *
+ * Scans every `<inline_comments>` candidate block and returns the first that
+ * yields valid comments. This handles self-referential coordinator output
+ * where the tag name appears in prose or inside a JSON body string value
+ * before the real block — those false candidates don't parse as a JSON array
+ * of comments and are skipped.
+ */
+export function parseInlineComments(text: string): InlineComment[] {
+  for (const payload of extractAllBlocks(text)) {
+    if (payload.trim().length === 0) continue;
+    const comments = parsePayload(payload);
+    if (comments !== null && comments.length > 0) return comments;
   }
   return [];
 }

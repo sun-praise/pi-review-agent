@@ -172005,17 +172005,22 @@ function tryParseArray(raw) {
   }
   return null;
 }
-function extractBlock(text) {
-  const open2 = text.indexOf("<inline_comments>");
-  if (open2 === -1) return null;
-  const close = text.indexOf("</inline_comments>", open2);
-  if (close === -1) return null;
-  return text.slice(open2 + "<inline_comments>".length, close);
+function extractAllBlocks(text) {
+  const OPEN = "<inline_comments>";
+  const CLOSE = "</inline_comments>";
+  const payloads = [];
+  let idx = 0;
+  while (idx <= text.length - OPEN.length) {
+    const open2 = text.indexOf(OPEN, idx);
+    if (open2 === -1) break;
+    const close = text.indexOf(CLOSE, open2 + OPEN.length);
+    if (close === -1) break;
+    payloads.push(text.slice(open2 + OPEN.length, close));
+    idx = close + CLOSE.length;
+  }
+  return payloads;
 }
-function parseInlineComments(text) {
-  const payload = extractBlock(text);
-  if (payload === null) return [];
-  if (payload.trim().length === 0) return [];
+function parsePayload(payload) {
   const candidates = [payload];
   const fence = payload.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   if (fence) candidates.push(fence[1]);
@@ -172029,8 +172034,15 @@ function parseInlineComments(text) {
       const c = toInlineComment(entry);
       if (c !== null) comments.push(c);
     }
-    if (comments.length > 0) return comments;
-    return [];
+    return comments;
+  }
+  return null;
+}
+function parseInlineComments(text) {
+  for (const payload of extractAllBlocks(text)) {
+    if (payload.trim().length === 0) continue;
+    const comments = parsePayload(payload);
+    if (comments !== null && comments.length > 0) return comments;
   }
   return [];
 }
