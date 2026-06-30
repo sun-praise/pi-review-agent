@@ -23,6 +23,7 @@ import { createLiteLLMDeepSeekProvider } from "./provider.js";
 import { runReview, type ReviewResult } from "./review.js";
 import { runTeamReview, renderTeamComment, type TeamReviewResult } from "./orchestrate.js";
 import { postPrComment, prCommentContextFromEnv } from "./pr-comment.js";
+import { fetchPrContext, prContextOptionsFromEnv } from "./github-context.js";
 import { filterDiff } from "./diff-filter.js";
 import { parseSeverity, shouldFail, type FailMode } from "./severity.js";
 
@@ -51,6 +52,12 @@ interface CliOptions {
   diffMaxSizeKb: number;
   /** Fail-on-severity gate: "none" | "blocking" | "warning". */
   failOnSeverity: "none" | "blocking" | "warning";
+  /** Fetch PR metadata (title/body/comments/reviews) and prepend to reviewer
+   *  prompt. Default true. Set PI_REVIEW_INCLUDE_PR_CONTEXT=0/false to disable. */
+  includePrContext: boolean;
+  /** Populated in main() after parseArgs when includePrContext is on. Empty
+   *  string = no context (fetch skipped, failed, or PR has no discussion). */
+  prContext: string;
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -104,6 +111,10 @@ function parseArgs(argv: string[]): CliOptions {
     failOnSeverity: parseFailMode(
       args["fail-on-severity"] || process.env.PI_REVIEW_FAIL_ON_SEVERITY || "none",
     ),
+    includePrContext: !/^(0|false|no|off)$/i.test(
+      args["include-pr-context"] ?? process.env.PI_REVIEW_INCLUDE_PR_CONTEXT ?? "true",
+    ),
+    prContext: "",
   };
 }
 
@@ -236,6 +247,7 @@ async function runSingle(opts: CliOptions): Promise<number> {
     pr: opts.pr,
     persona,
     diff,
+    prContext: opts.prContext,
     sessionsRoot: opts.sessionsRoot,
     cwd: opts.cwd,
     language: opts.language,
@@ -267,6 +279,7 @@ async function runTeam(opts: CliOptions): Promise<number> {
     provider,
     pr: opts.pr,
     diff,
+    prContext: opts.prContext,
     cwd: opts.cwd,
     sessionsRoot: opts.sessionsRoot,
     team: opts.team,
@@ -300,6 +313,10 @@ async function runTeam(opts: CliOptions): Promise<number> {
 
 async function main(): Promise<number> {
   const opts = parseArgs(process.argv);
+  if (opts.includePrContext) {
+    const ctxOpts = prContextOptionsFromEnv(process.env);
+    if (ctxOpts) opts.prContext = await fetchPrContext(ctxOpts);
+  }
   return opts.team ? runTeam(opts) : runSingle(opts);
 }
 

@@ -35,6 +35,13 @@ export interface RunReviewOptions {
   pr: number;
   persona: string;
   diff: string;
+  /**
+   * Pre-formatted PR context block (title, body, comments, reviews). When
+   * set, prepended to the diff in the user prompt so the reviewer sees why
+   * the PR exists and what humans/bots already said. Empty/undefined →
+   * diff-only (legacy behavior). Best-effort: callers should obtain this
+   * via fetchPrContext which never throws. */
+  prContext?: string;
   /** Root directory for session JSONL files. */
   sessionsRoot: string;
   /** Reviewer cwd for read/grep tools. Default process.cwd(). */
@@ -284,7 +291,10 @@ export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
           models.streamSimple(m, ctx, streamOpts ?? {}) as never,
       });
       const done = collectFromAgent(agent, newMessages);
-      const promptP = agent.prompt(`Review this diff:\n\n${opts.diff}`);
+      const userMessage = opts.prContext
+        ? `${opts.prContext}\n\n=== Review request ===\nReview this diff:\n\n${opts.diff}`
+        : `Review this diff:\n\n${opts.diff}`;
+      const promptP = agent.prompt(userMessage);
       await (timeoutMs > 0 ? withTimeout(promptP, timeoutMs, opts.persona) : promptP);
       const collected = await done;
       if (!collected.usage) {

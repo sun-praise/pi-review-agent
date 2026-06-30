@@ -21,6 +21,11 @@ export interface TeamReviewOptions {
   provider: Provider<"openai-completions">;
   pr: number;
   diff: string;
+  /**
+   * Pre-formatted PR context block (from fetchPrContext). Prepended to every
+   * reviewer's prompt (NOT the coordinator — it sees reviewer outputs only).
+   * Undefined/empty → diff-only. */
+  prContext?: string;
   cwd: string;
   sessionsRoot: string;
   /** e.g. "quality:1,security:1,performance:1". Default: all built-ins. */
@@ -164,6 +169,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
           pr: opts.pr,
           persona: persona.name,
           diff: opts.diff,
+          prContext: opts.prContext,
           sessionsRoot: opts.sessionsRoot,
           cwd: opts.cwd,
           systemPrompt: persona.prompt,
