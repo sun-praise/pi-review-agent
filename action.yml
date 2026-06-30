@@ -135,6 +135,16 @@ inputs:
       forces failure whenever the gate is armed.
     required: false
     default: "none"
+  include-pr-context:
+    description: >
+      Fetch PR metadata (title, body, comments, prior reviews) and prepend
+      it to every reviewer's prompt, so reviewers see *why* the PR exists
+      and what humans/bots already said — not just the diff. Self-authored
+      comments (from this agent) are filtered out to avoid feedback loops.
+      Default "true". Needs the github-token to have pull-requests: read
+      (the default github.token has it). Set "false" to disable.
+    required: false
+    default: "true"
 
 outputs:
   verdict:
@@ -223,6 +233,7 @@ runs:
         PI_REVIEW_SKIP_COORDINATOR: ${{ inputs.skip-coordinator }}
         PI_REVIEW_MODEL: ${{ inputs.model }}
         PI_REVIEW_LANGUAGE: ${{ inputs.language }}
+        PI_REVIEW_INCLUDE_PR_CONTEXT: ${{ inputs.include-pr-context }}
         PI_REVIEW_SESSIONS_ROOT: ${{ inputs.sessions-root != '' && inputs.sessions-root || format('{0}/.pi-review-sessions', runner.temp) }}
         LITELLM_BASE_URL: ${{ inputs.litellm-url }}
         LITELLM_API_KEY: ${{ inputs.litellm-api-key }}
