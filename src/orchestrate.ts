@@ -16,7 +16,7 @@ import type { Provider } from "@earendil-works/pi-ai";
 import { runReview, type ReviewResult } from "./review.js";
 import { loadPersonas, resolveTeam, type Persona } from "./personas.js";
 import { parseSeverity, withFailedReviewerOverride, type Severity } from "./severity.js";
-import { parseInlineComments, type InlineComment } from "./inline-comments.js";
+import { extractAllBlocks, parseInlineComments, type InlineComment } from "./inline-comments.js";
 
 export interface TeamReviewOptions {
   provider: Provider<"openai-completions">;
@@ -273,7 +273,11 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
   // than inside the parser. Helps catch a model that keeps emitting
   // malformed JSON — otherwise the failure is silently an empty array.
   const inlineComments = coordinator ? parseInlineComments(coordinator.content) : [];
-  if (coordinator && inlineComments.length === 0 && coordinator.content.includes("<inline_comments>")) {
+  // Diagnostic: warn only when a real paired block exists but yielded
+  // nothing. `includes("<inline_comments>")` would false-positive on prose
+  // that merely mentions the tag name (the coordinator discusses its own
+  // format often); extractAllBlocks only matches paired open/close tags.
+  if (coordinator && inlineComments.length === 0 && extractAllBlocks(coordinator.content).length > 0) {
     process.stderr.write(
       "coordinator emitted an <inline_comments> block but it yielded no valid comments; " +
         "falling back to a summary-only review\n",

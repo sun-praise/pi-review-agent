@@ -172005,6 +172005,62 @@ function tryParseArray(raw) {
   }
   return null;
 }
+function splitEntries(arrayBody) {
+  const entries = [];
+  let depth = 0;
+  let start = -1;
+  let inStr = false;
+  let escape2 = false;
+  for (let i2 = 0; i2 < arrayBody.length; i2 += 1) {
+    const c = arrayBody[i2];
+    if (escape2) {
+      escape2 = false;
+      continue;
+    }
+    if (c === "\\" && inStr) {
+      escape2 = true;
+      continue;
+    }
+    if (c === '"') {
+      inStr = !inStr;
+      continue;
+    }
+    if (inStr) continue;
+    if (c === "{") {
+      if (depth === 0) start = i2;
+      depth += 1;
+    } else if (c === "}") {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        entries.push(arrayBody.slice(start, i2 + 1));
+        start = -1;
+      }
+    }
+  }
+  return entries;
+}
+function parseEntriesLenient(candidate) {
+  const lb = candidate.indexOf("[");
+  const rb = candidate.lastIndexOf("]");
+  if (lb === -1 || rb === -1 || rb <= lb) return [];
+  const body = candidate.slice(lb + 1, rb);
+  const comments = [];
+  for (const entrySrc of splitEntries(body)) {
+    let parsed = void 0;
+    try {
+      parsed = JSON.parse(entrySrc);
+    } catch {
+      try {
+        parsed = JSON.parse(entrySrc.replace(/[\u0000-\u001F]/g, " "));
+      } catch {
+        continue;
+      }
+    }
+    const c = toInlineComment(parsed);
+    if (c !== null) comments.push(c);
+  }
+  return comments;
+}
 function extractAllBlocks(text) {
   const OPEN = "<inline_comments>";
   const CLOSE = "</inline_comments>";
@@ -172028,13 +172084,16 @@ function parsePayload(payload) {
   if (balanced && balanced !== payload) candidates.push(balanced);
   for (const candidate of candidates) {
     const arr = tryParseArray(candidate);
-    if (arr === null) continue;
-    const comments = [];
-    for (const entry of arr) {
-      const c = toInlineComment(entry);
-      if (c !== null) comments.push(c);
+    if (arr !== null) {
+      const comments = [];
+      for (const entry of arr) {
+        const c = toInlineComment(entry);
+        if (c !== null) comments.push(c);
+      }
+      return comments;
     }
-    return comments;
+    const lenient = parseEntriesLenient(candidate);
+    if (lenient.length > 0) return lenient;
   }
   return null;
 }
@@ -172257,7 +172316,7 @@ async function runTeamReview(opts) {
   const severity = withFailedReviewerOverride(parseSeverity(baseText), failedReviewers);
   const finalVerdict = failedReviewers.length > 0 ? "CANNOT MERGE" : verdict;
   const inlineComments = coordinator ? parseInlineComments(coordinator.content) : [];
-  if (coordinator && inlineComments.length === 0 && coordinator.content.includes("<inline_comments>")) {
+  if (coordinator && inlineComments.length === 0 && extractAllBlocks(coordinator.content).length > 0) {
     process.stderr.write(
       "coordinator emitted an <inline_comments> block but it yielded no valid comments; falling back to a summary-only review\n"
     );

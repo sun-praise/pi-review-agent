@@ -175,4 +175,30 @@ test("parseInlineComments", async (t) => {
     assert.equal(got.length, 1);
     assert.equal(got[0].file, "real.ts");
   });
+
+  // ─── Regression: one malformed entry doesn't sink the whole block ────────
+  // Mirrors PR #10's third dogfood run: the coordinator used Chinese-style
+  // quotes `"..."` inside the LAST entry's body without escaping, which
+  // broke whole-array JSON.parse. Lenient per-entry parsing keeps the valid
+  // entries before the break and drops the broken tail.
+  //
+  // Caveat: splitEntries is string-aware and assumes valid JSON, so a bad
+  // quote in the MIDDLE of the array would scramble the split. We only
+  // promise lenient recovery for the trailing-bad-entry shape the model
+  // actually produces (structural fields always precede the prose body).
+  await t.test("drops a trailing malformed entry, keeps the valid prefix", () => {
+    const md =
+      "CAN MERGE\n\n<inline_comments>\n```json\n" +
+      "[\n" +
+      '  {"file":"a.ts","line":1,"side":"RIGHT","severity":"warning","body":"ok one"},\n' +
+      '  {"file":"c.ts","line":3,"side":"RIGHT","severity":"suggestion","body":"ok three"},\n' +
+      '  {"file":"b.ts","line":2,"side":"RIGHT","severity":"warning","body":"bad "吞" quote inside"}\n' +
+      "]\n```\n</inline_comments>";
+    const got = parseInlineComments(md);
+    assert.equal(got.length, 2);
+    assert.deepEqual(
+      got.map((c) => c.file),
+      ["a.ts", "c.ts"],
+    );
+  });
 });

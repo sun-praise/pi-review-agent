@@ -131,6 +131,73 @@ function tryParseArray(raw: string): unknown[] | null {
 }
 
 /**
+ * Split the body of a JSON array (the text between `[` and `]`) into
+ * individual `{...}` object substrings, brace-balanced and string-aware.
+ *
+ * Used by the lenient fallback when the whole array won't parse: a single
+ * malformed entry (e.g. the coordinator using unescaped `"` inside a body
+ * string for Chinese-style quotes `"..."`) shouldn't sink the other valid
+ * entries in the same block.
+ */
+function splitEntries(arrayBody: string): string[] {
+  const entries: string[] = [];
+  let depth = 0;
+  let start = -1;
+  let inStr = false;
+  let escape = false;
+  for (let i = 0; i < arrayBody.length; i += 1) {
+    const c = arrayBody[i];
+    if (escape) { escape = false; continue; }
+    if (c === "\\" && inStr) { escape = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+    if (c === "{") {
+      if (depth === 0) start = i;
+      depth += 1;
+    } else if (c === "}") {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        entries.push(arrayBody.slice(start, i + 1));
+        start = -1;
+      }
+    }
+  }
+  return entries;
+}
+
+/**
+ * Lenient fallback: parse each `{...}` entry independently, skip the ones
+ * that fail. Returns the validated comments (possibly empty). Used only when
+ * the whole array fails to parse — drops bad entries instead of dropping
+ * the entire block.
+ *
+ * Also tolerates raw control chars inside string values (same cleanup as
+ * tryParseArray) on a per-entry basis.
+ */
+function parseEntriesLenient(candidate: string): InlineComment[] {
+  const lb = candidate.indexOf("[");
+  const rb = candidate.lastIndexOf("]");
+  if (lb === -1 || rb === -1 || rb <= lb) return [];
+  const body = candidate.slice(lb + 1, rb);
+  const comments: InlineComment[] = [];
+  for (const entrySrc of splitEntries(body)) {
+    let parsed: unknown = undefined;
+    try {
+      parsed = JSON.parse(entrySrc);
+    } catch {
+      try {
+        parsed = JSON.parse(entrySrc.replace(/[\u0000-\u001F]/g, " "));
+      } catch {
+        continue; // one bad entry doesn't sink the rest
+      }
+    }
+    const c = toInlineComment(parsed);
+    if (c !== null) comments.push(c);
+  }
+  return comments;
+}
+
+/**
  * Find every `<inline_comments>...</inline_comments>` candidate payload in the
  * coordinator text, in order of appearance.
  *
@@ -146,7 +213,7 @@ function tryParseArray(raw: string): unknown[] | null {
  * An unclosed `<inline_comments>` (no matching close) stops the scan — we
  * don't guess where it ends.
  */
-function extractAllBlocks(text: string): string[] {
+export function extractAllBlocks(text: string): string[] {
   const OPEN = "<inline_comments>";
   const CLOSE = "</inline_comments>";
   const payloads: string[] = [];
@@ -186,13 +253,22 @@ function parsePayload(payload: string): InlineComment[] | null {
 
   for (const candidate of candidates) {
     const arr = tryParseArray(candidate);
-    if (arr === null) continue;
-    const comments: InlineComment[] = [];
-    for (const entry of arr) {
-      const c = toInlineComment(entry);
-      if (c !== null) comments.push(c);
+    if (arr !== null) {
+      const comments: InlineComment[] = [];
+      for (const entry of arr) {
+        const c = toInlineComment(entry);
+        if (c !== null) comments.push(c);
+      }
+      return comments;
     }
-    return comments;
+    // Lenient fallback: the whole array failed to parse (usually one entry
+    // with an unescaped quote inside a body string — the coordinator often
+    // uses `"..."` Chinese-style quotes without escaping). Parse each entry
+    // independently and keep the valid ones, so one bad entry doesn't sink
+    // the whole block. Returns [] if nothing parses — same as a parsed-but-
+    // empty array.
+    const lenient = parseEntriesLenient(candidate);
+    if (lenient.length > 0) return lenient;
   }
   return null;
 }
