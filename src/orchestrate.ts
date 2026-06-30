@@ -268,7 +268,17 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
   // (it saw empty inputs) while severity says CANNOT MERGE.
   const finalVerdict: TeamReviewResult["verdict"] =
     failedReviewers.length > 0 ? "CANNOT MERGE" : verdict;
+  // parseInlineComments is pure (no side effects), so the diagnostic for
+  // "block present but yielded nothing" lives here at the call site rather
+  // than inside the parser. Helps catch a model that keeps emitting
+  // malformed JSON — otherwise the failure is silently an empty array.
   const inlineComments = coordinator ? parseInlineComments(coordinator.content) : [];
+  if (coordinator && inlineComments.length === 0 && coordinator.content.includes("<inline_comments>")) {
+    process.stderr.write(
+      "coordinator emitted an <inline_comments> block but it yielded no valid comments; " +
+        "falling back to a summary-only review\n",
+    );
+  }
   return {
     personas: personaResults,
     coordinator,

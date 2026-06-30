@@ -171951,10 +171951,16 @@ function normalizeSeverity(value) {
   if (typeof value !== "string") return void 0;
   return SEVERITY_ALIAS[value.trim().toLowerCase()] ?? void 0;
 }
-function isInlineComment(value) {
-  if (typeof value !== "object" || value === null) return false;
+function toInlineComment(value) {
+  if (typeof value !== "object" || value === null) return null;
   const v = value;
-  return typeof v.file === "string" && v.file.length > 0 && typeof v.line === "number" && Number.isFinite(v.line) && v.line >= 1 && (v.side === "LEFT" || v.side === "RIGHT") && typeof v.body === "string" && v.body.trim().length > 0 && normalizeSeverity(v.severity) !== void 0;
+  if (typeof v.file !== "string" || v.file.length === 0) return null;
+  if (typeof v.line !== "number" || !Number.isFinite(v.line) || v.line < 1) return null;
+  if (v.side !== "LEFT" && v.side !== "RIGHT") return null;
+  if (typeof v.body !== "string" || v.body.trim().length === 0) return null;
+  const severity = normalizeSeverity(v.severity);
+  if (severity === void 0) return null;
+  return { file: v.file, line: v.line, side: v.side, severity, body: v.body };
 }
 function extractFirstJsonArray(text) {
   const start = text.indexOf("[");
@@ -171986,20 +171992,16 @@ function extractFirstJsonArray(text) {
   return null;
 }
 function tryParseArray(raw) {
-  for (const candidate of [
-    raw,
-    raw.replace(/[\u0000-\u001F]/g, (c) => {
-      if (c === "\n") return "\\n";
-      if (c === "\r") return "\\r";
-      if (c === "	") return "\\t";
-      return "";
-    })
-  ]) {
-    try {
-      const parsed = JSON.parse(candidate);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {
-    }
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+  }
+  try {
+    const cleaned = raw.replace(/[\u0000-\u001F]/g, " ");
+    const parsed = JSON.parse(cleaned);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
   }
   return null;
 }
@@ -172018,20 +172020,14 @@ function parseInlineComments(text) {
   const fence = payload.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   if (fence) candidates.push(fence[1]);
   const balanced = extractFirstJsonArray(payload);
-  if (balanced) candidates.push(balanced);
+  if (balanced && balanced !== payload) candidates.push(balanced);
   for (const candidate of candidates) {
     const arr = tryParseArray(candidate);
     if (arr === null) continue;
     const comments = [];
     for (const entry of arr) {
-      if (!isInlineComment(entry)) continue;
-      comments.push({
-        file: entry.file,
-        line: entry.line,
-        side: entry.side,
-        severity: normalizeSeverity(entry.severity),
-        body: entry.body
-      });
+      const c = toInlineComment(entry);
+      if (c !== null) comments.push(c);
     }
     if (comments.length > 0) return comments;
     return [];
@@ -172249,6 +172245,11 @@ async function runTeamReview(opts) {
   const severity = withFailedReviewerOverride(parseSeverity(baseText), failedReviewers);
   const finalVerdict = failedReviewers.length > 0 ? "CANNOT MERGE" : verdict;
   const inlineComments = coordinator ? parseInlineComments(coordinator.content) : [];
+  if (coordinator && inlineComments.length === 0 && coordinator.content.includes("<inline_comments>")) {
+    process.stderr.write(
+      "coordinator emitted an <inline_comments> block but it yielded no valid comments; falling back to a summary-only review\n"
+    );
+  }
   return {
     personas: personaResults,
     coordinator,

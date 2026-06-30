@@ -55,20 +55,21 @@ function normalizeSeverity(value: unknown): InlineSeverity | undefined {
 }
 
 /**
- * isInlineComment — runtime guard. Rejects anything missing a required field
- * or carrying a non-sensical value (non-finite line, empty body, unknown side).
- * Used instead of inline cast access per the project lint rule.
+ * Validate + normalize a raw entry into an InlineComment in one pass, so
+ * severity normalization happens exactly once per entry (the previous
+ * type-guard form looked it up twice — once to validate, once to build).
+ * Returns null for any invalid shape; callers just filter.
  */
-function isInlineComment(value: unknown): value is InlineComment {
-  if (typeof value !== "object" || value === null) return false;
+function toInlineComment(value: unknown): InlineComment | null {
+  if (typeof value !== "object" || value === null) return null;
   const v = value as Record<string, unknown>;
-  return (
-    typeof v.file === "string" && v.file.length > 0 &&
-    typeof v.line === "number" && Number.isFinite(v.line) && v.line >= 1 &&
-    (v.side === "LEFT" || v.side === "RIGHT") &&
-    typeof v.body === "string" && v.body.trim().length > 0 &&
-    normalizeSeverity(v.severity) !== undefined
-  );
+  if (typeof v.file !== "string" || v.file.length === 0) return null;
+  if (typeof v.line !== "number" || !Number.isFinite(v.line) || v.line < 1) return null;
+  if (v.side !== "LEFT" && v.side !== "RIGHT") return null;
+  if (typeof v.body !== "string" || v.body.trim().length === 0) return null;
+  const severity = normalizeSeverity(v.severity);
+  if (severity === undefined) return null;
+  return { file: v.file, line: v.line, side: v.side, severity, body: v.body };
 }
 
 /**
@@ -77,6 +78,12 @@ function isInlineComment(value: unknown): value is InlineComment {
  * no balanced array literal is found. We scan for arrays (not objects)
  * because the inline_comments block is defined as a JSON array of comments;
  * a stray inline object earlier in the buffer must not match.
+ *
+ * Boundary: scanning starts at the first literal `[`, so a `[` appearing
+ * inside a string value earlier in the buffer (unescaped, which is already
+ * invalid JSON) could anchor the scan at the wrong offset. This is covered
+ * by the multi-candidate fallback in parseInlineComments (raw payload and
+ * fence-stripped payload are tried first, before this balanced extractor).
  */
 function extractFirstJsonArray(text: string): string | null {
   const start = text.indexOf("[");
@@ -100,22 +107,25 @@ function extractFirstJsonArray(text: string): string | null {
 }
 
 function tryParseArray(raw: string): unknown[] | null {
-  // Tolerate raw control chars inside string values (rare model artifact).
-  for (const candidate of [
-    raw,
-    raw.replace(/[\u0000-\u001F]/g, (c) => {
-      if (c === "\n") return "\\n";
-      if (c === "\r") return "\\r";
-      if (c === "\t") return "\\t";
-      return "";
-    }),
-  ]) {
-    try {
-      const parsed = JSON.parse(candidate);
-      if (Array.isArray(parsed)) return parsed;
-    } catch {
-      // try next candidate
-    }
+  // Happy path: try as-is. Avoids allocating a cleaned copy when the model
+  // emitted valid JSON (the common case).
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // fall through to control-char cleanup
+  }
+  // Sad path: model emitted raw control chars inside string values, which
+  // are illegal in JSON. Replace ALL control chars (0x00-0x1F) with a space
+  // — never with an escape sequence. Replacing structural whitespace (like
+  // a real newline outside a string) with "\\n" would corrupt it into an
+  // invalid token; space keeps both structural and in-string cases valid.
+  try {
+    const cleaned = raw.replace(/[\u0000-\u001F]/g, " ");
+    const parsed = JSON.parse(cleaned);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // give up — caller will try the next candidate
   }
   return null;
 }
@@ -155,22 +165,17 @@ export function parseInlineComments(text: string): InlineComment[] {
   if (fence) candidates.push(fence[1]);
 
   // Brace-balanced extraction as a last resort (handles trailing prose).
+  // Skip when it equals payload to avoid a duplicate tryParseArray pass.
   const balanced = extractFirstJsonArray(payload);
-  if (balanced) candidates.push(balanced);
+  if (balanced && balanced !== payload) candidates.push(balanced);
 
   for (const candidate of candidates) {
     const arr = tryParseArray(candidate);
     if (arr === null) continue;
     const comments: InlineComment[] = [];
     for (const entry of arr) {
-      if (!isInlineComment(entry)) continue;
-      comments.push({
-        file: entry.file,
-        line: entry.line,
-        side: entry.side,
-        severity: normalizeSeverity(entry.severity) as InlineSeverity,
-        body: entry.body,
-      });
+      const c = toInlineComment(entry);
+      if (c !== null) comments.push(c);
     }
     if (comments.length > 0) return comments;
     // Parsed a valid array but zero valid entries — stop, don't keep trying.

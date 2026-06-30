@@ -42,7 +42,14 @@ function withFetchStub(
       method: init?.method ?? "GET",
       body: init?.body ? JSON.parse(init.body as string) : null,
     });
-    const r = responses[Math.min(i, responses.length - 1)];
+    if (i >= responses.length) {
+      throw new Error(
+        `withFetchStub: unexpected extra fetch call #${i + 1} to ${u} ` +
+          `(only ${responses.length} response(s) stubbed). ` +
+          `This usually means the fallback chain made more calls than the test expected.`,
+      );
+    }
+    const r = responses[i];
     i += 1;
     return Promise.resolve(
       new Response("{}", { status: r.status, statusText: r.ok ? "OK" : "ERR" }),
