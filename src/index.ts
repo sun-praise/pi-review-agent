@@ -23,7 +23,7 @@ import { createLiteLLMDeepSeekProvider } from "./provider.js";
 import { runReview, type ReviewResult } from "./review.js";
 import { runTeamReview, renderTeamComment, type TeamReviewResult } from "./orchestrate.js";
 import { postPrComment, prCommentContextFromEnv } from "./pr-comment.js";
-import { fetchPrContext, prContextOptionsFromEnv } from "./github-context.js";
+import { fetchPrContext, githubAuthFromEnv } from "./github-context.js";
 import { filterDiff } from "./diff-filter.js";
 import { parseSeverity, shouldFail, type FailMode } from "./severity.js";
 
@@ -314,8 +314,14 @@ async function runTeam(opts: CliOptions): Promise<number> {
 async function main(): Promise<number> {
   const opts = parseArgs(process.argv);
   if (opts.includePrContext) {
-    const ctxOpts = prContextOptionsFromEnv(process.env);
-    if (ctxOpts) opts.prContext = await fetchPrContext(ctxOpts);
+    const auth = githubAuthFromEnv(process.env);
+    if (auth) {
+      opts.prContext = await fetchPrContext({ ...auth, pr: opts.pr });
+    } else {
+      process.stderr.write(
+        "includePrContext enabled but GITHUB_REPOSITORY/GITHUB_TOKEN unset; skipping context fetch\n",
+      );
+    }
   }
   return opts.team ? runTeam(opts) : runSingle(opts);
 }

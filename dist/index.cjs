@@ -172245,12 +172245,15 @@ function prCommentContextFromEnv(env2) {
 }
 
 // src/github-context.ts
-var SELF_MARKER = "<!-- pi-review-agent";
+var SELF_MARKER = "<!-- pi-review-agent -->";
 var FILE_CAP = 50;
 var COMMENT_CAP = 30;
 var REVIEW_CAP = 20;
 var REVIEW_COMMENT_CAP = 30;
+var BODY_BYTE_CAP = 8192;
 var PER_PAGE = 100;
+var MAX_PAGES = 3;
+var MAX_PER_ENDPOINT = PER_PAGE * MAX_PAGES;
 function isSelfBody(body) {
   return body !== null && body.includes(SELF_MARKER);
 }
@@ -172266,15 +172269,44 @@ async function getJson(url2, token) {
     const text = await res.text().catch(() => "");
     throw new Error(`GitHub API ${res.status} ${res.statusText}: ${text.slice(0, 200)}`);
   }
-  return await res.json();
+  return { data: await res.json(), next: parseNextLink(res.headers.get("link")) };
+}
+function parseNextLink(link) {
+  if (!link) return null;
+  for (const part of link.split(",")) {
+    if (!part.includes('rel="next"')) continue;
+    const m2 = part.match(/<([^>]+)>/);
+    if (m2) return m2[1];
+  }
+  return null;
+}
+async function getListAll(url2, token) {
+  const items = [];
+  let next = url2;
+  let fetchedAll = true;
+  for (let page = 0; page < MAX_PAGES && next; page++) {
+    const { data, next: more } = await getJson(next, token);
+    if (Array.isArray(data)) items.push(...data);
+    next = more;
+    if (page === MAX_PAGES - 1 && next) fetchedAll = false;
+  }
+  return { items, fetchedAll };
 }
 function loginOf(user) {
   return user?.login ?? "unknown";
 }
-function normalizePrContext(pr, files, comments, reviews, reviewComments) {
+function truncateBytes(s2, maxBytes) {
+  const bytes = Buffer.byteLength(s2, "utf8");
+  if (bytes <= maxBytes) return { text: s2, truncated: false };
+  const buf = Buffer.from(s2, "utf8").subarray(0, maxBytes);
+  const text = buf.toString("utf8").replace(/\uFFFD$/, "");
+  return { text, truncated: true };
+}
+function normalizePrContext(pr, files, comments, reviews, reviewComments, fetchedAll = { files: true, comments: true, reviews: true, reviewComments: true }) {
   return {
     title: pr.title ?? "",
     body: pr.body ?? "",
+    bodyTruncated: false,
     author: loginOf(pr.user),
     createdAt: pr.created_at ?? "",
     baseRef: pr.base?.ref ?? "",
@@ -172301,7 +172333,14 @@ function normalizePrContext(pr, files, comments, reviews, reviewComments) {
       path: c.path ?? "(unknown)",
       line: c.line,
       body: c.body ?? ""
-    }))
+    })),
+    totals: {
+      files: files.length,
+      comments: comments.length,
+      reviews: reviews.length,
+      reviewComments: reviewComments.length
+    },
+    fetchedAll
   };
 }
 function capSection(lines, cap) {
@@ -172311,12 +172350,16 @@ function capSection(lines, cap) {
 function isEmpty(data) {
   return !data.title && !data.body && data.files.length === 0 && data.comments.length === 0 && data.reviews.length === 0 && data.reviewComments.length === 0;
 }
+function indentContinuation(text) {
+  return text.replace(/\n/g, "\n  ");
+}
 function formatPrContext(data, opts) {
   if (isEmpty(data)) return "";
   const fileCap = opts?.fileCap ?? FILE_CAP;
   const commentCap = opts?.commentCap ?? COMMENT_CAP;
   const reviewCap = opts?.reviewCap ?? REVIEW_CAP;
   const reviewCommentCap = opts?.reviewCommentCap ?? REVIEW_COMMENT_CAP;
+  const bodyByteCap = opts?.bodyByteCap ?? BODY_BYTE_CAP;
   const files = capSection(
     data.files.map((f3) => `- ${f3.path} (${f3.status}) +${f3.additions}/-${f3.deletions}`),
     fileCap
@@ -172335,6 +172378,8 @@ function formatPrContext(data, opts) {
     data.reviewComments.map((c) => `- ${c.author} at ${c.path}:${c.line ?? "?"}: ${c.body}`),
     reviewCommentCap
   );
+  const body = truncateBytes(data.body || "(none)", bodyByteCap);
+  const bodyNote = body.truncated ? ` (truncated to ${bodyByteCap} bytes)` : "";
   const out = [];
   out.push("<pull_request_context>");
   out.push(
@@ -172343,22 +172388,52 @@ function formatPrContext(data, opts) {
   );
   out.push("");
   out.push(`Title: ${data.title || "(none)"}`);
-  out.push(`Body: ${data.body || "(none)"}`);
+  out.push(`Body:${bodyNote}`);
+  out.push(`  ${indentContinuation(body.text)}`);
   out.push(`Author: ${data.author}`);
   if (data.createdAt) out.push(`Created: ${data.createdAt}`);
   if (data.baseRef || data.headRef) out.push(`Branch: ${data.baseRef} \u2190 ${data.headRef}`);
   const sections = [
-    { open: "pull_request_reviews", close: "pull_request_reviews", lines: reviews.lines, dropped: reviews.dropped },
-    { open: "pull_request_review_comments", close: "pull_request_review_comments", lines: reviewComments.lines, dropped: reviewComments.dropped },
-    { open: "pull_request_comments", close: "pull_request_comments", lines: comments.lines, dropped: comments.dropped },
-    { open: "pull_request_changed_files", close: "pull_request_changed_files", lines: files.lines, dropped: files.dropped }
+    {
+      tag: "pull_request_reviews",
+      lines: reviews.lines,
+      dropped: reviews.dropped,
+      fetchedAll: data.fetchedAll.reviews,
+      total: data.totals.reviews
+    },
+    {
+      tag: "pull_request_review_comments",
+      lines: reviewComments.lines,
+      dropped: reviewComments.dropped,
+      fetchedAll: data.fetchedAll.reviewComments,
+      total: data.totals.reviewComments
+    },
+    {
+      tag: "pull_request_comments",
+      lines: comments.lines,
+      dropped: comments.dropped,
+      fetchedAll: data.fetchedAll.comments,
+      total: data.totals.comments
+    },
+    {
+      tag: "pull_request_changed_files",
+      lines: files.lines,
+      dropped: files.dropped,
+      fetchedAll: data.fetchedAll.files,
+      total: data.totals.files
+    }
   ];
   for (const s2 of sections) {
-    if (s2.lines.length === 0 && s2.dropped === 0) continue;
-    out.push(`<${s2.open}>`);
+    if (s2.lines.length === 0 && s2.dropped === 0 && s2.fetchedAll) continue;
+    out.push(`<${s2.tag}>`);
     out.push(...s2.lines);
-    if (s2.dropped > 0) out.push(`... (${s2.dropped} more truncated)`);
-    out.push(`</${s2.close}>`);
+    if (s2.dropped > 0) {
+      const qualifier = s2.fetchedAll ? "" : "+";
+      out.push(`... (${s2.dropped}${qualifier} more truncated${qualifier ? "; fetch was capped, real total higher" : ""})`);
+    } else if (!s2.fetchedAll && s2.lines.length > 0) {
+      out.push(`... (fetch was capped at ${MAX_PER_ENDPOINT}; real total higher)`);
+    }
+    out.push(`</${s2.tag}>`);
   }
   out.push("</pull_request_context>");
   return out.join("\n");
@@ -172368,19 +172443,25 @@ async function fetchPrContext(opts) {
   const base = `${opts.apiBase.replace(/\/+$/, "")}/repos/${opts.repository}`;
   const qs = `?per_page=${PER_PAGE}`;
   try {
-    const [pr, files, comments, reviews, reviewComments] = await Promise.all([
+    const [pr, filesP, commentsP, reviewsP, reviewCommentsP] = await Promise.all([
       getJson(`${base}/pulls/${opts.pr}`, opts.token),
-      getJson(`${base}/pulls/${opts.pr}/files${qs}`, opts.token),
-      getJson(`${base}/issues/${opts.pr}/comments${qs}`, opts.token),
-      getJson(`${base}/pulls/${opts.pr}/reviews${qs}`, opts.token),
-      getJson(`${base}/pulls/${opts.pr}/comments${qs}`, opts.token)
+      getListAll(`${base}/pulls/${opts.pr}/files${qs}`, opts.token),
+      getListAll(`${base}/issues/${opts.pr}/comments${qs}`, opts.token),
+      getListAll(`${base}/pulls/${opts.pr}/reviews${qs}`, opts.token),
+      getListAll(`${base}/pulls/${opts.pr}/comments${qs}`, opts.token)
     ]);
     const data = normalizePrContext(
-      pr,
-      Array.isArray(files) ? files : [],
-      Array.isArray(comments) ? comments : [],
-      Array.isArray(reviews) ? reviews : [],
-      Array.isArray(reviewComments) ? reviewComments : []
+      pr.data,
+      filesP.items,
+      commentsP.items,
+      reviewsP.items,
+      reviewCommentsP.items,
+      {
+        files: filesP.fetchedAll,
+        comments: commentsP.fetchedAll,
+        reviews: reviewsP.fetchedAll,
+        reviewComments: reviewCommentsP.fetchedAll
+      }
     );
     return formatPrContext(data);
   } catch (err2) {
@@ -172391,18 +172472,13 @@ async function fetchPrContext(opts) {
     return "";
   }
 }
-function prContextOptionsFromEnv(env2) {
-  const ref = env2.GITHUB_REF ?? "";
-  const match2 = ref.match(/refs\/pull\/(\d+)\//);
-  if (!match2) return null;
-  const pr = Number(match2[1]);
+function githubAuthFromEnv(env2) {
   const repository = env2.GITHUB_REPOSITORY ?? "";
   const token = env2.GITHUB_TOKEN ?? "";
   if (!repository || !token) return null;
   return {
     apiBase: env2.GITHUB_API_URL ?? "https://api.github.com",
     repository,
-    pr,
     token
   };
 }
@@ -172729,8 +172805,14 @@ PR comment: ${outcome}
 async function main() {
   const opts = parseArgs(process.argv);
   if (opts.includePrContext) {
-    const ctxOpts = prContextOptionsFromEnv(process.env);
-    if (ctxOpts) opts.prContext = await fetchPrContext(ctxOpts);
+    const auth = githubAuthFromEnv(process.env);
+    if (auth) {
+      opts.prContext = await fetchPrContext({ ...auth, pr: opts.pr });
+    } else {
+      process.stderr.write(
+        "includePrContext enabled but GITHUB_REPOSITORY/GITHUB_TOKEN unset; skipping context fetch\n"
+      );
+    }
   }
   return opts.team ? runTeam(opts) : runSingle(opts);
 }
