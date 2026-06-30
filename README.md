@@ -1,6 +1,6 @@
 # pi-review-agent
 
-Multi-persona PR review agent built on [Pi](https://github.com/earendil-works/pi) (earendil-works), with cross-runner session resume and correct `cache_read` accounting.
+Multi-persona PR review agent built on [Pi](https://github.com/earendil-works/pi) (earendil-works), with cross-runner session resume, inline review comments, and correct `cache_read` accounting.
 
 ## Why this exists
 
@@ -106,6 +106,7 @@ Drop `.yaml`/`.yml` files in `<repo>/.github/reviewers/` with `name` + `prompt` 
 - [x] Dogfood workflow self-reviewing PRs
 - [x] Multi-persona + coordinator orchestration
 - [x] PR comment posting (create + edit-in-place)
+- [x] Inline review comments via GitHub Reviews API (summary/comment fallback)
 - [x] Verdict fallback chain (coordinator → persona severity vote)
 - [x] Custom personas via `.github/reviewers/*.yaml`
 - [ ] Unit tests

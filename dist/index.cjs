@@ -171933,6 +171933,112 @@ function withFailedReviewerOverride(severity, failedReviewerNames) {
   };
 }
 
+// src/inline-comments.ts
+var SEVERITY_ALIAS = {
+  blocking: "blocking",
+  blocker: "blocking",
+  block: "blocking",
+  critical: "blocking",
+  error: "blocking",
+  warning: "warning",
+  warn: "warning",
+  suggestion: "suggestion",
+  info: "suggestion",
+  minor: "suggestion",
+  nit: "suggestion"
+};
+function normalizeSeverity(value) {
+  if (typeof value !== "string") return void 0;
+  return SEVERITY_ALIAS[value.trim().toLowerCase()] ?? void 0;
+}
+function isInlineComment(value) {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value;
+  return typeof v.file === "string" && v.file.length > 0 && typeof v.line === "number" && Number.isFinite(v.line) && v.line >= 1 && (v.side === "LEFT" || v.side === "RIGHT") && typeof v.body === "string" && v.body.trim().length > 0 && normalizeSeverity(v.severity) !== void 0;
+}
+function extractFirstJsonArray(text) {
+  const start = text.indexOf("[");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escape2 = false;
+  for (let i2 = start; i2 < text.length; i2 += 1) {
+    const c = text[i2];
+    if (escape2) {
+      escape2 = false;
+      continue;
+    }
+    if (c === "\\" && inString) {
+      escape2 = true;
+      continue;
+    }
+    if (c === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (c === "[") depth += 1;
+    else if (c === "]") {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i2 + 1);
+    }
+  }
+  return null;
+}
+function tryParseArray(raw) {
+  for (const candidate of [
+    raw,
+    raw.replace(/[\u0000-\u001F]/g, (c) => {
+      if (c === "\n") return "\\n";
+      if (c === "\r") return "\\r";
+      if (c === "	") return "\\t";
+      return "";
+    })
+  ]) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+    }
+  }
+  return null;
+}
+function extractBlock(text) {
+  const open2 = text.indexOf("<inline_comments>");
+  if (open2 === -1) return null;
+  const close = text.indexOf("</inline_comments>", open2);
+  if (close === -1) return null;
+  return text.slice(open2 + "<inline_comments>".length, close);
+}
+function parseInlineComments(text) {
+  const payload = extractBlock(text);
+  if (payload === null) return [];
+  if (payload.trim().length === 0) return [];
+  const candidates = [payload];
+  const fence = payload.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fence) candidates.push(fence[1]);
+  const balanced = extractFirstJsonArray(payload);
+  if (balanced) candidates.push(balanced);
+  for (const candidate of candidates) {
+    const arr = tryParseArray(candidate);
+    if (arr === null) continue;
+    const comments = [];
+    for (const entry of arr) {
+      if (!isInlineComment(entry)) continue;
+      comments.push({
+        file: entry.file,
+        line: entry.line,
+        side: entry.side,
+        severity: normalizeSeverity(entry.severity),
+        body: entry.body
+      });
+    }
+    if (comments.length > 0) return comments;
+    return [];
+  }
+  return [];
+}
+
 // src/team-comment.ts
 function renderTeamComment(result) {
   const lines = [];
@@ -171994,7 +172100,27 @@ var COORDINATOR_PROMPT = [
   "- Then a one-paragraph summary",
   "- Then 'Blocking Issues' (merged + deduped)",
   "- Then 'Warnings' (merged + deduped)",
-  "- Then 'Suggestions' (merged + deduped)"
+  "- Then 'Suggestions' (merged + deduped)",
+  "",
+  "Then append an optional <inline_comments> block with structured,",
+  "line-pinned findings for the GitHub Reviews API. Format:",
+  "",
+  "<inline_comments>",
+  "```json",
+  "[",
+  '  {"file":"src/auth.ts","line":42,"side":"RIGHT","severity":"blocking","body":"concise Markdown"}',
+  "]",
+  "```",
+  "</inline_comments>",
+  "",
+  "Inline-comment rules:",
+  "- One object per concrete, locatable finding. Reuse the file/line from",
+  "  the reviewer reports; skip anything you cannot pin to a specific line.",
+  '- side: "RIGHT" for added/context lines, "LEFT" for removed lines.',
+  '- severity: "blocking" | "warning" | "suggestion" (matches the sections).',
+  "- body: concise Markdown, no heading, no severity emoji. Follow the",
+  "  report's language for the body prose (severity stays the English enum).",
+  "- If no finding is locatable, emit an empty array []."
 ].join("\n");
 function coordinatorPersona() {
   return { name: "coordinator", prompt: COORDINATOR_PROMPT };
@@ -172122,13 +172248,15 @@ async function runTeamReview(opts) {
   const failedReviewers = personaResults.filter((r2) => Boolean(r2.error) || r2.result.content.trim() === "").map((r2) => r2.persona);
   const severity = withFailedReviewerOverride(parseSeverity(baseText), failedReviewers);
   const finalVerdict = failedReviewers.length > 0 ? "CANNOT MERGE" : verdict;
+  const inlineComments = coordinator ? parseInlineComments(coordinator.content) : [];
   return {
     personas: personaResults,
     coordinator,
     verdict: finalVerdict,
     totalCost,
     totalCacheRead,
-    severity
+    severity,
+    inlineComments
   };
 }
 function emptyReview(pr, persona) {
@@ -172142,6 +172270,11 @@ function emptyReview(pr, persona) {
 }
 
 // src/pr-comment.ts
+var SEVERITY_EMOJI = {
+  blocking: "\u{1F534}",
+  warning: "\u{1F7E1}",
+  suggestion: "\u{1F535}"
+};
 var MARKER = "<!-- pi-review-agent -->";
 async function fetchJson(url2, init) {
   const res = await fetch(url2, init);
@@ -172242,6 +172375,87 @@ function prCommentContextFromEnv(env2) {
     token,
     headSha: env2.PI_REVIEW_HEAD_SHA ?? ""
   };
+}
+async function postPrReview(ctx, summary, comments) {
+  if (comments.length === 0) {
+    return postPrComment(ctx, summary);
+  }
+  if (!ctx.headSha) {
+    return postPrComment(ctx, summary);
+  }
+  if (!ctx.token) {
+    process.stderr.write("postPrReview: no GITHUB_TOKEN; skipping\n");
+    return "skipped";
+  }
+  const headers = {
+    Authorization: `Bearer ${ctx.token}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "Content-Type": "application/json"
+  };
+  const url2 = `${ctx.apiBase}/repos/${ctx.repository}/pulls/${ctx.pr}/reviews`;
+  const inlinePayload = comments.map((c) => ({
+    path: c.file,
+    line: c.line,
+    side: c.side,
+    body: `${SEVERITY_EMOJI[c.severity]} ${c.body}`
+  }));
+  try {
+    const res = await fetch(url2, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        commit_id: ctx.headSha,
+        body: summary,
+        event: "COMMENT",
+        comments: inlinePayload
+      })
+    });
+    if (res.ok) {
+      process.stdout.write(
+        `postPrReview: posted review with ${inlinePayload.length} inline comment(s)
+`
+      );
+      return "review";
+    }
+    const errBody = await res.text().catch(() => "");
+    process.stderr.write(
+      `postPrReview: inline review rejected (${res.status}); retrying as summary review. ${errBody.slice(0, 500)}
+`
+    );
+  } catch (err2) {
+    process.stderr.write(
+      `postPrReview: inline review threw (${err2 instanceof Error ? err2.message : String(err2)}); retrying as summary review
+`
+    );
+  }
+  try {
+    const res = await fetch(url2, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        commit_id: ctx.headSha,
+        body: summary,
+        event: "COMMENT",
+        comments: []
+      })
+    });
+    if (res.ok) {
+      process.stderr.write("postPrReview: posted summary-only review\n");
+      return "summary-review";
+    }
+    const errBody = await res.text().catch(() => "");
+    process.stderr.write(
+      `postPrReview: summary review rejected (${res.status}); falling back to issue comment. ${errBody.slice(0, 500)}
+`
+    );
+  } catch (err2) {
+    process.stderr.write(
+      `postPrReview: summary review threw (${err2 instanceof Error ? err2.message : String(err2)}); falling back to issue comment
+`
+    );
+  }
+  return postPrComment(ctx, summary);
 }
 
 // src/github-context.ts
@@ -172795,7 +173009,7 @@ ${r2.result.content}
   const ctx = prCommentContextFromEnv(process.env);
   if (ctx) {
     const body = renderTeamComment(result);
-    const outcome = await postPrComment(ctx, body);
+    const outcome = result.inlineComments.length > 0 ? await postPrReview(ctx, body, result.inlineComments) : await postPrComment(ctx, body);
     process.stdout.write(`
 PR comment: ${outcome}
 `);

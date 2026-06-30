@@ -22,7 +22,7 @@ import { readFileSync, appendFileSync } from "node:fs";
 import { createLiteLLMDeepSeekProvider } from "./provider.js";
 import { runReview, type ReviewResult } from "./review.js";
 import { runTeamReview, renderTeamComment, type TeamReviewResult } from "./orchestrate.js";
-import { postPrComment, prCommentContextFromEnv } from "./pr-comment.js";
+import { postPrComment, postPrReview, prCommentContextFromEnv } from "./pr-comment.js";
 import { fetchPrContext, githubAuthFromEnv } from "./github-context.js";
 import { filterDiff } from "./diff-filter.js";
 import { parseSeverity, shouldFail, type FailMode } from "./severity.js";
@@ -305,7 +305,15 @@ async function runTeam(opts: CliOptions): Promise<number> {
   const ctx = prCommentContextFromEnv(process.env);
   if (ctx) {
     const body = renderTeamComment(result);
-    const outcome = await postPrComment(ctx, body);
+    // When the coordinator surfaced line-pinned findings, post a GitHub
+    // review with inline comments (postPrReview falls back internally to a
+    // summary review, then to an issue comment). Otherwise keep the issue
+    // comment path with its edit-in-place behaviour — a review without
+    // inline data adds nothing and stacks duplicate reviews on re-pushes.
+    const outcome =
+      result.inlineComments.length > 0
+        ? await postPrReview(ctx, body, result.inlineComments)
+        : await postPrComment(ctx, body);
     process.stdout.write(`\nPR comment: ${outcome}\n`);
   }
   return shouldFail(result.severity, opts.failOnSeverity) ? 1 : 0;
