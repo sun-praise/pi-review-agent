@@ -7,7 +7,7 @@
     "pi-review-agent": "dist/index.js"
   },
   "scripts": {
-    "build": "tsup src/index.ts --format esm --dts --clean",
+    "build": "tsup",
     "dev": "tsx src/index.ts",
     "demo:cache": "tsx examples/demo-cache.ts",
     "typecheck": "tsc --noEmit",
