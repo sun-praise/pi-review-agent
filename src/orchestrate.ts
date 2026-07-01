@@ -16,6 +16,7 @@ import type { Provider } from "@earendil-works/pi-ai";
 import { runReview, type ReviewResult } from "./review.js";
 import { loadPersonas, resolveTeam, type Persona } from "./personas.js";
 import { parseSeverity, withFailedReviewerOverride, type Severity } from "./severity.js";
+import { parseInlineComments, type InlineComment } from "./inline-comments.js";
 
 export interface TeamReviewOptions {
   provider: Provider<"openai-completions">;
@@ -58,6 +59,12 @@ export interface TeamReviewResult {
    *  reviewers force a CANNOT-MERGE override before this is returned).
    *  Consumers use this for the fail-on-severity exit gate. */
   severity: Severity;
+  /** Structured, line-pinned findings extracted from the coordinator's
+   *  `<inline_comments>` block. Empty when the coordinator produced none,
+   *  when skipCoordinator is true, or when parsing found nothing valid.
+   *  Consumed by the PR-comment layer to post inline review comments via
+   *  the GitHub Reviews API (with fallback to a summary comment). */
+  inlineComments: InlineComment[];
 }
 
 const COORDINATOR_PROMPT = [
@@ -82,6 +89,26 @@ const COORDINATOR_PROMPT = [
   "- Then 'Blocking Issues' (merged + deduped)",
   "- Then 'Warnings' (merged + deduped)",
   "- Then 'Suggestions' (merged + deduped)",
+  "",
+  "Then append an optional <inline_comments> block with structured,",
+  "line-pinned findings for the GitHub Reviews API. Format:",
+  "",
+  "<inline_comments>",
+  "```json",
+  "[",
+  '  {"file":"src/auth.ts","line":42,"side":"RIGHT","severity":"blocking","body":"concise Markdown"}',
+  "]",
+  "```",
+  "</inline_comments>",
+  "",
+  "Inline-comment rules:",
+  "- One object per concrete, locatable finding. Reuse the file/line from",
+  "  the reviewer reports; skip anything you cannot pin to a specific line.",
+  '- side: "RIGHT" for added/context lines, "LEFT" for removed lines.',
+  '- severity: "blocking" | "warning" | "suggestion" (matches the sections).',
+  "- body: concise Markdown, no heading, no severity emoji. Follow the",
+  "  report's language for the body prose (severity stays the English enum).",
+  "- If no finding is locatable, emit an empty array [].",
 ].join("\n");
 
 function coordinatorPersona(): Persona {
@@ -241,6 +268,25 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
   // (it saw empty inputs) while severity says CANNOT MERGE.
   const finalVerdict: TeamReviewResult["verdict"] =
     failedReviewers.length > 0 ? "CANNOT MERGE" : verdict;
+  // parseInlineComments is pure (no side effects), so the diagnostic for
+  // "block present but yielded nothing" lives here at the call site rather
+  // than inside the parser. Helps catch a model that keeps emitting
+  // malformed JSON — otherwise the failure is silently an empty array.
+  const inlineComments = coordinator ? parseInlineComments(coordinator.content) : [];
+  // Diagnostic: warn only when a real paired block exists but yielded
+  // nothing. We check for the CLOSING tag `</inline_comments>` rather than
+  // the opening tag (or calling extractAllBlocks again): the coordinator
+  // discusses `<inline_comments>` in prose often, but the full closing tag
+  // `</inline_comments>` appears almost only when a real block was emitted.
+  // This avoids both the false-positive of `includes("<inline_comments>")`
+  // and the double full-text scan that a second extractAllBlocks call would
+  // cost (parseInlineComments already scanned once internally).
+  if (coordinator && inlineComments.length === 0 && coordinator.content.includes("</inline_comments>")) {
+    process.stderr.write(
+      "coordinator emitted an <inline_comments> block but it yielded no valid comments; " +
+        "falling back to a summary-only review\n",
+    );
+  }
   return {
     personas: personaResults,
     coordinator,
@@ -248,6 +294,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
     totalCost,
     totalCacheRead,
     severity,
+    inlineComments,
   };
 }
 

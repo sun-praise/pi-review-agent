@@ -1,7 +1,7 @@
 name: Pi Review Agent
 description: >
   AI code review: N personas in parallel + coordinator, cross-runner resume,
-  one PR comment. LiteLLM/DeepSeek.
+  inline review comments. LiteLLM/DeepSeek.
 
 branding:
   icon: 'search'
