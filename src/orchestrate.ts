@@ -16,7 +16,7 @@ import type { Provider } from "@earendil-works/pi-ai";
 import { runReview, type ReviewResult } from "./review.js";
 import { loadPersonas, resolveTeam, type Persona } from "./personas.js";
 import { parseSeverity, withFailedReviewerOverride, type Severity } from "./severity.js";
-import { extractAllBlocks, parseInlineComments, type InlineComment } from "./inline-comments.js";
+import { parseInlineComments, type InlineComment } from "./inline-comments.js";
 
 export interface TeamReviewOptions {
   provider: Provider<"openai-completions">;
@@ -274,10 +274,14 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
   // malformed JSON — otherwise the failure is silently an empty array.
   const inlineComments = coordinator ? parseInlineComments(coordinator.content) : [];
   // Diagnostic: warn only when a real paired block exists but yielded
-  // nothing. `includes("<inline_comments>")` would false-positive on prose
-  // that merely mentions the tag name (the coordinator discusses its own
-  // format often); extractAllBlocks only matches paired open/close tags.
-  if (coordinator && inlineComments.length === 0 && extractAllBlocks(coordinator.content).length > 0) {
+  // nothing. We check for the CLOSING tag `</inline_comments>` rather than
+  // the opening tag (or calling extractAllBlocks again): the coordinator
+  // discusses `<inline_comments>` in prose often, but the full closing tag
+  // `</inline_comments>` appears almost only when a real block was emitted.
+  // This avoids both the false-positive of `includes("<inline_comments>")`
+  // and the double full-text scan that a second extractAllBlocks call would
+  // cost (parseInlineComments already scanned once internally).
+  if (coordinator && inlineComments.length === 0 && coordinator.content.includes("</inline_comments>")) {
     process.stderr.write(
       "coordinator emitted an <inline_comments> block but it yielded no valid comments; " +
         "falling back to a summary-only review\n",

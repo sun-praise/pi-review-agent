@@ -9,6 +9,19 @@
  */
 import type { InlineComment, InlineSeverity } from "./inline-comments.js";
 
+/**
+ * Hard timeout for every GitHub API call in this module. Without it a slow
+ * or wedged response hangs the action until GitHub's 6-hour job timeout.
+ * 30s is generous for a normal POST while bounding the wait so the fallback
+ * chain can move on. Applied centrally in fetchJson (covers postPrComment)
+ * and fetchWithTimeout (covers postPrReview's direct fetches).
+ */
+const FETCH_TIMEOUT_MS = 30_000;
+
+function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  return fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+}
+
 /** Emoji prefix per severity bucket, added to inline-comment bodies at render
  *  time. Matches the verdict-gate vocabulary (severity.ts), not display-only
  *  palettes: blocking/warning/suggestion group by merge impact. */
@@ -45,7 +58,7 @@ interface GithubComment {
 }
 
 async function fetchJson(url: string, init: RequestInit): Promise<unknown> {
-  const res = await fetch(url, init);
+  const res = await fetchWithTimeout(url, init);
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`GitHub API ${res.status} ${res.statusText}: ${text.slice(0, 500)}`);
@@ -223,6 +236,7 @@ export async function postPrReview(
   };
   const url = `${ctx.apiBase}/repos/${ctx.repository}/pulls/${ctx.pr}/reviews`;
 
+
   const inlinePayload = comments.map((c) => ({
     path: c.file,
     line: c.line,
@@ -232,7 +246,7 @@ export async function postPrReview(
 
   // Attempt 1: review carrying the inline comments.
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -262,7 +276,7 @@ export async function postPrReview(
   // anchored to this commit. Cheaper than an issue comment for users who
   // filter on review state, and still a single PR artifact per run.
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithTimeout(url, {
       method: "POST",
       headers,
       body: JSON.stringify({
