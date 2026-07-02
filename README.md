@@ -39,6 +39,78 @@ LITELLM_API_KEY=... npx tsx src/index.ts \
 LITELLM_API_KEY=... npm run demo:cache
 ```
 
+## Gitea Support
+
+pi-review-agent now supports Gitea in addition to GitHub. The platform is auto-detected from environment variables, or can be explicitly set via `--platform`.
+
+### Gitea Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `GITEA_URL` | Gitea instance URL (e.g., `https://gitea.example.com`) | Yes |
+| `GITEA_TOKEN` | Gitea API token with repository access | Yes |
+| `GITEA_REPOSITORY` | Repository in `owner/repo` format | Yes |
+| `GITEA_PR_NUMBER` | Pull request number | Yes (or use `--pr`) |
+
+### Run with Gitea (CLI)
+
+```bash
+# Auto-detect from environment
+export GITEA_URL=https://gitea.example.com
+export GITEA_TOKEN=your_token
+export GITEA_REPOSITORY=owner/repo
+export GITEA_PR_NUMBER=123
+
+LITELLM_API_KEY=... npx tsx src/index.ts \
+  --diff-file ./diff.txt --team "quality:1,security:1"
+
+# Explicit platform (Gitea credentials must be set via environment variables)
+LITELLM_API_KEY=... npx tsx src/index.ts \
+  --platform gitea \
+  --pr 123 --diff-file ./diff.txt --persona quality
+```
+
+### Gitea Actions Workflow
+
+```yaml
+name: AI Code Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Get PR diff
+        id: diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > /tmp/diff.txt
+          
+      - name: Run AI Review
+        env:
+          GITEA_URL: ${{ github.server_url }}
+          GITEA_TOKEN: ${{ secrets.GITEA_TOKEN }}
+          GITEA_REPOSITORY: ${{ github.repository }}
+          GITEA_PR_NUMBER: ${{ github.event.number }}
+          LITELLM_API_KEY: ${{ secrets.LITELLM_API_KEY }}
+          LITELLM_URL: ${{ secrets.LITELLM_URL }}
+        run: |
+          npx tsx src/index.ts \
+            --diff-file /tmp/diff.txt \
+            --team "quality:1,security:1"
+```
+
+### Platform Detection Priority
+
+1. `--platform` CLI argument (explicit)
+2. `GITEA_URL` or `GITEA_TOKEN` environment variables
+3. `GITHUB_REPOSITORY` or `GITHUB_TOKEN` environment variables
+4. Error if none detected
+
+>>>>>>> 0fd724b (fix: address AI review blocking issues)
 ## GitHub Action
 
 Single-persona mode:
