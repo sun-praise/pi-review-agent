@@ -140312,11 +140312,18 @@ ${inlineSummary}`;
       resolvePrFromEnv(env2) {
         const token = env2.GITEA_TOKEN ?? "";
         if (!token) return null;
-        const repository = env2.GITEA_REPOSITORY ?? "";
+        const repository = (env2.GITEA_REPOSITORY ?? "").trim();
         if (!repository) return null;
-        const apiBase = env2.GITEA_URL;
+        const apiBase = (env2.GITEA_URL ?? "").trim();
         if (!apiBase) {
           process.stderr.write("Gitea: GITEA_URL is required but not set\n");
+          return null;
+        }
+        if (!apiBase.startsWith("https://")) {
+          process.stderr.write(
+            `Gitea: GITEA_URL must use https:// protocol to prevent token leakage. Current value: ${apiBase.slice(0, 30)}...
+`
+          );
           return null;
         }
         let pr = null;

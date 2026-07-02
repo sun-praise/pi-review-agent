@@ -158,12 +158,21 @@ export class GiteaAdapter implements PlatformAdapter {
     const token = env.GITEA_TOKEN ?? "";
     if (!token) return null;
 
-    const repository = env.GITEA_REPOSITORY ?? "";
+    const repository = (env.GITEA_REPOSITORY ?? "").trim();
     if (!repository) return null;
 
-    const apiBase = env.GITEA_URL;
+    const apiBase = (env.GITEA_URL ?? "").trim();
     if (!apiBase) {
       process.stderr.write("Gitea: GITEA_URL is required but not set\n");
+      return null;
+    }
+
+    // HTTPS protocol check to prevent token leakage
+    if (!apiBase.startsWith("https://")) {
+      process.stderr.write(
+        "Gitea: GITEA_URL must use https:// protocol to prevent token leakage. " +
+        `Current value: ${apiBase.slice(0, 30)}...\n`
+      );
       return null;
     }
 
