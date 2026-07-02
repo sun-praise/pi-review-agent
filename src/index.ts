@@ -22,7 +22,8 @@ import { readFileSync, appendFileSync } from "node:fs";
 import { createLiteLLMDeepSeekProvider } from "./provider.js";
 import { runReview, type ReviewResult } from "./review.js";
 import { runTeamReview, renderTeamComment, type TeamReviewResult } from "./orchestrate.js";
-import { createAdapterFromEnv, type PlatformAdapter } from "./platforms/index.js";
+import { postPrComment, postPrReview, prCommentContextFromEnv } from "./pr-comment.js";
+import { fetchPrContext, githubAuthFromEnv } from "./github-context.js";
 import { filterDiff } from "./diff-filter.js";
 import { parseSeverity, shouldFail, type FailMode } from "./severity.js";
 
@@ -57,8 +58,6 @@ interface CliOptions {
   /** Populated in main() after parseArgs when includePrContext is on. Empty
    *  string = no context (fetch skipped, failed, or PR has no discussion). */
   prContext: string;
-  /** Platform override: "github" | "gitea". Auto-detected if not set. */
-  platform: string | undefined;
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -116,7 +115,6 @@ function parseArgs(argv: string[]): CliOptions {
       args["include-pr-context"] ?? process.env.PI_REVIEW_INCLUDE_PR_CONTEXT ?? "true",
     ),
     prContext: "",
-    platform: args.platform || process.env.PI_REVIEW_PLATFORM,
   };
 }
 
@@ -274,7 +272,7 @@ async function runSingle(opts: CliOptions): Promise<number> {
   return shouldFail(severity, opts.failOnSeverity) ? 1 : 0;
 }
 
-async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<number> {
+async function runTeam(opts: CliOptions): Promise<number> {
   const diff = prepareDiff(opts);
   const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
   const result = await runTeamReview({
@@ -304,24 +302,18 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
   }
   writeTeamSummary(result);
 
-  // Post PR comment using platform adapter
-  const prInfo = adapter.resolvePrFromEnv(process.env);
-  if (prInfo) {
+  const ctx = prCommentContextFromEnv(process.env);
+  if (ctx) {
     const body = renderTeamComment(result);
-    const commentContext = {
-      apiBase: prInfo.apiBase,
-      repository: prInfo.repository,
-      pr: opts.pr,
-      token: prInfo.token,
-      headSha: process.env.PI_REVIEW_HEAD_SHA ?? "",
-    };
-    // When the coordinator surfaced line-pinned findings, post a review
-    // with inline comments (falls back to summary comment on Gitea).
-    // Otherwise keep the comment path with its edit-in-place behaviour.
+    // When the coordinator surfaced line-pinned findings, post a GitHub
+    // review with inline comments (postPrReview falls back internally to a
+    // summary review, then to an issue comment). Otherwise keep the issue
+    // comment path with its edit-in-place behaviour — a review without
+    // inline data adds nothing and stacks duplicate reviews on re-pushes.
     const outcome =
       result.inlineComments.length > 0
-        ? await adapter.postReview(commentContext, body, result.inlineComments)
-        : await adapter.postComment(commentContext, body);
+        ? await postPrReview(ctx, body, result.inlineComments)
+        : await postPrComment(ctx, body);
     process.stdout.write(`\nPR comment: ${outcome}\n`);
   }
   return shouldFail(result.severity, opts.failOnSeverity) ? 1 : 0;
@@ -329,27 +321,17 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
 
 async function main(): Promise<number> {
   const opts = parseArgs(process.argv);
-
-  // Create platform adapter with auto-detection
-  const { adapter, platform } = await createAdapterFromEnv(process.env, opts.platform);
-  process.stderr.write(`Using platform: ${platform}\n`);
-
   if (opts.includePrContext) {
-    const prInfo = adapter.resolvePrFromEnv(process.env);
-    if (prInfo) {
-      opts.prContext = await adapter.fetchPrContext({
-        apiBase: prInfo.apiBase,
-        repository: prInfo.repository,
-        pr: opts.pr,
-        token: prInfo.token,
-      });
+    const auth = githubAuthFromEnv(process.env);
+    if (auth) {
+      opts.prContext = await fetchPrContext({ ...auth, pr: opts.pr });
     } else {
       process.stderr.write(
-        "includePrContext enabled but platform env vars not configured; skipping context fetch\n",
+        "includePrContext enabled but GITHUB_REPOSITORY/GITHUB_TOKEN unset; skipping context fetch\n",
       );
     }
   }
-  return opts.team ? runTeam(opts, adapter) : runSingle(opts);
+  return opts.team ? runTeam(opts) : runSingle(opts);
 }
 
 main()
