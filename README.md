@@ -180,6 +180,7 @@ Drop `.yaml`/`.yml` files in `<repo>/.github/reviewers/` with `name` + `prompt` 
 - [x] Inline review comments via GitHub Reviews API (summary/comment fallback)
 - [x] Verdict fallback chain (coordinator → persona severity vote)
 - [x] Custom personas via `.github/reviewers/*.yaml`
+- [x] Gitea platform support (via PlatformAdapter interface)
 - [ ] Unit tests
 - [ ] Multi-instance personas (count >1 in team spec currently runs as 1)
 
