@@ -186,7 +186,10 @@ export class GiteaAdapter implements PlatformAdapter {
     // Gitea API v1 endpoint
     const apiUrl = apiBase.endsWith("/api/v1") ? apiBase : `${apiBase}/api/v1`;
 
-    return { pr, repository, apiBase: apiUrl, token };
+    // Head SHA for idempotent comment updates
+    const headSha = env.GITEA_HEAD_SHA ?? env.PI_REVIEW_HEAD_SHA ?? "";
+
+    return { pr, repository, apiBase: apiUrl, token, headSha };
   }
 
   private formatContext(

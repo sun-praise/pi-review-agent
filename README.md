@@ -110,7 +110,6 @@ jobs:
 3. `GITHUB_REPOSITORY` or `GITHUB_TOKEN` environment variables
 4. Error if none detected
 
->>>>>>> 0fd724b (fix: address AI review blocking issues)
 ## GitHub Action
 
 Single-persona mode:
