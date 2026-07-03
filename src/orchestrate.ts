@@ -31,6 +31,8 @@ export interface TeamReviewOptions {
   sessionsRoot: string;
   /** e.g. "quality:1,security:1,performance:1". Default: all built-ins. */
   team?: string;
+  /** Model id registered in the provider. Default "deepseek-v4-flash". */
+  modelId?: string;
   /** Skip the coordinator synthesis step. Default false. */
   skipCoordinator?: boolean;
   /** Output language for review prose. Passed through to every reviewer + the coordinator. Default undefined = English. */
@@ -195,6 +197,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
           provider: opts.provider,
           pr: opts.pr,
           persona: persona.name,
+          modelId: opts.modelId,
           diff: opts.diff,
           prContext: opts.prContext,
           sessionsRoot: opts.sessionsRoot,
@@ -226,6 +229,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
         provider: opts.provider,
         pr: opts.pr,
         persona: coord.name,
+        modelId: opts.modelId,
         diff: input,
         sessionsRoot: opts.sessionsRoot,
         cwd: opts.cwd,
