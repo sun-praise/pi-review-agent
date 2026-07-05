@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-07-05
+
+### Fixed
+
+- **Team mode now respects the `model` input** (#16). Previously the model was
+  registered into the LiteLLM provider but never forwarded to `runReview`, so
+  every persona and the coordinator fell back to the hardcoded default
+  `deepseek-v4-flash` and failed for any non-default model. `modelId` is now
+  threaded through `TeamReviewOptions` and into all reviewer calls.
+- **Single mode `model` input** also fixed: it had the same omission and would
+  fail for non-default models because the provider only registers the
+  user-selected model.
+
 ## [1.3.0] - 2026-06-30
 
 ### Added
