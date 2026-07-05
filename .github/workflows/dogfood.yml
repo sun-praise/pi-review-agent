@@ -19,5 +19,6 @@ jobs:
         uses: ./
         with:
           team: "quality:1,security:1,performance:1"
+          model: mimo-v2.5
           litellm-url: ${{ secrets.LITELLM_URL }}
           litellm-api-key: ${{ secrets.LITELLM_API_KEY }}
