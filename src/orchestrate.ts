@@ -15,6 +15,7 @@ import path from "node:path";
 import type { Provider } from "@earendil-works/pi-ai";
 import { runReview, type ReviewResult } from "./review.js";
 import { loadPersonas, resolveTeam, type Persona } from "./personas.js";
+import { loadStyleGuide } from "./style-guide.js";
 import { parseSeverity, withFailedReviewerOverride, type Severity } from "./severity.js";
 import { parseInlineComments, type InlineComment } from "./inline-comments.js";
 
@@ -42,6 +43,10 @@ export interface TeamReviewOptions {
   timeoutMs?: number;
   maxAttempts?: number;
   retryBackoffMs?: number;
+  /** Explicit path to a repository style-guide file. If omitted, common default
+   *  paths are tried. The loaded guide is appended to prompts of personas that
+   *  opt in via `useStyleGuide`. */
+  styleGuide?: string;
 }
 
 export interface PersonaReview {
@@ -117,6 +122,13 @@ function coordinatorPersona(): Persona {
   return { name: "coordinator", prompt: COORDINATOR_PROMPT };
 }
 
+function buildSystemPrompt(persona: Persona, styleGuide: string | undefined): string {
+  if (!styleGuide || !persona.useStyleGuide) return persona.prompt;
+  return `${persona.prompt}\n\nRepository style-guide:\n${styleGuide}`;
+}
+
+export { buildSystemPrompt };
+
 function extractVerdict(text: string): TeamReviewResult["verdict"] {
   const first = text.trim().split("\n")[0]?.toUpperCase() ?? "";
   if (first.includes("CAN MERGE") && !first.includes("CANNOT")) return "CAN MERGE";
@@ -190,6 +202,8 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
     throw new Error("no personas resolved; pass --team or add .github/reviewers/*.yaml");
   }
 
+  const styleGuide = loadStyleGuide(opts.cwd, opts.styleGuide);
+
   const personaResults = await Promise.all(
     personas.map(async (persona): Promise<PersonaReview> => {
       try {
@@ -202,7 +216,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
           prContext: opts.prContext,
           sessionsRoot: opts.sessionsRoot,
           cwd: opts.cwd,
-          systemPrompt: persona.prompt,
+          systemPrompt: buildSystemPrompt(persona, styleGuide),
           language: opts.language,
           timeoutMs: opts.timeoutMs,
           maxAttempts: opts.maxAttempts,

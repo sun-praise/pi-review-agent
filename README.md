@@ -168,6 +168,36 @@ Migration from opencode-actions/multi-review is handled by the same skill — me
 
 Drop `.yaml`/`.yml` files in `<repo>/.github/reviewers/` with `name` + `prompt` fields. They override built-ins of the same name and add new ones (format mirrors opencode-actions for drop-in compatibility).
 
+Add `use-style-guide: true` to opt a custom persona into the repository style-guide (see below).
+
+### Style-guide
+
+If your repo maintains a style-guide, the agent can load it automatically and append it to the prompts of the `style` and `quality` personas (and any custom persona with `use-style-guide: true`).
+
+Supported auto-detection paths (checked in order):
+1. `STYLE_GUIDE.md`
+2. `.github/STYLE_GUIDE.md`
+3. `docs/style-guide.md`
+4. `.github/style-guide.md`
+
+Override auto-detection with the `style-guide` input:
+
+```yaml
+- uses: sun-praise/pi-review-agent@v1
+  with:
+    team: "quality:1,style:1,security:1"
+    style-guide: "./docs/STYLE_GUIDE.md"
+    litellm-url: ${{ secrets.LITELLM_URL }}
+    litellm-api-key: ${{ secrets.LITELLM_API_KEY }}
+```
+
+Or from the CLI:
+
+```bash
+LITELLM_API_KEY=... npx tsx src/index.ts \
+  --pr 123 --diff-file ./diff.txt --team "quality:1,style:1" --style-guide ./docs/STYLE_GUIDE.md
+```
+
 ## Status
 
 - [x] pi-ai provider (litellm → deepseek) with correct cacheRead
@@ -180,6 +210,7 @@ Drop `.yaml`/`.yml` files in `<repo>/.github/reviewers/` with `name` + `prompt` 
 - [x] Inline review comments via GitHub Reviews API (summary/comment fallback)
 - [x] Verdict fallback chain (coordinator → persona severity vote)
 - [x] Custom personas via `.github/reviewers/*.yaml`
+- [x] Repository style-guide auto-detection and prompt injection
 - [x] Gitea platform support (via PlatformAdapter interface)
 - [ ] Unit tests
 - [ ] Multi-instance personas (count >1 in team spec currently runs as 1)

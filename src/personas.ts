@@ -16,11 +16,14 @@ import path from "node:path";
 export interface Persona {
   name: string;
   prompt: string;
+  /** When true, the repository style-guide (if found) is appended to this persona's system prompt. */
+  useStyleGuide?: boolean;
 }
 
 interface PersonaFileShape {
   name: unknown;
   prompt: unknown;
+  "use-style-guide"?: unknown;
 }
 
 const DECISION_RULES = [
@@ -57,11 +60,22 @@ function reviewerHead(focus: string, checks: string[]): string {
 export const BUILT_IN_PERSONAS: Persona[] = [
   {
     name: "quality",
+    useStyleGuide: true,
     prompt: reviewerHead("code quality", [
       "Code quality issues",
       "Potential bugs or logic errors",
       "Code style consistency",
       "Error handling completeness",
+    ]),
+  },
+  {
+    name: "style",
+    useStyleGuide: true,
+    prompt: reviewerHead("style-guide enforcement", [
+      "Conformance to the repository style-guide provided below",
+      "Naming conventions, formatting, and project-specific patterns",
+      "Consistency with documented style rules",
+      "Readability and maintainability issues that the style-guide calls out",
     ]),
   },
   {
@@ -115,11 +129,17 @@ const BUILT_IN_BY_NAME: Record<string, Persona> = Object.fromEntries(
   BUILT_IN_PERSONAS.map((p) => [p.name, p]),
 );
 
-function isPersonaFile(v: unknown): v is PersonaFileShape & { name: string; prompt: string } {
+function isPersonaFile(
+  v: unknown,
+): v is PersonaFileShape & { name: string; prompt: string; "use-style-guide"?: boolean } {
   if (typeof v !== "object" || v === null) return false;
   if (!("name" in v) || !("prompt" in v)) return false;
   const obj = v as PersonaFileShape;
-  return typeof obj.name === "string" && typeof obj.prompt === "string";
+  if (typeof obj.name !== "string" || typeof obj.prompt !== "string") return false;
+  if (obj["use-style-guide"] !== undefined && typeof obj["use-style-guide"] !== "boolean") {
+    return false;
+  }
+  return true;
 }
 
 /**
@@ -145,10 +165,15 @@ export function loadPersonas(cwd: string): Persona[] {
     const parsed = yamlLoad(raw);
     if (!isPersonaFile(parsed)) {
       throw new Error(
-        `${full}: persona file must have string 'name' and string 'prompt' fields`,
+        `${full}: persona file must have string 'name' and string 'prompt' fields, ` +
+          "and optional 'use-style-guide' boolean",
       );
     }
-    const persona: Persona = { name: parsed.name, prompt: parsed.prompt };
+    const persona: Persona = {
+      name: parsed.name,
+      prompt: parsed.prompt,
+      useStyleGuide: parsed["use-style-guide"],
+    };
     if (!byName[persona.name]) order.push(persona.name);
     byName[persona.name] = persona;
   }

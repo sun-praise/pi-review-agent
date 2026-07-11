@@ -21,7 +21,9 @@
 import { readFileSync, appendFileSync } from "node:fs";
 import { createLiteLLMDeepSeekProvider } from "./provider.js";
 import { runReview, type ReviewResult } from "./review.js";
-import { runTeamReview, renderTeamComment, type TeamReviewResult } from "./orchestrate.js";
+import { runTeamReview, renderTeamComment, buildSystemPrompt, type TeamReviewResult } from "./orchestrate.js";
+import { loadPersonas } from "./personas.js";
+import { loadStyleGuide } from "./style-guide.js";
 import { createAdapterFromEnv, type PlatformAdapter } from "./platforms/index.js";
 import { filterDiff } from "./diff-filter.js";
 import { parseSeverity, shouldFail, type FailMode } from "./severity.js";
@@ -59,6 +61,8 @@ interface CliOptions {
   prContext: string;
   /** Platform override: "github" | "gitea". Auto-detected if not set. */
   platform: string | undefined;
+  /** Explicit path to a repository style-guide file, or undefined to auto-detect. */
+  styleGuide: string | undefined;
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -117,6 +121,7 @@ function parseArgs(argv: string[]): CliOptions {
     ),
     prContext: "",
     platform: args.platform || process.env.PI_REVIEW_PLATFORM,
+    styleGuide: args["style-guide"] || process.env.PI_REVIEW_STYLE_GUIDE,
   };
 }
 
@@ -242,27 +247,32 @@ function writeTeamSummary(result: TeamReviewResult): void {
 
 async function runSingle(opts: CliOptions): Promise<number> {
   const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
-  const persona = opts.persona as string;
+  const personaName = opts.persona as string;
+  const available = loadPersonas(opts.cwd);
+  const persona = available.find((p) => p.name === personaName);
+  const styleGuide = loadStyleGuide(opts.cwd, opts.styleGuide);
+  const systemPrompt = persona ? buildSystemPrompt(persona, styleGuide) : undefined;
   const diff = prepareDiff(opts);
   const result = await runReview({
     provider,
     pr: opts.pr,
-    persona,
+    persona: personaName,
     modelId: opts.modelId,
     diff,
     prContext: opts.prContext,
     sessionsRoot: opts.sessionsRoot,
     cwd: opts.cwd,
+    systemPrompt,
     language: opts.language,
     timeoutMs: opts.timeoutMs,
     maxAttempts: opts.maxAttempts,
     retryBackoffMs: opts.retryBackoffMs,
   });
-  process.stdout.write(`\n=== review (${persona}, resumed=${result.resumed}) ===\n${result.content}\n`);
+  process.stdout.write(`\n=== review (${personaName}, resumed=${result.resumed}) ===\n${result.content}\n`);
   process.stdout.write(
     `cacheRead: ${result.usage.cacheRead}  cost: $${result.usage.costTotal.toFixed(6)}\n`,
   );
-  writeSingleSummary(result, persona);
+  writeSingleSummary(result, personaName);
   appendOutputs([
     `cacheRead=${result.usage.cacheRead}`,
     `costTotal=${result.usage.costTotal.toFixed(6)}`,
@@ -292,6 +302,7 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
     timeoutMs: opts.timeoutMs,
     maxAttempts: opts.maxAttempts,
     retryBackoffMs: opts.retryBackoffMs,
+    styleGuide: opts.styleGuide,
   });
   process.stdout.write(`\n=== team review (${result.personas.length} personas) ===\n`);
   process.stdout.write(`verdict: ${result.verdict}\n`);

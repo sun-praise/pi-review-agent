@@ -173,10 +173,10 @@ function defaultProviderAuthContext() {
       const value = getProcessEnv()?.[name];
       return typeof value === "string" && value.trim().length > 0 ? value : void 0;
     },
-    async fileExists(path9) {
+    async fileExists(path10) {
       try {
         const fs5 = await importNodeModule("node:fs/promises");
-        let resolved = path9;
+        let resolved = path10;
         if (resolved.startsWith("~")) {
           const os = await importNodeModule("node:os");
           resolved = os.homedir() + resolved.slice(1);
@@ -193,13 +193,13 @@ var __rewriteRelativeImportExtension, importNodeModule;
 var init_context = __esm({
   "../../node_modules/@earendil-works/pi-ai/dist/auth/context.js"() {
     "use strict";
-    __rewriteRelativeImportExtension = function(path9, preserveJsx) {
-      if (typeof path9 === "string" && /^\.\.?\//.test(path9)) {
-        return path9.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
+    __rewriteRelativeImportExtension = function(path10, preserveJsx) {
+      if (typeof path10 === "string" && /^\.\.?\//.test(path10)) {
+        return path10.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
           return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m2 : d + ext + "." + cm.toLowerCase() + "js";
         });
       }
-      return path9;
+      return path10;
     };
     importNodeModule = (specifier) => import(__rewriteRelativeImportExtension(specifier));
   }
@@ -272,7 +272,7 @@ async function resolveProviderAuth(provider, model, credentials, authContext, ov
 function overlayEnvAuthContext(base, env2) {
   return {
     env: async (name) => env2[name] || await base.env(name),
-    fileExists: (path9) => base.fileExists(path9)
+    fileExists: (path10) => base.fileExists(path10)
   };
 }
 async function resolveStoredOAuth(credentials, providerId, oauth, stored) {
@@ -2741,12 +2741,12 @@ var init_path = __esm({
     "use strict";
     init_error();
     EMPTY = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.create(null));
-    createPathTagFunction = (pathEncoder = encodeURIPath) => function path9(statics, ...params) {
+    createPathTagFunction = (pathEncoder = encodeURIPath) => function path10(statics, ...params) {
       if (statics.length === 1)
         return statics[0];
       let postPath = false;
       const invalidSegments = [];
-      const path10 = statics.reduce((previousValue, currentValue, index2) => {
+      const path11 = statics.reduce((previousValue, currentValue, index2) => {
         if (/[?#]/.test(currentValue)) {
           postPath = true;
         }
@@ -2763,7 +2763,7 @@ var init_path = __esm({
         }
         return previousValue + currentValue + (index2 === params.length ? "" : encoded);
       }, "");
-      const pathOnly = path10.split(/[?#]/, 1)[0];
+      const pathOnly = path11.split(/[?#]/, 1)[0];
       const invalidSegmentPattern = /(?<=^|\/)(?:\.|%2e){1,2}(?=\/|$)/gi;
       let match2;
       while ((match2 = invalidSegmentPattern.exec(pathOnly)) !== null) {
@@ -2784,10 +2784,10 @@ var init_path = __esm({
         }, "");
         throw new OpenAIError(`Path parameters result in path with invalid segments:
 ${invalidSegments.map((e2) => e2.error).join("\n")}
-${path10}
+${path11}
 ${underline}`);
       }
-      return path10;
+      return path11;
     };
     path = /* @__PURE__ */ createPathTagFunction(encodeURIPath);
   }
@@ -8548,9 +8548,9 @@ var init_client = __esm({
         this.apiKey = token;
         return true;
       }
-      buildURL(path9, query, defaultBaseURL) {
+      buildURL(path10, query, defaultBaseURL) {
         const baseURL = !__classPrivateFieldGet2(this, _OpenAI_instances, "m", _OpenAI_baseURLOverridden).call(this) && defaultBaseURL || this.baseURL;
-        const url2 = isAbsoluteURL(path9) ? new URL(path9) : new URL(baseURL + (baseURL.endsWith("/") && path9.startsWith("/") ? path9.slice(1) : path9));
+        const url2 = isAbsoluteURL(path10) ? new URL(path10) : new URL(baseURL + (baseURL.endsWith("/") && path10.startsWith("/") ? path10.slice(1) : path10));
         const defaultQuery = this.defaultQuery();
         if (!isEmptyObj(defaultQuery)) {
           query = { ...defaultQuery, ...query };
@@ -8574,24 +8574,24 @@ var init_client = __esm({
        */
       async prepareRequest(request, { url: url2, options }) {
       }
-      get(path9, opts) {
-        return this.methodRequest("get", path9, opts);
+      get(path10, opts) {
+        return this.methodRequest("get", path10, opts);
       }
-      post(path9, opts) {
-        return this.methodRequest("post", path9, opts);
+      post(path10, opts) {
+        return this.methodRequest("post", path10, opts);
       }
-      patch(path9, opts) {
-        return this.methodRequest("patch", path9, opts);
+      patch(path10, opts) {
+        return this.methodRequest("patch", path10, opts);
       }
-      put(path9, opts) {
-        return this.methodRequest("put", path9, opts);
+      put(path10, opts) {
+        return this.methodRequest("put", path10, opts);
       }
-      delete(path9, opts) {
-        return this.methodRequest("delete", path9, opts);
+      delete(path10, opts) {
+        return this.methodRequest("delete", path10, opts);
       }
-      methodRequest(method, path9, opts) {
+      methodRequest(method, path10, opts) {
         return this.request(Promise.resolve(opts).then((opts2) => {
-          return { method, path: path9, ...opts2 };
+          return { method, path: path10, ...opts2 };
         }));
       }
       request(options, remainingRetries = null) {
@@ -8695,8 +8695,8 @@ var init_client = __esm({
         }));
         return { response, options, controller, requestLogID, retryOfRequestLogID, startTime };
       }
-      getAPIList(path9, Page3, opts) {
-        return this.requestAPIList(Page3, opts && "then" in opts ? opts.then((opts2) => ({ method: "get", path: path9, ...opts2 })) : { method: "get", path: path9, ...opts });
+      getAPIList(path10, Page3, opts) {
+        return this.requestAPIList(Page3, opts && "then" in opts ? opts.then((opts2) => ({ method: "get", path: path10, ...opts2 })) : { method: "get", path: path10, ...opts });
       }
       requestAPIList(Page3, options) {
         const request = this.makeRequest(options, null, void 0);
@@ -8775,8 +8775,8 @@ var init_client = __esm({
       }
       async buildRequest(inputOptions, { retryCount = 0 } = {}) {
         const options = { ...inputOptions };
-        const { method, path: path9, query, defaultBaseURL } = options;
-        const url2 = this.buildURL(path9, query, defaultBaseURL);
+        const { method, path: path10, query, defaultBaseURL } = options;
+        const url2 = this.buildURL(path10, query, defaultBaseURL);
         if ("timeout" in options)
           validatePositiveInteger("timeout", options.timeout);
         options.timeout = options.timeout ?? this.timeout;
@@ -9037,8 +9037,8 @@ function getBunSandboxEnvValue(name) {
   if (procEnvCache === null) {
     procEnvCache = /* @__PURE__ */ new Map();
     try {
-      const { readFileSync: readFileSync3 } = require("fs");
-      const data = readFileSync3("/proc/self/environ", "utf-8");
+      const { readFileSync: readFileSync4 } = require("fs");
+      const data = readFileSync4("/proc/self/environ", "utf-8");
       for (const entry of data.split("\0")) {
         const idx = entry.indexOf("=");
         if (idx > 0) {
@@ -11707,12 +11707,12 @@ var init_path2 = __esm({
     "use strict";
     init_error3();
     EMPTY2 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.create(null));
-    createPathTagFunction2 = (pathEncoder = encodeURIPath2) => function path9(statics, ...params) {
+    createPathTagFunction2 = (pathEncoder = encodeURIPath2) => function path10(statics, ...params) {
       if (statics.length === 1)
         return statics[0];
       let postPath = false;
       const invalidSegments = [];
-      const path10 = statics.reduce((previousValue, currentValue, index2) => {
+      const path11 = statics.reduce((previousValue, currentValue, index2) => {
         if (/[?#]/.test(currentValue)) {
           postPath = true;
         }
@@ -11729,7 +11729,7 @@ var init_path2 = __esm({
         }
         return previousValue + currentValue + (index2 === params.length ? "" : encoded);
       }, "");
-      const pathOnly = path10.split(/[?#]/, 1)[0];
+      const pathOnly = path11.split(/[?#]/, 1)[0];
       const invalidSegmentPattern = /(?<=^|\/)(?:\.|%2e){1,2}(?=\/|$)/gi;
       let match2;
       while ((match2 = invalidSegmentPattern.exec(pathOnly)) !== null) {
@@ -11750,10 +11750,10 @@ var init_path2 = __esm({
         }, "");
         throw new AnthropicError(`Path parameters result in path with invalid segments:
 ${invalidSegments.map((e2) => e2.error).join("\n")}
-${path10}
+${path11}
 ${underline}`);
       }
-      return path10;
+      return path11;
     };
     path2 = /* @__PURE__ */ createPathTagFunction2(encodeURIPath2);
   }
@@ -16654,9 +16654,9 @@ var init_client2 = __esm({
       makeStatusError(status, error51, message, headers) {
         return APIError2.generate(status, error51, message, headers);
       }
-      buildURL(path9, query, defaultBaseURL) {
+      buildURL(path10, query, defaultBaseURL) {
         const baseURL = !__classPrivateFieldGet3(this, _BaseAnthropic_instances, "m", _BaseAnthropic_baseURLOverridden).call(this) && defaultBaseURL || this.baseURL;
-        const url2 = isAbsoluteURL2(path9) ? new URL(path9) : new URL(baseURL + (baseURL.endsWith("/") && path9.startsWith("/") ? path9.slice(1) : path9));
+        const url2 = isAbsoluteURL2(path10) ? new URL(path10) : new URL(baseURL + (baseURL.endsWith("/") && path10.startsWith("/") ? path10.slice(1) : path10));
         const defaultQuery = this.defaultQuery();
         const pathQuery = Object.fromEntries(url2.searchParams);
         if (!isEmptyObj2(defaultQuery) || !isEmptyObj2(pathQuery)) {
@@ -16688,24 +16688,24 @@ var init_client2 = __esm({
        */
       async prepareRequest(request, { url: url2, options }) {
       }
-      get(path9, opts) {
-        return this.methodRequest("get", path9, opts);
+      get(path10, opts) {
+        return this.methodRequest("get", path10, opts);
       }
-      post(path9, opts) {
-        return this.methodRequest("post", path9, opts);
+      post(path10, opts) {
+        return this.methodRequest("post", path10, opts);
       }
-      patch(path9, opts) {
-        return this.methodRequest("patch", path9, opts);
+      patch(path10, opts) {
+        return this.methodRequest("patch", path10, opts);
       }
-      put(path9, opts) {
-        return this.methodRequest("put", path9, opts);
+      put(path10, opts) {
+        return this.methodRequest("put", path10, opts);
       }
-      delete(path9, opts) {
-        return this.methodRequest("delete", path9, opts);
+      delete(path10, opts) {
+        return this.methodRequest("delete", path10, opts);
       }
-      methodRequest(method, path9, opts) {
+      methodRequest(method, path10, opts) {
         return this.request(Promise.resolve(opts).then((opts2) => {
-          return { method, path: path9, ...opts2 };
+          return { method, path: path10, ...opts2 };
         }));
       }
       request(options, remainingRetries = null) {
@@ -16809,8 +16809,8 @@ var init_client2 = __esm({
         }));
         return { response, options, controller, requestLogID, retryOfRequestLogID, startTime };
       }
-      getAPIList(path9, Page3, opts) {
-        return this.requestAPIList(Page3, opts && "then" in opts ? opts.then((opts2) => ({ method: "get", path: path9, ...opts2 })) : { method: "get", path: path9, ...opts });
+      getAPIList(path10, Page3, opts) {
+        return this.requestAPIList(Page3, opts && "then" in opts ? opts.then((opts2) => ({ method: "get", path: path10, ...opts2 })) : { method: "get", path: path10, ...opts });
       }
       requestAPIList(Page3, options) {
         const request = this.makeRequest(options, null, void 0);
@@ -16898,8 +16898,8 @@ var init_client2 = __esm({
       }
       async buildRequest(inputOptions, { retryCount = 0 } = {}) {
         const options = { ...inputOptions };
-        const { method, path: path9, query, defaultBaseURL } = options;
-        const url2 = this.buildURL(path9, query, defaultBaseURL);
+        const { method, path: path10, query, defaultBaseURL } = options;
+        const url2 = this.buildURL(path10, query, defaultBaseURL);
         if ("timeout" in options)
           validatePositiveInteger2("timeout", options.timeout);
         options.timeout = options.timeout ?? this.timeout;
@@ -25407,22 +25407,22 @@ var init_from = __esm({
     init_file();
     init_fetch_blob();
     ({ stat } = import_node_fs.promises);
-    blobFromSync = (path9, type) => fromBlob((0, import_node_fs.statSync)(path9), path9, type);
-    blobFrom = (path9, type) => stat(path9).then((stat3) => fromBlob(stat3, path9, type));
-    fileFrom = (path9, type) => stat(path9).then((stat3) => fromFile(stat3, path9, type));
-    fileFromSync = (path9, type) => fromFile((0, import_node_fs.statSync)(path9), path9, type);
-    fromBlob = (stat3, path9, type = "") => new fetch_blob_default([new BlobDataItem({
-      path: path9,
+    blobFromSync = (path10, type) => fromBlob((0, import_node_fs.statSync)(path10), path10, type);
+    blobFrom = (path10, type) => stat(path10).then((stat3) => fromBlob(stat3, path10, type));
+    fileFrom = (path10, type) => stat(path10).then((stat3) => fromFile(stat3, path10, type));
+    fileFromSync = (path10, type) => fromFile((0, import_node_fs.statSync)(path10), path10, type);
+    fromBlob = (stat3, path10, type = "") => new fetch_blob_default([new BlobDataItem({
+      path: path10,
       size: stat3.size,
       lastModified: stat3.mtimeMs,
       start: 0
     })], { type });
-    fromFile = (stat3, path9, type = "") => new file_default([new BlobDataItem({
-      path: path9,
+    fromFile = (stat3, path10, type = "") => new file_default([new BlobDataItem({
+      path: path10,
       size: stat3.size,
       lastModified: stat3.mtimeMs,
       start: 0
-    })], (0, import_node_path.basename)(path9), { type, lastModified: stat3.mtimeMs });
+    })], (0, import_node_path.basename)(path10), { type, lastModified: stat3.mtimeMs });
     BlobDataItem = class _BlobDataItem {
       #path;
       #start;
@@ -30618,7 +30618,7 @@ var require_util2 = __commonJS({
     exports2.getWellKnownCertificateConfigFileLocation = getWellKnownCertificateConfigFileLocation;
     var fs5 = require("fs");
     var os = require("os");
-    var path9 = require("path");
+    var path10 = require("path");
     var WELL_KNOWN_CERTIFICATE_CONFIG_FILE = "certificate_config.json";
     var CLOUDSDK_CONFIG_DIRECTORY = "gcloud";
     function snakeToCamel(str2) {
@@ -30711,8 +30711,8 @@ var require_util2 = __commonJS({
       }
     }
     function getWellKnownCertificateConfigFileLocation() {
-      const configDir = process.env.CLOUDSDK_CONFIG || (_isWindows() ? path9.join(process.env.APPDATA || "", CLOUDSDK_CONFIG_DIRECTORY) : path9.join(process.env.HOME || "", ".config", CLOUDSDK_CONFIG_DIRECTORY));
-      return path9.join(configDir, WELL_KNOWN_CERTIFICATE_CONFIG_FILE);
+      const configDir = process.env.CLOUDSDK_CONFIG || (_isWindows() ? path10.join(process.env.APPDATA || "", CLOUDSDK_CONFIG_DIRECTORY) : path10.join(process.env.HOME || "", ".config", CLOUDSDK_CONFIG_DIRECTORY));
+      return path10.join(configDir, WELL_KNOWN_CERTIFICATE_CONFIG_FILE);
     }
     function _isWindows() {
       return os.platform().startsWith("win");
@@ -32664,7 +32664,7 @@ var require_getCredentials = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.getCredentials = getCredentials;
-    var path9 = require("path");
+    var path10 = require("path");
     var fs5 = require("fs");
     var util_1 = require("util");
     var errorWithCode_1 = require_errorWithCode();
@@ -32736,7 +32736,7 @@ var require_getCredentials = __commonJS({
        * @returns An instance of a class that implements ICredentialsProvider.
        */
       static create(keyFilePath) {
-        const keyFileExtension = path9.extname(keyFilePath);
+        const keyFileExtension = path10.extname(keyFilePath);
         switch (keyFileExtension) {
           case ExtensionFiles.JSON:
             return new JsonCredentialsProvider(keyFilePath);
@@ -36105,7 +36105,7 @@ var require_googleauth = __commonJS({
     var gaxios_1 = require_src2();
     var gcpMetadata = require_src4();
     var os = require("os");
-    var path9 = require("path");
+    var path10 = require("path");
     var crypto_1 = require_crypto3();
     var computeclient_1 = require_computeclient();
     var idtokenclient_1 = require_idtokenclient();
@@ -36392,11 +36392,11 @@ var require_googleauth = __commonJS({
         } else {
           const home = process.env["HOME"];
           if (home) {
-            location = path9.join(home, ".config");
+            location = path10.join(home, ".config");
           }
         }
         if (location) {
-          location = path9.join(location, "gcloud", "application_default_credentials.json");
+          location = path10.join(location, "gcloud", "application_default_credentials.json");
           if (!fs5.existsSync(location)) {
             location = null;
           }
@@ -36755,7 +36755,7 @@ var require_googleauth = __commonJS({
         if (this.jsonContent) {
           return this._cacheClientFromJSON(this.jsonContent, this.clientOptions);
         } else if (this.keyFilename) {
-          const filePath = path9.resolve(this.keyFilename);
+          const filePath = path10.resolve(this.keyFilename);
           const stream10 = fs5.createReadStream(filePath);
           return await this.fromStreamAsync(stream10, this.clientOptions);
         } else if (this.apiKey) {
@@ -52809,7 +52809,7 @@ var init_node = __esm({
           params
         );
         const urlParams = body["_url"];
-        const path9 = formatMap("{model}:batchGenerateContent", urlParams);
+        const path10 = formatMap("{model}:batchGenerateContent", urlParams);
         const batch = body["batch"];
         const inputConfig = batch["inputConfig"];
         const requestsWrapper = inputConfig["requests"];
@@ -52830,7 +52830,7 @@ var init_node = __esm({
         delete body["config"];
         delete body["_url"];
         delete body["_query"];
-        return { path: path9, body };
+        return { path: path10, body };
       }
       // Helper function to get the first GCS URI
       getGcsUri(src) {
@@ -52886,16 +52886,16 @@ var init_node = __esm({
       async createInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = createBatchJobParametersToVertex(this.apiClient, params);
-          path9 = formatMap("batchPredictionJobs", body["_url"]);
+          path10 = formatMap("batchPredictionJobs", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -52910,12 +52910,12 @@ var init_node = __esm({
           });
         } else {
           const body = createBatchJobParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{model}:batchGenerateContent", body["_url"]);
+          path10 = formatMap("{model}:batchGenerateContent", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -52940,18 +52940,18 @@ var init_node = __esm({
       async createEmbeddingsInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = createEmbeddingsBatchJobParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{model}:asyncBatchEmbedContent", body["_url"]);
+          path10 = formatMap("{model}:asyncBatchEmbedContent", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -52980,16 +52980,16 @@ var init_node = __esm({
       async get(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = getBatchJobParametersToVertex(this.apiClient, params);
-          path9 = formatMap("batchPredictionJobs/{name}", body["_url"]);
+          path10 = formatMap("batchPredictionJobs/{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53004,12 +53004,12 @@ var init_node = __esm({
           });
         } else {
           const body = getBatchJobParametersToMldev(this.apiClient, params);
-          path9 = formatMap("batches/{name}", body["_url"]);
+          path10 = formatMap("batches/{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53037,16 +53037,16 @@ var init_node = __esm({
        */
       async cancel(params) {
         var _a7, _b, _c, _d;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = cancelBatchJobParametersToVertex(this.apiClient, params);
-          path9 = formatMap("batchPredictionJobs/{name}:cancel", body["_url"]);
+          path10 = formatMap("batchPredictionJobs/{name}:cancel", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           await this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -53055,12 +53055,12 @@ var init_node = __esm({
           });
         } else {
           const body = cancelBatchJobParametersToMldev(this.apiClient, params);
-          path9 = formatMap("batches/{name}:cancel", body["_url"]);
+          path10 = formatMap("batches/{name}:cancel", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           await this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -53072,16 +53072,16 @@ var init_node = __esm({
       async listInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = listBatchJobsParametersToVertex(params);
-          path9 = formatMap("batchPredictionJobs", body["_url"]);
+          path10 = formatMap("batchPredictionJobs", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53104,12 +53104,12 @@ var init_node = __esm({
           });
         } else {
           const body = listBatchJobsParametersToMldev(params);
-          path9 = formatMap("batches", body["_url"]);
+          path10 = formatMap("batches", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53146,16 +53146,16 @@ var init_node = __esm({
       async delete(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = deleteBatchJobParametersToVertex(this.apiClient, params);
-          path9 = formatMap("batchPredictionJobs/{name}", body["_url"]);
+          path10 = formatMap("batchPredictionJobs/{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -53176,12 +53176,12 @@ var init_node = __esm({
           });
         } else {
           const body = deleteBatchJobParametersToMldev(this.apiClient, params);
-          path9 = formatMap("batches/{name}", body["_url"]);
+          path10 = formatMap("batches/{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -53240,16 +53240,16 @@ var init_node = __esm({
       async create(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = createCachedContentParametersToVertex(this.apiClient, params);
-          path9 = formatMap("cachedContents", body["_url"]);
+          path10 = formatMap("cachedContents", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -53263,12 +53263,12 @@ var init_node = __esm({
           });
         } else {
           const body = createCachedContentParametersToMldev(this.apiClient, params);
-          path9 = formatMap("cachedContents", body["_url"]);
+          path10 = formatMap("cachedContents", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -53296,16 +53296,16 @@ var init_node = __esm({
       async get(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = getCachedContentParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53319,12 +53319,12 @@ var init_node = __esm({
           });
         } else {
           const body = getCachedContentParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53352,16 +53352,16 @@ var init_node = __esm({
       async delete(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = deleteCachedContentParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -53384,12 +53384,12 @@ var init_node = __esm({
           });
         } else {
           const body = deleteCachedContentParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -53429,16 +53429,16 @@ var init_node = __esm({
       async update(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = updateCachedContentParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "PATCH",
@@ -53452,12 +53452,12 @@ var init_node = __esm({
           });
         } else {
           const body = updateCachedContentParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "PATCH",
@@ -53474,16 +53474,16 @@ var init_node = __esm({
       async listInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = listCachedContentsParametersToVertex(params);
-          path9 = formatMap("cachedContents", body["_url"]);
+          path10 = formatMap("cachedContents", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53506,12 +53506,12 @@ var init_node = __esm({
           });
         } else {
           const body = listCachedContentsParametersToMldev(params);
-          path9 = formatMap("cachedContents", body["_url"]);
+          path10 = formatMap("cachedContents", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53842,18 +53842,18 @@ var init_node = __esm({
       async listInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = listFilesParametersToMldev(params);
-          path9 = formatMap("files", body["_url"]);
+          path10 = formatMap("files", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53879,18 +53879,18 @@ var init_node = __esm({
       async createInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = createFileParametersToMldev(params);
-          path9 = formatMap("upload/v1beta/files", body["_url"]);
+          path10 = formatMap("upload/v1beta/files", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -53925,18 +53925,18 @@ var init_node = __esm({
       async get(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = getFileParametersToMldev(params);
-          path9 = formatMap("files/{file}", body["_url"]);
+          path10 = formatMap("files/{file}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -53966,18 +53966,18 @@ var init_node = __esm({
       async delete(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = deleteFileParametersToMldev(params);
-          path9 = formatMap("files/{file}", body["_url"]);
+          path10 = formatMap("files/{file}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -54003,18 +54003,18 @@ var init_node = __esm({
       async registerFilesInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = internalRegisterFilesParametersToMldev(params);
-          path9 = formatMap("files:register", body["_url"]);
+          path10 = formatMap("files:register", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -54174,13 +54174,13 @@ var init_node = __esm({
           throw new Error("HTTP options are not correctly set.");
         }
       }
-      constructUrl(path9, httpOptions, prependProjectLocation) {
+      constructUrl(path10, httpOptions, prependProjectLocation) {
         const urlElement = [this.getRequestUrlInternal(httpOptions)];
         if (prependProjectLocation) {
           urlElement.push(this.getBaseResourcePath());
         }
-        if (path9 !== "") {
-          urlElement.push(path9);
+        if (path10 !== "") {
+          urlElement.push(path10);
         }
         const url2 = new URL(`${urlElement.join("/")}`);
         return url2;
@@ -54465,8 +54465,8 @@ var init_node = __esm({
           file: fileToUpload
         };
         const fileName = this.getFileName(file2);
-        const path9 = formatMap("upload/v1beta/files", body["_url"]);
-        const uploadUrl = await this.fetchUploadUrl(path9, fileToUpload.sizeBytes, fileToUpload.mimeType, fileName, body, config2 === null || config2 === void 0 ? void 0 : config2.httpOptions);
+        const path10 = formatMap("upload/v1beta/files", body["_url"]);
+        const uploadUrl = await this.fetchUploadUrl(path10, fileToUpload.sizeBytes, fileToUpload.mimeType, fileName, body, config2 === null || config2 === void 0 ? void 0 : config2.httpOptions);
         return uploader.upload(file2, uploadUrl, this);
       }
       /**
@@ -54490,13 +54490,13 @@ var init_node = __esm({
         if (mimeType === void 0 || mimeType === "") {
           throw new Error("Can not determine mimeType. Please provide mimeType in the config.");
         }
-        const path9 = `upload/v1beta/${fileSearchStoreName}:uploadToFileSearchStore`;
+        const path10 = `upload/v1beta/${fileSearchStoreName}:uploadToFileSearchStore`;
         const fileName = this.getFileName(file2);
         const body = {};
         if (config2 != null) {
           uploadToFileSearchStoreConfigToMldev(config2, body);
         }
-        const uploadUrl = await this.fetchUploadUrl(path9, sizeBytes, mimeType, fileName, body, config2 === null || config2 === void 0 ? void 0 : config2.httpOptions);
+        const uploadUrl = await this.fetchUploadUrl(path10, sizeBytes, mimeType, fileName, body, config2 === null || config2 === void 0 ? void 0 : config2.httpOptions);
         return uploader.uploadToFileSearchStore(file2, uploadUrl, this);
       }
       /**
@@ -54509,7 +54509,7 @@ var init_node = __esm({
         const downloader = this.clientOptions.downloader;
         await downloader.download(params, this);
       }
-      async fetchUploadUrl(path9, sizeBytes, mimeType, fileName, body, configHttpOptions) {
+      async fetchUploadUrl(path10, sizeBytes, mimeType, fileName, body, configHttpOptions) {
         var _a7;
         let httpOptions = {};
         if (configHttpOptions) {
@@ -54522,7 +54522,7 @@ var init_node = __esm({
           };
         }
         const httpResponse = await this.request({
-          path: path9,
+          path: path10,
           body: JSON.stringify(body),
           httpMethod: "POST",
           httpOptions
@@ -55499,16 +55499,16 @@ var init_node = __esm({
       async generateContentInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = generateContentParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{model}:generateContent", body["_url"]);
+          path10 = formatMap("{model}:generateContent", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55531,12 +55531,12 @@ var init_node = __esm({
           });
         } else {
           const body = generateContentParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{model}:generateContent", body["_url"]);
+          path10 = formatMap("{model}:generateContent", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55562,17 +55562,17 @@ var init_node = __esm({
       async generateContentStreamInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = generateContentParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{model}:streamGenerateContent?alt=sse", body["_url"]);
+          path10 = formatMap("{model}:streamGenerateContent?alt=sse", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           const apiClient = this.apiClient;
           response = apiClient.requestStream({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55608,13 +55608,13 @@ var init_node = __esm({
           });
         } else {
           const body = generateContentParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{model}:streamGenerateContent?alt=sse", body["_url"]);
+          path10 = formatMap("{model}:streamGenerateContent?alt=sse", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           const apiClient = this.apiClient;
           response = apiClient.requestStream({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55674,17 +55674,17 @@ var init_node = __esm({
       async embedContentInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = embedContentParametersPrivateToVertex(this.apiClient, params, params);
           const endpointUrl = tIsVertexEmbedContentModel(params.model) ? "{model}:embedContent" : "{model}:predict";
-          path9 = formatMap(endpointUrl, body["_url"]);
+          path10 = formatMap(endpointUrl, body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55707,12 +55707,12 @@ var init_node = __esm({
           });
         } else {
           const body = embedContentParametersPrivateToMldev(this.apiClient, params);
-          path9 = formatMap("{model}:batchEmbedContents", body["_url"]);
+          path10 = formatMap("{model}:batchEmbedContents", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55741,16 +55741,16 @@ var init_node = __esm({
       async generateImagesInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = generateImagesParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{model}:predict", body["_url"]);
+          path10 = formatMap("{model}:predict", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55773,12 +55773,12 @@ var init_node = __esm({
           });
         } else {
           const body = generateImagesParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{model}:predict", body["_url"]);
+          path10 = formatMap("{model}:predict", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55807,16 +55807,16 @@ var init_node = __esm({
       async editImageInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = editImageParametersInternalToVertex(this.apiClient, params);
-          path9 = formatMap("{model}:predict", body["_url"]);
+          path10 = formatMap("{model}:predict", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55847,16 +55847,16 @@ var init_node = __esm({
       async upscaleImageInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = upscaleImageAPIParametersInternalToVertex(this.apiClient, params);
-          path9 = formatMap("{model}:predict", body["_url"]);
+          path10 = formatMap("{model}:predict", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55908,16 +55908,16 @@ var init_node = __esm({
       async recontextImage(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = recontextImageParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{model}:predict", body["_url"]);
+          path10 = formatMap("{model}:predict", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55959,16 +55959,16 @@ var init_node = __esm({
       async segmentImage(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = segmentImageParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{model}:predict", body["_url"]);
+          path10 = formatMap("{model}:predict", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -55998,16 +55998,16 @@ var init_node = __esm({
       async get(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = getModelParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56022,12 +56022,12 @@ var init_node = __esm({
           });
         } else {
           const body = getModelParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56045,16 +56045,16 @@ var init_node = __esm({
       async listInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = listModelsParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{models_url}", body["_url"]);
+          path10 = formatMap("{models_url}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56077,12 +56077,12 @@ var init_node = __esm({
           });
         } else {
           const body = listModelsParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{models_url}", body["_url"]);
+          path10 = formatMap("{models_url}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56125,16 +56125,16 @@ var init_node = __esm({
       async update(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = updateModelParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{model}", body["_url"]);
+          path10 = formatMap("{model}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "PATCH",
@@ -56149,12 +56149,12 @@ var init_node = __esm({
           });
         } else {
           const body = updateModelParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "PATCH",
@@ -56183,16 +56183,16 @@ var init_node = __esm({
       async delete(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = deleteModelParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -56215,12 +56215,12 @@ var init_node = __esm({
           });
         } else {
           const body = deleteModelParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -56262,16 +56262,16 @@ var init_node = __esm({
       async countTokens(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = countTokensParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{model}:countTokens", body["_url"]);
+          path10 = formatMap("{model}:countTokens", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56294,12 +56294,12 @@ var init_node = __esm({
           });
         } else {
           const body = countTokensParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{model}:countTokens", body["_url"]);
+          path10 = formatMap("{model}:countTokens", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56343,16 +56343,16 @@ var init_node = __esm({
       async computeTokens(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = computeTokensParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{model}:computeTokens", body["_url"]);
+          path10 = formatMap("{model}:computeTokens", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56383,16 +56383,16 @@ var init_node = __esm({
       async generateVideosInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = generateVideosParametersToVertex(this.apiClient, params);
-          path9 = formatMap("{model}:predictLongRunning", body["_url"]);
+          path10 = formatMap("{model}:predictLongRunning", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56409,12 +56409,12 @@ var init_node = __esm({
           });
         } else {
           const body = generateVideosParametersToMldev(this.apiClient, params);
-          path9 = formatMap("{model}:predictLongRunning", body["_url"]);
+          path10 = formatMap("{model}:predictLongRunning", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56516,16 +56516,16 @@ var init_node = __esm({
       async getVideosOperationInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = getOperationParametersToVertex(params);
-          path9 = formatMap("{operationName}", body["_url"]);
+          path10 = formatMap("{operationName}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56537,12 +56537,12 @@ var init_node = __esm({
           return response;
         } else {
           const body = getOperationParametersToMldev(params);
-          path9 = formatMap("{operationName}", body["_url"]);
+          path10 = formatMap("{operationName}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56557,16 +56557,16 @@ var init_node = __esm({
       async fetchPredictVideosOperationInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = fetchPredictOperationParametersToVertex(params);
-          path9 = formatMap("{resourceName}:fetchPredictOperation", body["_url"]);
+          path10 = formatMap("{resourceName}:fetchPredictOperation", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56672,20 +56672,20 @@ var init_node = __esm({
       async create(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("The client.tokens.create method is only supported by the Gemini Developer API.");
         } else {
           const body = createAuthTokenParametersToMldev(this.apiClient, params);
-          path9 = formatMap("auth_tokens", body["_url"]);
+          path10 = formatMap("auth_tokens", body["_url"]);
           queryParams = body["_query"];
           delete body["config"];
           delete body["_url"];
           delete body["_query"];
           const transformedBody = convertBidiSetupToTokenSetup(body, params.config);
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(transformedBody),
             httpMethod: "POST",
@@ -56717,18 +56717,18 @@ var init_node = __esm({
       async get(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = getDocumentParametersToMldev(params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56749,18 +56749,18 @@ var init_node = __esm({
        */
       async delete(params) {
         var _a7, _b;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = deleteDocumentParametersToMldev(params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           await this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -56772,18 +56772,18 @@ var init_node = __esm({
       async listInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = listDocumentsParametersToMldev(params);
-          path9 = formatMap("{parent}/documents", body["_url"]);
+          path10 = formatMap("{parent}/documents", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56900,18 +56900,18 @@ var init_node = __esm({
       async create(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = createFileSearchStoreParametersToMldev(this.apiClient, params);
-          path9 = formatMap("fileSearchStores", body["_url"]);
+          path10 = formatMap("fileSearchStores", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -56934,18 +56934,18 @@ var init_node = __esm({
       async get(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = getFileSearchStoreParametersToMldev(params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -56966,18 +56966,18 @@ var init_node = __esm({
        */
       async delete(params) {
         var _a7, _b;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = deleteFileSearchStoreParametersToMldev(params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           await this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "DELETE",
@@ -56989,18 +56989,18 @@ var init_node = __esm({
       async listInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = listFileSearchStoresParametersToMldev(params);
-          path9 = formatMap("fileSearchStores", body["_url"]);
+          path10 = formatMap("fileSearchStores", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -57020,18 +57020,18 @@ var init_node = __esm({
       async uploadToFileSearchStoreInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = uploadToFileSearchStoreParametersToMldev(params);
-          path9 = formatMap("upload/v1beta/{file_search_store_name}:uploadToFileSearchStore", body["_url"]);
+          path10 = formatMap("upload/v1beta/{file_search_store_name}:uploadToFileSearchStore", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -57059,18 +57059,18 @@ var init_node = __esm({
       async importFile(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = importFileParametersToMldev(params);
-          path9 = formatMap("{file_search_store_name}:importFile", body["_url"]);
+          path10 = formatMap("{file_search_store_name}:importFile", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -57263,12 +57263,12 @@ var init_node = __esm({
     };
     APIResource3._key = [];
     EMPTY3 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.create(null));
-    createPathTagFunction3 = (pathEncoder = encodeURIPath3) => (function path9(statics, ...params) {
+    createPathTagFunction3 = (pathEncoder = encodeURIPath3) => (function path10(statics, ...params) {
       if (statics.length === 1)
         return statics[0];
       let postPath = false;
       const invalidSegments = [];
-      const path10 = statics.reduce((previousValue, currentValue, index2) => {
+      const path11 = statics.reduce((previousValue, currentValue, index2) => {
         var _a7, _b, _c;
         if (/[?#]/.test(currentValue)) {
           postPath = true;
@@ -57286,7 +57286,7 @@ var init_node = __esm({
         }
         return previousValue + currentValue + (index2 === params.length ? "" : encoded);
       }, "");
-      const pathOnly = path10.split(/[?#]/, 1)[0];
+      const pathOnly = path11.split(/[?#]/, 1)[0];
       const invalidSegmentPattern = /(^|\/)(?:\.|%2e){1,2}(?=\/|$)/gi;
       let match2;
       while ((match2 = invalidSegmentPattern.exec(pathOnly)) !== null) {
@@ -57310,10 +57310,10 @@ var init_node = __esm({
         }, "");
         throw new GeminiNextGenAPIClientError(`Path parameters result in path with invalid segments:
 ${invalidSegments.map((e2) => e2.error).join("\n")}
-${path10}
+${path11}
 ${underline}`);
       }
-      return path10;
+      return path11;
     });
     path3 = /* @__PURE__ */ createPathTagFunction3(encodeURIPath3);
     BaseInteractions = class extends APIResource3 {
@@ -57922,9 +57922,9 @@ ${underline}`);
       makeStatusError(status, error51, message, headers) {
         return APIError3.generate(status, error51, message, headers);
       }
-      buildURL(path9, query, defaultBaseURL) {
+      buildURL(path10, query, defaultBaseURL) {
         const baseURL = !this.baseURLOverridden() && defaultBaseURL || this.baseURL;
-        const url2 = isAbsoluteURL3(path9) ? new URL(path9) : new URL(baseURL + (baseURL.endsWith("/") && path9.startsWith("/") ? path9.slice(1) : path9));
+        const url2 = isAbsoluteURL3(path10) ? new URL(path10) : new URL(baseURL + (baseURL.endsWith("/") && path10.startsWith("/") ? path10.slice(1) : path10));
         const defaultQuery = this.defaultQuery();
         const pathQuery = Object.fromEntries(url2.searchParams);
         if (!isEmptyObj3(defaultQuery) || !isEmptyObj3(pathQuery)) {
@@ -57953,24 +57953,24 @@ ${underline}`);
        */
       async prepareRequest(request, { url: url2, options }) {
       }
-      get(path9, opts) {
-        return this.methodRequest("get", path9, opts);
+      get(path10, opts) {
+        return this.methodRequest("get", path10, opts);
       }
-      post(path9, opts) {
-        return this.methodRequest("post", path9, opts);
+      post(path10, opts) {
+        return this.methodRequest("post", path10, opts);
       }
-      patch(path9, opts) {
-        return this.methodRequest("patch", path9, opts);
+      patch(path10, opts) {
+        return this.methodRequest("patch", path10, opts);
       }
-      put(path9, opts) {
-        return this.methodRequest("put", path9, opts);
+      put(path10, opts) {
+        return this.methodRequest("put", path10, opts);
       }
-      delete(path9, opts) {
-        return this.methodRequest("delete", path9, opts);
+      delete(path10, opts) {
+        return this.methodRequest("delete", path10, opts);
       }
-      methodRequest(method, path9, opts) {
+      methodRequest(method, path10, opts) {
         return this.request(Promise.resolve(opts).then((opts2) => {
-          return Object.assign({ method, path: path9 }, opts2);
+          return Object.assign({ method, path: path10 }, opts2);
         }));
       }
       request(options, remainingRetries = null) {
@@ -58144,8 +58144,8 @@ ${underline}`);
       async buildRequest(inputOptions, { retryCount = 0 } = {}) {
         var _b, _c, _d;
         const options = Object.assign({}, inputOptions);
-        const { method, path: path9, query, defaultBaseURL } = options;
-        const url2 = this.buildURL(path9, query, defaultBaseURL);
+        const { method, path: path10, query, defaultBaseURL } = options;
+        const url2 = this.buildURL(path10, query, defaultBaseURL);
         if ("timeout" in options)
           validatePositiveInteger3("timeout", options.timeout);
         options.timeout = (_b = options.timeout) !== null && _b !== void 0 ? _b : this.timeout;
@@ -58371,16 +58371,16 @@ ${underline}`);
       async getInternal(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = getTuningJobParametersToVertex(params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -58401,12 +58401,12 @@ ${underline}`);
           });
         } else {
           const body = getTuningJobParametersToMldev(params);
-          path9 = formatMap("{name}", body["_url"]);
+          path10 = formatMap("{name}", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -58430,16 +58430,16 @@ ${underline}`);
       async listInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = listTuningJobsParametersToVertex(params);
-          path9 = formatMap("tuningJobs", body["_url"]);
+          path10 = formatMap("tuningJobs", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "GET",
@@ -58478,16 +58478,16 @@ ${underline}`);
       async cancel(params) {
         var _a7, _b, _c, _d;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = cancelTuningJobParametersToVertex(params);
-          path9 = formatMap("{name}:cancel", body["_url"]);
+          path10 = formatMap("{name}:cancel", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -58510,12 +58510,12 @@ ${underline}`);
           });
         } else {
           const body = cancelTuningJobParametersToMldev(params);
-          path9 = formatMap("{name}:cancel", body["_url"]);
+          path10 = formatMap("{name}:cancel", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -58541,16 +58541,16 @@ ${underline}`);
       async tuneInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           const body = createTuningJobParametersPrivateToVertex(params, params);
-          path9 = formatMap("tuningJobs", body["_url"]);
+          path10 = formatMap("tuningJobs", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -58576,18 +58576,18 @@ ${underline}`);
       async tuneMldevInternal(params) {
         var _a7, _b;
         let response;
-        let path9 = "";
+        let path10 = "";
         let queryParams = {};
         if (this.apiClient.isVertexAI()) {
           throw new Error("This method is only supported by the Gemini Developer API.");
         } else {
           const body = createTuningJobParametersPrivateToMldev(params);
-          path9 = formatMap("tunedModels", body["_url"]);
+          path10 = formatMap("tunedModels", body["_url"]);
           queryParams = body["_query"];
           delete body["_url"];
           delete body["_query"];
           response = this.apiClient.request({
-            path: path9,
+            path: path10,
             queryParams,
             body: JSON.stringify(body),
             httpMethod: "POST",
@@ -66879,10 +66879,10 @@ function mergeDefs(...defs) {
 function cloneDef(schema) {
   return mergeDefs(schema._zod.def);
 }
-function getElementAtPath(obj, path9) {
-  if (!path9)
+function getElementAtPath(obj, path10) {
+  if (!path10)
     return obj;
-  return path9.reduce((acc, key) => acc?.[key], obj);
+  return path10.reduce((acc, key) => acc?.[key], obj);
 }
 function promiseAllObject(promisesObj) {
   const keys = Object.keys(promisesObj);
@@ -67210,11 +67210,11 @@ function explicitlyAborted(x2, startIndex = 0) {
   }
   return false;
 }
-function prefixIssues(path9, issues) {
+function prefixIssues(path10, issues) {
   return issues.map((iss) => {
     var _a7;
     (_a7 = iss).path ?? (_a7.path = []);
-    iss.path.unshift(path9);
+    iss.path.unshift(path10);
     return iss;
   });
 }
@@ -67432,16 +67432,16 @@ function flattenError(error51, mapper = (issue2) => issue2.message) {
 }
 function formatError(error51, mapper = (issue2) => issue2.message) {
   const fieldErrors = { _errors: [] };
-  const processError = (error52, path9 = []) => {
+  const processError = (error52, path10 = []) => {
     for (const issue2 of error52.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else {
-        const fullpath = [...path9, ...issue2.path];
+        const fullpath = [...path10, ...issue2.path];
         if (fullpath.length === 0) {
           fieldErrors._errors.push(mapper(issue2));
         } else {
@@ -67468,17 +67468,17 @@ function formatError(error51, mapper = (issue2) => issue2.message) {
 }
 function treeifyError(error51, mapper = (issue2) => issue2.message) {
   const result = { errors: [] };
-  const processError = (error52, path9 = []) => {
+  const processError = (error52, path10 = []) => {
     var _a7, _b;
     for (const issue2 of error52.issues) {
       if (issue2.code === "invalid_union" && issue2.errors.length) {
-        issue2.errors.map((issues) => processError({ issues }, [...path9, ...issue2.path]));
+        issue2.errors.map((issues) => processError({ issues }, [...path10, ...issue2.path]));
       } else if (issue2.code === "invalid_key") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else if (issue2.code === "invalid_element") {
-        processError({ issues: issue2.issues }, [...path9, ...issue2.path]);
+        processError({ issues: issue2.issues }, [...path10, ...issue2.path]);
       } else {
-        const fullpath = [...path9, ...issue2.path];
+        const fullpath = [...path10, ...issue2.path];
         if (fullpath.length === 0) {
           result.errors.push(mapper(issue2));
           continue;
@@ -67510,8 +67510,8 @@ function treeifyError(error51, mapper = (issue2) => issue2.message) {
 }
 function toDotPath(_path) {
   const segs = [];
-  const path9 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
-  for (const seg of path9) {
+  const path10 = _path.map((seg) => typeof seg === "object" ? seg.key : seg);
+  for (const seg of path10) {
     if (typeof seg === "number")
       segs.push(`[${seg}]`);
     else if (typeof seg === "symbol")
@@ -81014,13 +81014,13 @@ function resolveRef(ref, ctx) {
   if (!ref.startsWith("#")) {
     throw new Error("External $ref is not supported, only local refs (#/...) are allowed");
   }
-  const path9 = ref.slice(1).split("/").filter(Boolean);
-  if (path9.length === 0) {
+  const path10 = ref.slice(1).split("/").filter(Boolean);
+  if (path10.length === 0) {
     return ctx.rootSchema;
   }
   const defsKey = ctx.version === "draft-2020-12" ? "$defs" : "definitions";
-  if (path9[0] === defsKey) {
-    const key = path9[1];
+  if (path10[0] === defsKey) {
+    const key = path10[1];
     if (!key || !ctx.defs[key]) {
       throw new Error(`Reference not found: ${ref}`);
     }
@@ -84142,16 +84142,16 @@ var init_sdks = __esm({
         }
       }
       _createRequest(context2, conf, options) {
-        const { method, path: path9, query, headers: opHeaders, security } = conf;
+        const { method, path: path10, query, headers: opHeaders, security } = conf;
         const base = conf.baseURL ?? this._baseURL;
         if (!base) {
           return ERR(new InvalidRequestError("No base URL provided for operation"));
         }
         const baseURL = new URL(base);
         let reqURL;
-        if (path9) {
+        if (path10) {
           baseURL.pathname = baseURL.pathname.replace(/\/+$/, "") + "/";
-          reqURL = new URL(path9, baseURL);
+          reqURL = new URL(path10, baseURL);
         } else {
           reqURL = baseURL;
         }
@@ -99026,7 +99026,7 @@ async function $do(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/agents/completions")();
+  const path10 = pathToFunc("/v1/agents/completions")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -99048,7 +99048,7 @@ async function $do(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -99262,7 +99262,7 @@ async function $do2(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/agents/completions#stream")();
+  const path10 = pathToFunc("/v1/agents/completions#stream")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
@@ -99284,7 +99284,7 @@ async function $do2(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103306,7 +103306,7 @@ async function $do3(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/audio/speech")();
+  const path10 = pathToFunc("/v1/audio/speech")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: options?.acceptHeaderOverride || "application/json;q=1, text/event-stream;q=0"
@@ -103328,7 +103328,7 @@ async function $do3(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103460,7 +103460,7 @@ async function $do4(client, request, options) {
   if (payload.timestamp_granularities !== void 0) {
     appendForm(body, "timestamp_granularities", payload.timestamp_granularities);
   }
-  const path9 = pathToFunc("/v1/audio/transcriptions")();
+  const path10 = pathToFunc("/v1/audio/transcriptions")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -103481,7 +103481,7 @@ async function $do4(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103576,7 +103576,7 @@ async function $do5(client, request, options) {
   if (payload.timestamp_granularities !== void 0) {
     appendForm(body, "timestamp_granularities", payload.timestamp_granularities);
   }
-  const path9 = pathToFunc("/v1/audio/transcriptions#stream")();
+  const path10 = pathToFunc("/v1/audio/transcriptions#stream")();
   const headers = new Headers(compactMap({
     Accept: "text/event-stream"
   }));
@@ -103597,7 +103597,7 @@ async function $do5(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103687,7 +103687,7 @@ async function $do6(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/audio/voices")();
+  const path10 = pathToFunc("/v1/audio/voices")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -103709,7 +103709,7 @@ async function $do6(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103771,7 +103771,7 @@ async function $do7(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
+  const path10 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -103792,7 +103792,7 @@ async function $do7(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103855,7 +103855,7 @@ async function $do8(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
+  const path10 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -103876,7 +103876,7 @@ async function $do8(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -103939,7 +103939,7 @@ async function $do9(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/audio/voices/{voice_id}/sample")(pathParams);
+  const path10 = pathToFunc("/v1/audio/voices/{voice_id}/sample")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "audio/wav"
   }));
@@ -103960,7 +103960,7 @@ async function $do9(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -104017,7 +104017,7 @@ async function $do10(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/audio/voices")();
+  const path10 = pathToFunc("/v1/audio/voices")();
   const query = encodeFormQuery({
     "limit": payload?.limit,
     "offset": payload?.offset,
@@ -104043,7 +104043,7 @@ async function $do10(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -104109,7 +104109,7 @@ async function $do11(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
+  const path10 = pathToFunc("/v1/audio/voices/{voice_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -104131,7 +104131,7 @@ async function $do11(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -104292,7 +104292,7 @@ async function $do12(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/batch/jobs/{job_id}/cancel")(pathParams);
+  const path10 = pathToFunc("/v1/batch/jobs/{job_id}/cancel")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -104313,7 +104313,7 @@ async function $do12(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -104366,7 +104366,7 @@ async function $do13(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/batch/jobs")();
+  const path10 = pathToFunc("/v1/batch/jobs")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -104388,7 +104388,7 @@ async function $do13(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -104446,7 +104446,7 @@ async function $do14(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/batch/jobs/{job_id}")(pathParams);
+  const path10 = pathToFunc("/v1/batch/jobs/{job_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -104467,7 +104467,7 @@ async function $do14(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -104526,7 +104526,7 @@ async function $do15(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/batch/jobs/{job_id}")(pathParams);
+  const path10 = pathToFunc("/v1/batch/jobs/{job_id}")(pathParams);
   const query = encodeFormQuery({
     "inline": payload.inline
   });
@@ -104550,7 +104550,7 @@ async function $do15(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -104604,7 +104604,7 @@ async function $do16(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/batch/jobs")();
+  const path10 = pathToFunc("/v1/batch/jobs")();
   const query = encodeFormQuery({
     "agent_id": payload?.agent_id,
     "created_after": payload?.created_after,
@@ -104636,7 +104636,7 @@ async function $do16(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -104771,7 +104771,7 @@ async function $do17(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/agents")();
+  const path10 = pathToFunc("/v1/agents")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -104793,7 +104793,7 @@ async function $do17(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -104855,7 +104855,7 @@ async function $do18(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
+  const path10 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
   const query = encodeFormQuery({
     "alias": payload.alias,
     "version": payload.version
@@ -104880,7 +104880,7 @@ async function $do18(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -104944,7 +104944,7 @@ async function $do19(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
+  const path10 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -104965,7 +104965,7 @@ async function $do19(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -105028,7 +105028,7 @@ async function $do20(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
+  const path10 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
   const query = encodeFormQuery({
     "alias": payload.alias
   });
@@ -105052,7 +105052,7 @@ async function $do20(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -105116,7 +105116,7 @@ async function $do21(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
+  const path10 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
   const query = encodeFormQuery({
     "agent_version": payload.agent_version
   });
@@ -105140,7 +105140,7 @@ async function $do21(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -105208,7 +105208,7 @@ async function $do22(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/agents/{agent_id}/versions/{version}")(pathParams);
+  const path10 = pathToFunc("/v1/agents/{agent_id}/versions/{version}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -105229,7 +105229,7 @@ async function $do22(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -105286,7 +105286,7 @@ async function $do23(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/agents")();
+  const path10 = pathToFunc("/v1/agents")();
   const query = queryJoin(encodeFormQuery({
     "deployment_chat": payload?.deployment_chat,
     "id": payload?.id,
@@ -105318,7 +105318,7 @@ async function $do23(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -105383,7 +105383,7 @@ async function $do24(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
+  const path10 = pathToFunc("/v1/agents/{agent_id}/aliases")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -105404,7 +105404,7 @@ async function $do24(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -105468,7 +105468,7 @@ async function $do25(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/agents/{agent_id}/versions")(pathParams);
+  const path10 = pathToFunc("/v1/agents/{agent_id}/versions")(pathParams);
   const query = encodeFormQuery({
     "page": payload.page,
     "page_size": payload.page_size
@@ -105493,7 +105493,7 @@ async function $do25(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -105560,7 +105560,7 @@ async function $do26(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
+  const path10 = pathToFunc("/v1/agents/{agent_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -105582,7 +105582,7 @@ async function $do26(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -105645,7 +105645,7 @@ async function $do27(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/agents/{agent_id}/version")(pathParams);
+  const path10 = pathToFunc("/v1/agents/{agent_id}/version")(pathParams);
   const query = encodeFormQuery({
     "version": payload.version
   });
@@ -105669,7 +105669,7 @@ async function $do27(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -105854,7 +105854,7 @@ async function $do28(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id}/organization/activate")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id}/organization/activate")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -105876,7 +105876,7 @@ async function $do28(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -105941,7 +105941,7 @@ async function $do29(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id}/user/activate")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id}/user/activate")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -105963,7 +105963,7 @@ async function $do29(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106028,7 +106028,7 @@ async function $do30(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id}/workspace/activate")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id}/workspace/activate")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -106050,7 +106050,7 @@ async function $do30(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106116,7 +106116,7 @@ async function $do31(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/tools/{tool_name}/call")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/tools/{tool_name}/call")(pathParams);
   const query = encodeFormQuery({
     "credentials_name": payload.credentials_name
   });
@@ -106141,7 +106141,7 @@ async function $do31(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -106199,7 +106199,7 @@ async function $do32(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/connectors")();
+  const path10 = pathToFunc("/v1/connectors")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -106221,7 +106221,7 @@ async function $do32(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106282,7 +106282,7 @@ async function $do33(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -106304,7 +106304,7 @@ async function $do33(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106366,7 +106366,7 @@ async function $do34(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -106388,7 +106388,7 @@ async function $do34(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106450,7 +106450,7 @@ async function $do35(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -106472,7 +106472,7 @@ async function $do35(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106535,7 +106535,7 @@ async function $do36(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id}/organization/deactivate")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id}/organization/deactivate")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -106556,7 +106556,7 @@ async function $do36(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106619,7 +106619,7 @@ async function $do37(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id}/user/deactivate")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id}/user/deactivate")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -106640,7 +106640,7 @@ async function $do37(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106703,7 +106703,7 @@ async function $do38(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id}/workspace/deactivate")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id}/workspace/deactivate")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -106724,7 +106724,7 @@ async function $do38(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106787,7 +106787,7 @@ async function $do39(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id}#id")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id}#id")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -106808,7 +106808,7 @@ async function $do39(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106869,7 +106869,7 @@ async function $do40(client, request, options) {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" }),
     credentials_name: encodeSimple("credentials_name", payload.credentials_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials/{credentials_name}")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials/{credentials_name}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -106890,7 +106890,7 @@ async function $do40(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -106951,7 +106951,7 @@ async function $do41(client, request, options) {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" }),
     credentials_name: encodeSimple("credentials_name", payload.credentials_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials/{credentials_name}")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials/{credentials_name}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -106972,7 +106972,7 @@ async function $do41(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -107033,7 +107033,7 @@ async function $do42(client, request, options) {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" }),
     credentials_name: encodeSimple("credentials_name", payload.credentials_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials/{credentials_name}")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials/{credentials_name}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -107054,7 +107054,7 @@ async function $do42(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -107114,7 +107114,7 @@ async function $do43(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}#idOrName")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}#idOrName")(pathParams);
   const query = encodeFormQuery({
     "fetch_customer_data": payload.fetch_customer_data,
     "fetch_user_data": payload.fetch_user_data
@@ -107139,7 +107139,7 @@ async function $do43(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -107200,7 +107200,7 @@ async function $do44(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/authentication_methods")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/authentication_methods")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -107221,7 +107221,7 @@ async function $do44(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -107278,7 +107278,7 @@ async function $do45(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/auth_url")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/auth_url")(pathParams);
   const query = encodeFormQuery({
     "app_return_url": payload.app_return_url,
     "credentials_name": payload.credentials_name,
@@ -107305,7 +107305,7 @@ async function $do45(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -107363,7 +107363,7 @@ async function $do46(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/connectors")();
+  const path10 = pathToFunc("/v1/connectors")();
   const query = encodeFormQuery({
     "cursor": payload?.cursor,
     "page_size": payload?.page_size,
@@ -107389,7 +107389,7 @@ async function $do46(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -107450,7 +107450,7 @@ async function $do47(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/organization/credentials")(pathParams);
   const query = encodeFormQuery({
     "auth_type": payload.auth_type,
     "fetch_default": payload.fetch_default
@@ -107475,7 +107475,7 @@ async function $do47(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -107536,7 +107536,7 @@ async function $do48(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/tools")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/tools")(pathParams);
   const query = encodeFormQuery({
     "credentials_name": payload.credentials_name,
     "page": payload.page,
@@ -107564,7 +107564,7 @@ async function $do48(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -107624,7 +107624,7 @@ async function $do49(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/user/credentials")(pathParams);
   const query = encodeFormQuery({
     "auth_type": payload.auth_type,
     "fetch_default": payload.fetch_default
@@ -107649,7 +107649,7 @@ async function $do49(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -107710,7 +107710,7 @@ async function $do50(client, request, options) {
   const pathParams = {
     connector_id_or_name: encodeSimple("connector_id_or_name", payload.connector_id_or_name, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id_or_name}/workspace/credentials")(pathParams);
   const query = encodeFormQuery({
     "auth_type": payload.auth_type,
     "fetch_default": payload.fetch_default
@@ -107735,7 +107735,7 @@ async function $do50(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -107801,7 +107801,7 @@ async function $do51(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/connectors/{connector_id}#id")(pathParams);
+  const path10 = pathToFunc("/v1/connectors/{connector_id}#id")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -107823,7 +107823,7 @@ async function $do51(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108140,7 +108140,7 @@ async function $do52(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
+  const path10 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -108162,7 +108162,7 @@ async function $do52(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108227,7 +108227,7 @@ async function $do53(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/conversations/{conversation_id}#stream")(pathParams);
+  const path10 = pathToFunc("/v1/conversations/{conversation_id}#stream")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
@@ -108249,7 +108249,7 @@ async function $do53(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108321,7 +108321,7 @@ async function $do54(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
+  const path10 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -108342,7 +108342,7 @@ async function $do54(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108405,7 +108405,7 @@ async function $do55(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
+  const path10 = pathToFunc("/v1/conversations/{conversation_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -108426,7 +108426,7 @@ async function $do55(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108488,7 +108488,7 @@ async function $do56(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/conversations/{conversation_id}/history")(pathParams);
+  const path10 = pathToFunc("/v1/conversations/{conversation_id}/history")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -108509,7 +108509,7 @@ async function $do56(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108572,7 +108572,7 @@ async function $do57(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/conversations/{conversation_id}/messages")(pathParams);
+  const path10 = pathToFunc("/v1/conversations/{conversation_id}/messages")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -108593,7 +108593,7 @@ async function $do57(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108650,7 +108650,7 @@ async function $do58(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/conversations")();
+  const path10 = pathToFunc("/v1/conversations")();
   const query = queryJoin(encodeFormQuery({
     "page": payload?.page,
     "page_size": payload?.page_size
@@ -108677,7 +108677,7 @@ async function $do58(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -108743,7 +108743,7 @@ async function $do59(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/conversations/{conversation_id}/restart")(pathParams);
+  const path10 = pathToFunc("/v1/conversations/{conversation_id}/restart")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -108765,7 +108765,7 @@ async function $do59(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108830,7 +108830,7 @@ async function $do60(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/conversations/{conversation_id}/restart#stream")(pathParams);
+  const path10 = pathToFunc("/v1/conversations/{conversation_id}/restart#stream")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
@@ -108852,7 +108852,7 @@ async function $do60(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108918,7 +108918,7 @@ async function $do61(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/conversations")();
+  const path10 = pathToFunc("/v1/conversations")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -108940,7 +108940,7 @@ async function $do61(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -108996,7 +108996,7 @@ async function $do62(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/conversations#stream")();
+  const path10 = pathToFunc("/v1/conversations#stream")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
@@ -109018,7 +109018,7 @@ async function $do62(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109205,7 +109205,7 @@ async function $do63(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/libraries")();
+  const path10 = pathToFunc("/v1/libraries")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -109227,7 +109227,7 @@ async function $do63(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109289,7 +109289,7 @@ async function $do64(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -109310,7 +109310,7 @@ async function $do64(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109373,7 +109373,7 @@ async function $do65(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -109394,7 +109394,7 @@ async function $do65(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109459,7 +109459,7 @@ async function $do66(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -109481,7 +109481,7 @@ async function $do66(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109538,7 +109538,7 @@ async function $do67(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/libraries")();
+  const path10 = pathToFunc("/v1/libraries")();
   const query = encodeFormQuery({
     "filter_owned_by_me": payload?.filter_owned_by_me,
     "page": payload?.page,
@@ -109565,7 +109565,7 @@ async function $do67(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -109631,7 +109631,7 @@ async function $do68(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -109653,7 +109653,7 @@ async function $do68(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109716,7 +109716,7 @@ async function $do69(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -109738,7 +109738,7 @@ async function $do69(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109801,7 +109801,7 @@ async function $do70(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -109822,7 +109822,7 @@ async function $do70(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -109885,7 +109885,7 @@ async function $do71(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/share")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -109907,7 +109907,7 @@ async function $do71(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110016,7 +110016,7 @@ async function $do72(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110037,7 +110037,7 @@ async function $do72(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110104,7 +110104,7 @@ async function $do73(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/extracted-text-signed-url")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/extracted-text-signed-url")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110125,7 +110125,7 @@ async function $do73(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110192,7 +110192,7 @@ async function $do74(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110213,7 +110213,7 @@ async function $do74(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110280,7 +110280,7 @@ async function $do75(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/signed-url")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/signed-url")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110301,7 +110301,7 @@ async function $do75(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110370,7 +110370,7 @@ async function $do76(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -110392,7 +110392,7 @@ async function $do76(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110455,7 +110455,7 @@ async function $do77(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/documents")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/documents")(pathParams);
   const query = encodeFormQuery({
     "filters_attributes": payload.filters_attributes,
     "page": payload.page,
@@ -110484,7 +110484,7 @@ async function $do77(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -110552,7 +110552,7 @@ async function $do78(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/reprocess")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/reprocess")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110573,7 +110573,7 @@ async function $do78(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110640,7 +110640,7 @@ async function $do79(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/status")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/status")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110661,7 +110661,7 @@ async function $do79(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110728,7 +110728,7 @@ async function $do80(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/text_content")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}/text_content")(pathParams);
   const query = encodeFormQuery({
     "page_end": payload.page_end,
     "page_start": payload.page_start
@@ -110753,7 +110753,7 @@ async function $do80(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -110823,7 +110823,7 @@ async function $do81(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/documents/{document_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -110845,7 +110845,7 @@ async function $do81(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -110921,7 +110921,7 @@ async function $do82(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/libraries/{library_id}/documents")(pathParams);
+  const path10 = pathToFunc("/v1/libraries/{library_id}/documents")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -110942,7 +110942,7 @@ async function $do82(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111210,7 +111210,7 @@ async function $do83(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/observability/campaigns")();
+  const path10 = pathToFunc("/v1/observability/campaigns")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -111232,7 +111232,7 @@ async function $do83(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111294,7 +111294,7 @@ async function $do84(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/campaigns/{campaign_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/campaigns/{campaign_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -111315,7 +111315,7 @@ async function $do84(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111378,7 +111378,7 @@ async function $do85(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/campaigns/{campaign_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/campaigns/{campaign_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -111399,7 +111399,7 @@ async function $do85(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111462,7 +111462,7 @@ async function $do86(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/campaigns/{campaign_id}/status")(pathParams);
+  const path10 = pathToFunc("/v1/observability/campaigns/{campaign_id}/status")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -111483,7 +111483,7 @@ async function $do86(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111540,7 +111540,7 @@ async function $do87(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/observability/campaigns")();
+  const path10 = pathToFunc("/v1/observability/campaigns")();
   const query = encodeFormQuery({
     "page": payload?.page,
     "page_size": payload?.page_size,
@@ -111566,7 +111566,7 @@ async function $do87(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -111630,7 +111630,7 @@ async function $do88(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/campaigns/{campaign_id}/selected-events")(pathParams);
+  const path10 = pathToFunc("/v1/observability/campaigns/{campaign_id}/selected-events")(pathParams);
   const query = encodeFormQuery({
     "page": payload.page,
     "page_size": payload.page_size
@@ -111655,7 +111655,7 @@ async function $do88(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -111773,7 +111773,7 @@ async function $do89(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/chat-completion-events/{event_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/chat-completion-events/{event_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -111794,7 +111794,7 @@ async function $do89(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111857,7 +111857,7 @@ async function $do90(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/chat-completion-events/{event_id}/similar-events")(pathParams);
+  const path10 = pathToFunc("/v1/observability/chat-completion-events/{event_id}/similar-events")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -111878,7 +111878,7 @@ async function $do90(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -111943,7 +111943,7 @@ async function $do91(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/chat-completion-events/{event_id}/live-judging")(pathParams);
+  const path10 = pathToFunc("/v1/observability/chat-completion-events/{event_id}/live-judging")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -111965,7 +111965,7 @@ async function $do91(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112024,7 +112024,7 @@ async function $do92(client, request, options) {
   const body = encodeJSON("body", payload.SearchChatCompletionEventsRequest, {
     explode: true
   });
-  const path9 = pathToFunc("/v1/observability/chat-completion-events/search")();
+  const path10 = pathToFunc("/v1/observability/chat-completion-events/search")();
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "page_size": payload.page_size
@@ -112050,7 +112050,7 @@ async function $do92(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -112108,7 +112108,7 @@ async function $do93(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/observability/chat-completion-events/search-ids")();
+  const path10 = pathToFunc("/v1/observability/chat-completion-events/search-ids")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -112130,7 +112130,7 @@ async function $do93(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112194,7 +112194,7 @@ async function $do94(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/chat-completion-fields/{field_name}/options-counts")(pathParams);
+  const path10 = pathToFunc("/v1/observability/chat-completion-fields/{field_name}/options-counts")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -112216,7 +112216,7 @@ async function $do94(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112279,7 +112279,7 @@ async function $do95(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/chat-completion-fields/{field_name}/options")(pathParams);
+  const path10 = pathToFunc("/v1/observability/chat-completion-fields/{field_name}/options")(pathParams);
   const query = encodeFormQuery({
     "operator": payload.operator
   });
@@ -112303,7 +112303,7 @@ async function $do95(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -112355,7 +112355,7 @@ function betaObservabilityChatCompletionEventsFieldsList(client, options) {
   return new APIPromise4($do96(client, options));
 }
 async function $do96(client, options) {
-  const path9 = pathToFunc("/v1/observability/chat-completion-fields")();
+  const path10 = pathToFunc("/v1/observability/chat-completion-fields")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -112376,7 +112376,7 @@ async function $do96(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -112514,7 +112514,7 @@ async function $do97(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/observability/datasets")();
+  const path10 = pathToFunc("/v1/observability/datasets")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -112536,7 +112536,7 @@ async function $do97(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112600,7 +112600,7 @@ async function $do98(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/records")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}/records")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -112622,7 +112622,7 @@ async function $do98(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112685,7 +112685,7 @@ async function $do99(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -112706,7 +112706,7 @@ async function $do99(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112769,7 +112769,7 @@ async function $do100(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/exports/to-jsonl")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}/exports/to-jsonl")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -112790,7 +112790,7 @@ async function $do100(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112853,7 +112853,7 @@ async function $do101(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -112874,7 +112874,7 @@ async function $do101(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -112941,7 +112941,7 @@ async function $do102(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/tasks/{task_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}/tasks/{task_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -112962,7 +112962,7 @@ async function $do102(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113027,7 +113027,7 @@ async function $do103(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-campaign")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-campaign")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113049,7 +113049,7 @@ async function $do103(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113114,7 +113114,7 @@ async function $do104(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-dataset")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-dataset")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113136,7 +113136,7 @@ async function $do104(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113201,7 +113201,7 @@ async function $do105(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-explorer")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-explorer")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113223,7 +113223,7 @@ async function $do105(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113288,7 +113288,7 @@ async function $do106(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-file")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-file")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113310,7 +113310,7 @@ async function $do106(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113375,7 +113375,7 @@ async function $do107(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-playground")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}/imports/from-playground")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113397,7 +113397,7 @@ async function $do107(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113454,7 +113454,7 @@ async function $do108(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/observability/datasets")();
+  const path10 = pathToFunc("/v1/observability/datasets")();
   const query = encodeFormQuery({
     "page": payload?.page,
     "page_size": payload?.page_size,
@@ -113480,7 +113480,7 @@ async function $do108(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -113544,7 +113544,7 @@ async function $do109(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/records")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}/records")(pathParams);
   const query = encodeFormQuery({
     "page": payload.page,
     "page_size": payload.page_size
@@ -113569,7 +113569,7 @@ async function $do109(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -113633,7 +113633,7 @@ async function $do110(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}/tasks")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}/tasks")(pathParams);
   const query = encodeFormQuery({
     "page": payload.page,
     "page_size": payload.page_size
@@ -113658,7 +113658,7 @@ async function $do110(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -113724,7 +113724,7 @@ async function $do111(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/datasets/{dataset_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113746,7 +113746,7 @@ async function $do111(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113803,7 +113803,7 @@ async function $do112(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/observability/dataset-records/bulk-delete")();
+  const path10 = pathToFunc("/v1/observability/dataset-records/bulk-delete")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -113825,7 +113825,7 @@ async function $do112(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113885,7 +113885,7 @@ async function $do113(client, request, options) {
   const pathParams = {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -113906,7 +113906,7 @@ async function $do113(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -113966,7 +113966,7 @@ async function $do114(client, request, options) {
   const pathParams = {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -113987,7 +113987,7 @@ async function $do114(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114049,7 +114049,7 @@ async function $do115(client, request, options) {
   const pathParams = {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/live-judging")(pathParams);
+  const path10 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/live-judging")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -114071,7 +114071,7 @@ async function $do115(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114133,7 +114133,7 @@ async function $do116(client, request, options) {
   const pathParams = {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/payload")(pathParams);
+  const path10 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/payload")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -114155,7 +114155,7 @@ async function $do116(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114215,7 +114215,7 @@ async function $do117(client, request, options) {
   const pathParams = {
     dataset_record_id: encodeSimple("dataset_record_id", payload.dataset_record_id, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/properties")(pathParams);
+  const path10 = pathToFunc("/v1/observability/dataset-records/{dataset_record_id}/properties")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -114237,7 +114237,7 @@ async function $do117(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114470,7 +114470,7 @@ async function $do118(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/observability/judges")();
+  const path10 = pathToFunc("/v1/observability/judges")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -114492,7 +114492,7 @@ async function $do118(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114554,7 +114554,7 @@ async function $do119(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -114575,7 +114575,7 @@ async function $do119(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114638,7 +114638,7 @@ async function $do120(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -114659,7 +114659,7 @@ async function $do120(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114724,7 +114724,7 @@ async function $do121(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/judges/{judge_id}/live-judging")(pathParams);
+  const path10 = pathToFunc("/v1/observability/judges/{judge_id}/live-judging")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -114746,7 +114746,7 @@ async function $do121(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -114803,7 +114803,7 @@ async function $do122(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/observability/judges")();
+  const path10 = pathToFunc("/v1/observability/judges")();
   const query = encodeFormQuery({
     "model_filter": payload?.model_filter,
     "page": payload?.page,
@@ -114831,7 +114831,7 @@ async function $do122(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -114897,7 +114897,7 @@ async function $do123(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/judges/{judge_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -114919,7 +114919,7 @@ async function $do123(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -115036,7 +115036,7 @@ async function $do124(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/logs/fields/{field_name}/options")(pathParams);
+  const path10 = pathToFunc("/v1/observability/logs/fields/{field_name}/options")(pathParams);
   const query = encodeFormQuery({
     "from": payload.from,
     "to": payload.to
@@ -115061,7 +115061,7 @@ async function $do124(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -115113,7 +115113,7 @@ function betaObservabilityLogsList(client, options) {
   return new APIPromise4($do125(client, options));
 }
 async function $do125(client, options) {
-  const path9 = pathToFunc("/v1/observability/logs/fields")();
+  const path10 = pathToFunc("/v1/observability/logs/fields")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -115134,7 +115134,7 @@ async function $do125(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -115187,7 +115187,7 @@ async function $do126(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload.LogsRequest, { explode: true });
-  const path9 = pathToFunc("/v1/observability/logs/search")();
+  const path10 = pathToFunc("/v1/observability/logs/search")();
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "from": payload.from,
@@ -115215,7 +115215,7 @@ async function $do126(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -115312,7 +115312,7 @@ async function $do127(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/spans/evaluations/fields/{field_name}/options")(pathParams);
+  const path10 = pathToFunc("/v1/observability/spans/evaluations/fields/{field_name}/options")(pathParams);
   const query = encodeFormQuery({
     "from": payload.from,
     "to": payload.to
@@ -115337,7 +115337,7 @@ async function $do127(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -115401,7 +115401,7 @@ async function $do128(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/spans/fields/{field_name}/options")(pathParams);
+  const path10 = pathToFunc("/v1/observability/spans/fields/{field_name}/options")(pathParams);
   const query = encodeFormQuery({
     "from": payload.from,
     "to": payload.to
@@ -115426,7 +115426,7 @@ async function $do128(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -115478,7 +115478,7 @@ function betaObservabilitySpansListSpanEvalFields(client, options) {
   return new APIPromise4($do129(client, options));
 }
 async function $do129(client, options) {
-  const path9 = pathToFunc("/v1/observability/spans/evaluations/fields")();
+  const path10 = pathToFunc("/v1/observability/spans/evaluations/fields")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -115499,7 +115499,7 @@ async function $do129(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -115546,7 +115546,7 @@ function betaObservabilitySpansListSpanFields(client, options) {
   return new APIPromise4($do130(client, options));
 }
 async function $do130(client, options) {
-  const path9 = pathToFunc("/v1/observability/spans/fields")();
+  const path10 = pathToFunc("/v1/observability/spans/fields")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -115567,7 +115567,7 @@ async function $do130(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -115622,7 +115622,7 @@ async function $do131(client, request, options) {
   const body = encodeJSON("body", payload.SpanEvaluationsRequest, {
     explode: true
   });
-  const path9 = pathToFunc("/v1/observability/spans/evaluations/search/latest")();
+  const path10 = pathToFunc("/v1/observability/spans/evaluations/search/latest")();
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "from": payload.from,
@@ -115650,7 +115650,7 @@ async function $do131(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -115710,7 +115710,7 @@ async function $do132(client, request, options) {
   const body = encodeJSON("body", payload.SpanEvaluationsRequest, {
     explode: true
   });
-  const path9 = pathToFunc("/v1/observability/spans/evaluations/search")();
+  const path10 = pathToFunc("/v1/observability/spans/evaluations/search")();
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "from": payload.from,
@@ -115738,7 +115738,7 @@ async function $do132(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -115796,7 +115796,7 @@ async function $do133(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload.SpansRequest, { explode: true });
-  const path9 = pathToFunc("/v1/observability/spans/search")();
+  const path10 = pathToFunc("/v1/observability/spans/search")();
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "from": payload.from,
@@ -115824,7 +115824,7 @@ async function $do133(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -115949,7 +115949,7 @@ async function $do134(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/traces/fields/{field_name}/options")(pathParams);
+  const path10 = pathToFunc("/v1/observability/traces/fields/{field_name}/options")(pathParams);
   const query = encodeFormQuery({
     "from": payload.from,
     "to": payload.to
@@ -115974,7 +115974,7 @@ async function $do134(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -116042,7 +116042,7 @@ async function $do135(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/traces/{trace_id}/spans/{span_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/traces/{trace_id}/spans/{span_id}")(pathParams);
   const query = encodeFormQuery({
     "from": payload.from,
     "to": payload.to
@@ -116067,7 +116067,7 @@ async function $do135(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -116131,7 +116131,7 @@ async function $do136(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/traces/{trace_id}")(pathParams);
+  const path10 = pathToFunc("/v1/observability/traces/{trace_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -116152,7 +116152,7 @@ async function $do136(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -116203,7 +116203,7 @@ function betaObservabilityTracesGetTraceFields(client, options) {
   return new APIPromise4($do137(client, options));
 }
 async function $do137(client, options) {
-  const path9 = pathToFunc("/v1/observability/traces/fields")();
+  const path10 = pathToFunc("/v1/observability/traces/fields")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -116224,7 +116224,7 @@ async function $do137(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -116283,7 +116283,7 @@ async function $do138(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/observability/traces/{trace_id}/spans")(pathParams);
+  const path10 = pathToFunc("/v1/observability/traces/{trace_id}/spans")(pathParams);
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "from": payload.from,
@@ -116310,7 +116310,7 @@ async function $do138(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -116368,7 +116368,7 @@ async function $do139(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload.TracesRequest, { explode: true });
-  const path9 = pathToFunc("/v1/observability/traces/search")();
+  const path10 = pathToFunc("/v1/observability/traces/search")();
   const query = encodeFormQuery({
     "cursor": payload.cursor,
     "from": payload.from,
@@ -116396,7 +116396,7 @@ async function $do139(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -116548,7 +116548,7 @@ function betaRagIngestionPipelineConfigurationsList(client, options) {
   return new APIPromise4($do140(client, options));
 }
 async function $do140(client, options) {
-  const path9 = pathToFunc("/v1/rag/ingestion_pipeline_configurations")();
+  const path10 = pathToFunc("/v1/rag/ingestion_pipeline_configurations")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -116569,7 +116569,7 @@ async function $do140(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -116619,7 +116619,7 @@ async function $do141(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/rag/ingestion_pipeline_configurations")();
+  const path10 = pathToFunc("/v1/rag/ingestion_pipeline_configurations")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -116641,7 +116641,7 @@ async function $do141(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -116703,7 +116703,7 @@ async function $do142(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/rag/ingestion_pipeline_configurations/{id}/run_info")(pathParams);
+  const path10 = pathToFunc("/v1/rag/ingestion_pipeline_configurations/{id}/run_info")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -116725,7 +116725,7 @@ async function $do142(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -116815,7 +116815,7 @@ function betaRagSearchIndexesList(client, options) {
   return new APIPromise4($do143(client, options));
 }
 async function $do143(client, options) {
-  const path9 = pathToFunc("/v1/rag/search_index")();
+  const path10 = pathToFunc("/v1/rag/search_index")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -116836,7 +116836,7 @@ async function $do143(client, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     userAgent: client._options.userAgent,
     timeoutMs: options?.timeoutMs || client._options.timeoutMs || 6e4
@@ -116886,7 +116886,7 @@ async function $do144(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/rag/search_index")();
+  const path10 = pathToFunc("/v1/rag/search_index")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -116908,7 +116908,7 @@ async function $do144(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -117052,7 +117052,7 @@ async function $do145(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/chat/completions")();
+  const path10 = pathToFunc("/v1/chat/completions")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -117074,7 +117074,7 @@ async function $do145(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -117130,7 +117130,7 @@ async function $do146(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/chat/completions#stream")();
+  const path10 = pathToFunc("/v1/chat/completions#stream")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
@@ -117152,7 +117152,7 @@ async function $do146(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -117724,8 +117724,8 @@ var init_parseUtil = __esm({
     init_errors6();
     init_en2();
     makeIssue = (params) => {
-      const { data, path: path9, errorMaps, issueData } = params;
-      const fullPath = [...path9, ...issueData.path || []];
+      const { data, path: path10, errorMaps, issueData } = params;
+      const fullPath = [...path10, ...issueData.path || []];
       const fullIssue = {
         ...issueData,
         path: fullPath
@@ -118008,11 +118008,11 @@ var init_types2 = __esm({
     init_parseUtil();
     init_util2();
     ParseInputLazyPath = class {
-      constructor(parent, value, path9, key) {
+      constructor(parent, value, path10, key) {
         this._cachedPath = [];
         this.parent = parent;
         this.data = value;
-        this._path = path9;
+        this._path = path10;
         this._key = key;
       }
       get path() {
@@ -122968,7 +122968,7 @@ async function $do147(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/classifications")();
+  const path10 = pathToFunc("/v1/classifications")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -122990,7 +122990,7 @@ async function $do147(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123046,7 +123046,7 @@ async function $do148(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/chat/classifications")();
+  const path10 = pathToFunc("/v1/chat/classifications")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -123068,7 +123068,7 @@ async function $do148(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123124,7 +123124,7 @@ async function $do149(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/moderations")();
+  const path10 = pathToFunc("/v1/moderations")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -123146,7 +123146,7 @@ async function $do149(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123202,7 +123202,7 @@ async function $do150(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/chat/moderations")();
+  const path10 = pathToFunc("/v1/chat/moderations")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -123224,7 +123224,7 @@ async function $do150(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123320,7 +123320,7 @@ async function $do151(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/embeddings")();
+  const path10 = pathToFunc("/v1/embeddings")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -123342,7 +123342,7 @@ async function $do151(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123420,7 +123420,7 @@ async function $do152(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/workflows/events/stream")();
+  const path10 = pathToFunc("/v1/workflows/events/stream")();
   const query = encodeFormQuery({
     "activity_id": payload?.activity_id,
     "activity_name": payload?.activity_name,
@@ -123458,7 +123458,7 @@ async function $do152(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -123524,7 +123524,7 @@ async function $do153(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/workflows/events/list")();
+  const path10 = pathToFunc("/v1/workflows/events/list")();
   const query = encodeFormQuery({
     "cursor": payload?.cursor,
     "limit": payload?.limit,
@@ -123552,7 +123552,7 @@ async function $do153(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -123642,7 +123642,7 @@ async function $do154(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/files/{file_id}")(pathParams);
+  const path10 = pathToFunc("/v1/files/{file_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -123663,7 +123663,7 @@ async function $do154(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123722,7 +123722,7 @@ async function $do155(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/files/{file_id}/content")(pathParams);
+  const path10 = pathToFunc("/v1/files/{file_id}/content")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/octet-stream"
   }));
@@ -123743,7 +123743,7 @@ async function $do155(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -123802,7 +123802,7 @@ async function $do156(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/files/{file_id}/url")(pathParams);
+  const path10 = pathToFunc("/v1/files/{file_id}/url")(pathParams);
   const query = encodeFormQuery({
     "expiry": payload.expiry
   });
@@ -123826,7 +123826,7 @@ async function $do156(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -123880,7 +123880,7 @@ async function $do157(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/files")();
+  const path10 = pathToFunc("/v1/files")();
   const query = encodeFormQuery({
     "include_total": payload?.include_total,
     "mimetypes": payload?.mimetypes,
@@ -123911,7 +123911,7 @@ async function $do157(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -123971,7 +123971,7 @@ async function $do158(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/files/{file_id}")(pathParams);
+  const path10 = pathToFunc("/v1/files/{file_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -123992,7 +123992,7 @@ async function $do158(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124067,7 +124067,7 @@ async function $do159(client, request, options) {
   if (payload.visibility !== void 0) {
     appendForm(body, "visibility", payload.visibility);
   }
-  const path9 = pathToFunc("/v1/files")();
+  const path10 = pathToFunc("/v1/files")();
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -124088,7 +124088,7 @@ async function $do159(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124217,7 +124217,7 @@ async function $do160(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/fim/completions")();
+  const path10 = pathToFunc("/v1/fim/completions")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -124239,7 +124239,7 @@ async function $do160(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124295,7 +124295,7 @@ async function $do161(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/fim/completions#stream")();
+  const path10 = pathToFunc("/v1/fim/completions#stream")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "text/event-stream"
@@ -124317,7 +124317,7 @@ async function $do161(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124423,7 +124423,7 @@ async function $do162(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/fine_tuning/jobs/{job_id}/cancel")(pathParams);
+  const path10 = pathToFunc("/v1/fine_tuning/jobs/{job_id}/cancel")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -124444,7 +124444,7 @@ async function $do162(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124496,7 +124496,7 @@ async function $do163(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/fine_tuning/jobs")();
+  const path10 = pathToFunc("/v1/fine_tuning/jobs")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -124518,7 +124518,7 @@ async function $do163(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124577,7 +124577,7 @@ async function $do164(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/fine_tuning/jobs/{job_id}")(pathParams);
+  const path10 = pathToFunc("/v1/fine_tuning/jobs/{job_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -124598,7 +124598,7 @@ async function $do164(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124650,7 +124650,7 @@ async function $do165(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/fine_tuning/jobs")();
+  const path10 = pathToFunc("/v1/fine_tuning/jobs")();
   const query = encodeFormQuery({
     "created_after": payload?.created_after,
     "created_before": payload?.created_before,
@@ -124683,7 +124683,7 @@ async function $do165(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -124743,7 +124743,7 @@ async function $do166(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/fine_tuning/jobs/{job_id}/start")(pathParams);
+  const path10 = pathToFunc("/v1/fine_tuning/jobs/{job_id}/start")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -124764,7 +124764,7 @@ async function $do166(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124900,7 +124900,7 @@ async function $do167(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/fine_tuning/models/{model_id}/archive")(pathParams);
+  const path10 = pathToFunc("/v1/fine_tuning/models/{model_id}/archive")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -124921,7 +124921,7 @@ async function $do167(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -124980,7 +124980,7 @@ async function $do168(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/models/{model_id}")(pathParams);
+  const path10 = pathToFunc("/v1/models/{model_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -125001,7 +125001,7 @@ async function $do168(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125058,7 +125058,7 @@ async function $do169(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/models")();
+  const path10 = pathToFunc("/v1/models")();
   const query = encodeFormQuery({
     "model": payload?.model,
     "provider": payload?.provider
@@ -125083,7 +125083,7 @@ async function $do169(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -125147,7 +125147,7 @@ async function $do170(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/models/{model_id}")(pathParams);
+  const path10 = pathToFunc("/v1/models/{model_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -125168,7 +125168,7 @@ async function $do170(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125230,7 +125230,7 @@ async function $do171(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/fine_tuning/models/{model_id}/archive")(pathParams);
+  const path10 = pathToFunc("/v1/fine_tuning/models/{model_id}/archive")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -125251,7 +125251,7 @@ async function $do171(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125312,7 +125312,7 @@ async function $do172(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/fine_tuning/models/{model_id}")(pathParams);
+  const path10 = pathToFunc("/v1/fine_tuning/models/{model_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -125334,7 +125334,7 @@ async function $do172(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125458,7 +125458,7 @@ async function $do173(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/ocr")();
+  const path10 = pathToFunc("/v1/ocr")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -125480,7 +125480,7 @@ async function $do173(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125558,7 +125558,7 @@ async function $do174(client, request, options) {
   const pathParams = {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/workflows/{workflow_identifier}/archive")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/{workflow_identifier}/archive")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -125579,7 +125579,7 @@ async function $do174(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125636,7 +125636,7 @@ async function $do175(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/workflows/archive")();
+  const path10 = pathToFunc("/v1/workflows/archive")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -125658,7 +125658,7 @@ async function $do175(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125714,7 +125714,7 @@ async function $do176(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/workflows/unarchive")();
+  const path10 = pathToFunc("/v1/workflows/unarchive")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -125736,7 +125736,7 @@ async function $do176(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125797,7 +125797,7 @@ async function $do177(client, request, options) {
   const pathParams = {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/workflows/{workflow_identifier}/execute")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/{workflow_identifier}/execute")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -125819,7 +125819,7 @@ async function $do177(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125880,7 +125880,7 @@ async function $do178(client, request, options) {
   const pathParams = {
     workflow_registration_id: encodeSimple("workflow_registration_id", payload.workflow_registration_id, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/workflows/registrations/{workflow_registration_id}/execute")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/registrations/{workflow_registration_id}/execute")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -125902,7 +125902,7 @@ async function $do178(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -125961,7 +125961,7 @@ async function $do179(client, request, options) {
   const pathParams = {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/workflows/{workflow_identifier}")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/{workflow_identifier}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -125982,7 +125982,7 @@ async function $do179(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -126042,7 +126042,7 @@ async function $do180(client, request, options) {
   const pathParams = {
     workflow_registration_id: encodeSimple("workflow_registration_id", payload.workflow_registration_id, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/workflows/registrations/{workflow_registration_id}")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/registrations/{workflow_registration_id}")(pathParams);
   const query = encodeFormQuery({
     "include_shared": payload.include_shared,
     "with_workflow": payload.with_workflow
@@ -126067,7 +126067,7 @@ async function $do180(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -126125,7 +126125,7 @@ async function $do181(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/workflows/registrations")();
+  const path10 = pathToFunc("/v1/workflows/registrations")();
   const query = encodeFormQuery({
     "active_only": payload?.active_only,
     "archived": payload?.archived,
@@ -126158,7 +126158,7 @@ async function $do181(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -126286,7 +126286,7 @@ async function $do182(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/workflows")();
+  const path10 = pathToFunc("/v1/workflows")();
   const query = encodeFormQuery({
     "active_only": payload?.active_only,
     "archived": payload?.archived,
@@ -126321,7 +126321,7 @@ async function $do182(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -126416,7 +126416,7 @@ async function $do183(client, request, options) {
   const pathParams = {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/workflows/{workflow_identifier}/unarchive")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/{workflow_identifier}/unarchive")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -126437,7 +126437,7 @@ async function $do183(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -126499,7 +126499,7 @@ async function $do184(client, request, options) {
   const pathParams = {
     workflow_identifier: encodeSimple("workflow_identifier", payload.workflow_identifier, { explode: false, charEncoding: "percent" })
   };
-  const path9 = pathToFunc("/v1/workflows/{workflow_identifier}")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/{workflow_identifier}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -126521,7 +126521,7 @@ async function $do184(client, request, options) {
     security: requestSecurity,
     method: "PUT",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -126584,7 +126584,7 @@ async function $do185(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/deployments/{name}")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/deployments/{name}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -126605,7 +126605,7 @@ async function $do185(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -126662,7 +126662,7 @@ async function $do186(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/workflows/deployments")();
+  const path10 = pathToFunc("/v1/workflows/deployments")();
   const query = encodeFormQuery({
     "active_only": payload?.active_only,
     "cursor": payload?.cursor,
@@ -126692,7 +126692,7 @@ async function $do186(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -126776,7 +126776,7 @@ async function $do187(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/workflows/executions/cancel")();
+  const path10 = pathToFunc("/v1/workflows/executions/cancel")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -126798,7 +126798,7 @@ async function $do187(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -126854,7 +126854,7 @@ async function $do188(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/workflows/executions/terminate")();
+  const path10 = pathToFunc("/v1/workflows/executions/terminate")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -126876,7 +126876,7 @@ async function $do188(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -126938,7 +126938,7 @@ async function $do189(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/cancel")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/cancel")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -126959,7 +126959,7 @@ async function $do189(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127022,7 +127022,7 @@ async function $do190(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -127043,7 +127043,7 @@ async function $do190(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127106,7 +127106,7 @@ async function $do191(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/history")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/history")(pathParams);
   const query = encodeFormQuery({
     "decode_payloads": payload.decode_payloads
   });
@@ -127130,7 +127130,7 @@ async function $do191(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -127194,7 +127194,7 @@ async function $do192(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/logs")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/logs")(pathParams);
   const query = encodeFormQuery({
     "activity_id": payload.activity_id,
     "after": payload.after,
@@ -127224,7 +127224,7 @@ async function $do192(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -127288,7 +127288,7 @@ async function $do193(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/events")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/events")(pathParams);
   const query = encodeFormQuery({
     "include_internal_events": payload.include_internal_events,
     "merge_same_id_events": payload.merge_same_id_events
@@ -127313,7 +127313,7 @@ async function $do193(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -127377,7 +127377,7 @@ async function $do194(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/otel")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/otel")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -127398,7 +127398,7 @@ async function $do194(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127461,7 +127461,7 @@ async function $do195(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/summary")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/trace/summary")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -127482,7 +127482,7 @@ async function $do195(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127547,7 +127547,7 @@ async function $do196(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/queries")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/queries")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -127569,7 +127569,7 @@ async function $do196(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127634,7 +127634,7 @@ async function $do197(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/reset")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/reset")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -127656,7 +127656,7 @@ async function $do197(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127721,7 +127721,7 @@ async function $do198(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/signals")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/signals")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -127743,7 +127743,7 @@ async function $do198(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -127806,7 +127806,7 @@ async function $do199(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/stream")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/stream")(pathParams);
   const query = encodeFormQuery({
     "event_source": payload.event_source,
     "last_event_id": payload.last_event_id
@@ -127831,7 +127831,7 @@ async function $do199(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -127903,7 +127903,7 @@ async function $do200(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/logs/stream")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/logs/stream")(pathParams);
   const query = encodeFormQuery({
     "activity_id": payload.activity_id,
     "after": payload.after,
@@ -127930,7 +127930,7 @@ async function $do200(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -128002,7 +128002,7 @@ async function $do201(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/terminate")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/terminate")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -128023,7 +128023,7 @@ async function $do201(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -128088,7 +128088,7 @@ async function $do202(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/executions/{execution_id}/updates")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/executions/{execution_id}/updates")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -128110,7 +128110,7 @@ async function $do202(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -128311,7 +128311,7 @@ async function $do203(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/{workflow_name}/metrics")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/{workflow_name}/metrics")(pathParams);
   const query = encodeFormQuery({
     "end_time": payload.end_time,
     "start_time": payload.start_time
@@ -128336,7 +128336,7 @@ async function $do203(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -128441,7 +128441,7 @@ async function $do204(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/runs/{run_id}")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/runs/{run_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -128462,7 +128462,7 @@ async function $do204(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -128525,7 +128525,7 @@ async function $do205(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/runs/{run_id}/history")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/runs/{run_id}/history")(pathParams);
   const query = encodeFormQuery({
     "decode_payloads": payload.decode_payloads
   });
@@ -128549,7 +128549,7 @@ async function $do205(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -128607,7 +128607,7 @@ async function $do206(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/workflows/runs")();
+  const path10 = pathToFunc("/v1/workflows/runs")();
   const query = encodeFormQuery({
     "deployment_name": payload?.deployment_name,
     "end_time_after": payload?.end_time_after,
@@ -128643,7 +128643,7 @@ async function $do206(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -128775,7 +128775,7 @@ async function $do207(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -128796,7 +128796,7 @@ async function $do207(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -128853,7 +128853,7 @@ async function $do208(client, request, options) {
   }
   const payload = parsed.value;
   const body = null;
-  const path9 = pathToFunc("/v1/workflows/schedules")();
+  const path10 = pathToFunc("/v1/workflows/schedules")();
   const query = encodeFormQuery({
     "next_page_token": payload?.next_page_token,
     "page_size": payload?.page_size,
@@ -128881,7 +128881,7 @@ async function $do208(client, request, options) {
     security: requestSecurity,
     method: "GET",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     query,
     body,
@@ -128979,7 +128979,7 @@ async function $do209(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/schedules/{schedule_id}/pause")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/schedules/{schedule_id}/pause")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -129001,7 +129001,7 @@ async function $do209(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -129066,7 +129066,7 @@ async function $do210(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/schedules/{schedule_id}/resume")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/schedules/{schedule_id}/resume")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -129088,7 +129088,7 @@ async function $do210(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -129145,7 +129145,7 @@ async function $do211(client, request, options) {
   }
   const payload = parsed.value;
   const body = encodeJSON("body", payload, { explode: true });
-  const path9 = pathToFunc("/v1/workflows/schedules")();
+  const path10 = pathToFunc("/v1/workflows/schedules")();
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -129167,7 +129167,7 @@ async function $do211(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -129231,7 +129231,7 @@ async function $do212(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/schedules/{schedule_id}/trigger")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/schedules/{schedule_id}/trigger")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -129253,7 +129253,7 @@ async function $do212(client, request, options) {
     security: requestSecurity,
     method: "POST",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -129316,7 +129316,7 @@ async function $do213(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
   const headers = new Headers(compactMap({
     Accept: "application/json"
   }));
@@ -129337,7 +129337,7 @@ async function $do213(client, request, options) {
     security: requestSecurity,
     method: "DELETE",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -129402,7 +129402,7 @@ async function $do214(client, request, options) {
       charEncoding: "percent"
     })
   };
-  const path9 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
+  const path10 = pathToFunc("/v1/workflows/schedules/{schedule_id}")(pathParams);
   const headers = new Headers(compactMap({
     "Content-Type": "application/json",
     Accept: "application/json"
@@ -129424,7 +129424,7 @@ async function $do214(client, request, options) {
     security: requestSecurity,
     method: "PATCH",
     baseURL: options?.serverURL,
-    path: path9,
+    path: path10,
     headers,
     body,
     userAgent: client._options.userAgent,
@@ -131329,13 +131329,13 @@ var init_openai_codex_responses = __esm({
     init_openai_prompt_cache();
     init_openai_responses_shared();
     init_simple_options();
-    __rewriteRelativeImportExtension3 = function(path9, preserveJsx) {
-      if (typeof path9 === "string" && /^\.\.?\//.test(path9)) {
-        return path9.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
+    __rewriteRelativeImportExtension3 = function(path10, preserveJsx) {
+      if (typeof path10 === "string" && /^\.\.?\//.test(path10)) {
+        return path10.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
           return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m2 : d + ext + "." + cm.toLowerCase() + "js";
         });
       }
-      return path9;
+      return path10;
     };
     _os = null;
     dynamicImport = (specifier) => import(__rewriteRelativeImportExtension3(specifier));
@@ -132030,17 +132030,17 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path9) {
-      const ctrl = callVisitor(key, node, visitor, path9);
+    function visit_(key, node, visitor, path10) {
+      const ctrl = callVisitor(key, node, visitor, path10);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path9, ctrl);
-        return visit_(key, ctrl, visitor, path9);
+        replaceNode(key, path10, ctrl);
+        return visit_(key, ctrl, visitor, path10);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path9 = Object.freeze(path9.concat(node));
+          path10 = Object.freeze(path10.concat(node));
           for (let i2 = 0; i2 < node.items.length; ++i2) {
-            const ci = visit_(i2, node.items[i2], visitor, path9);
+            const ci = visit_(i2, node.items[i2], visitor, path10);
             if (typeof ci === "number")
               i2 = ci - 1;
             else if (ci === BREAK)
@@ -132051,13 +132051,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path9 = Object.freeze(path9.concat(node));
-          const ck = visit_("key", node.key, visitor, path9);
+          path10 = Object.freeze(path10.concat(node));
+          const ck = visit_("key", node.key, visitor, path10);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = visit_("value", node.value, visitor, path9);
+          const cv = visit_("value", node.value, visitor, path10);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -132078,17 +132078,17 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path9) {
-      const ctrl = await callVisitor(key, node, visitor, path9);
+    async function visitAsync_(key, node, visitor, path10) {
+      const ctrl = await callVisitor(key, node, visitor, path10);
       if (identity.isNode(ctrl) || identity.isPair(ctrl)) {
-        replaceNode(key, path9, ctrl);
-        return visitAsync_(key, ctrl, visitor, path9);
+        replaceNode(key, path10, ctrl);
+        return visitAsync_(key, ctrl, visitor, path10);
       }
       if (typeof ctrl !== "symbol") {
         if (identity.isCollection(node)) {
-          path9 = Object.freeze(path9.concat(node));
+          path10 = Object.freeze(path10.concat(node));
           for (let i2 = 0; i2 < node.items.length; ++i2) {
-            const ci = await visitAsync_(i2, node.items[i2], visitor, path9);
+            const ci = await visitAsync_(i2, node.items[i2], visitor, path10);
             if (typeof ci === "number")
               i2 = ci - 1;
             else if (ci === BREAK)
@@ -132099,13 +132099,13 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path9 = Object.freeze(path9.concat(node));
-          const ck = await visitAsync_("key", node.key, visitor, path9);
+          path10 = Object.freeze(path10.concat(node));
+          const ck = await visitAsync_("key", node.key, visitor, path10);
           if (ck === BREAK)
             return BREAK;
           else if (ck === REMOVE)
             node.key = null;
-          const cv = await visitAsync_("value", node.value, visitor, path9);
+          const cv = await visitAsync_("value", node.value, visitor, path10);
           if (cv === BREAK)
             return BREAK;
           else if (cv === REMOVE)
@@ -132132,23 +132132,23 @@ var require_visit = __commonJS({
       }
       return visitor;
     }
-    function callVisitor(key, node, visitor, path9) {
+    function callVisitor(key, node, visitor, path10) {
       if (typeof visitor === "function")
-        return visitor(key, node, path9);
+        return visitor(key, node, path10);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path9);
+        return visitor.Map?.(key, node, path10);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path9);
+        return visitor.Seq?.(key, node, path10);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path9);
+        return visitor.Pair?.(key, node, path10);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path9);
+        return visitor.Scalar?.(key, node, path10);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path9);
+        return visitor.Alias?.(key, node, path10);
       return void 0;
     }
-    function replaceNode(key, path9, node) {
-      const parent = path9[path9.length - 1];
+    function replaceNode(key, path10, node) {
+      const parent = path10[path10.length - 1];
       if (identity.isCollection(parent)) {
         parent.items[key] = node;
       } else if (identity.isPair(parent)) {
@@ -132758,10 +132758,10 @@ var require_Collection = __commonJS({
     var createNode = require_createNode();
     var identity = require_identity();
     var Node = require_Node();
-    function collectionFromPath(schema, path9, value) {
+    function collectionFromPath(schema, path10, value) {
       let v = value;
-      for (let i2 = path9.length - 1; i2 >= 0; --i2) {
-        const k = path9[i2];
+      for (let i2 = path10.length - 1; i2 >= 0; --i2) {
+        const k = path10[i2];
         if (typeof k === "number" && Number.isInteger(k) && k >= 0) {
           const a = [];
           a[k] = v;
@@ -132780,7 +132780,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path9) => path9 == null || typeof path9 === "object" && !!path9[Symbol.iterator]().next().done;
+    var isEmptyPath = (path10) => path10 == null || typeof path10 === "object" && !!path10[Symbol.iterator]().next().done;
     var Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type);
@@ -132810,11 +132810,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path9, value) {
-        if (isEmptyPath(path9))
+      addIn(path10, value) {
+        if (isEmptyPath(path10))
           this.add(value);
         else {
-          const [key, ...rest] = path9;
+          const [key, ...rest] = path10;
           const node = this.get(key, true);
           if (identity.isCollection(node))
             node.addIn(rest, value);
@@ -132828,8 +132828,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path9) {
-        const [key, ...rest] = path9;
+      deleteIn(path10) {
+        const [key, ...rest] = path10;
         if (rest.length === 0)
           return this.delete(key);
         const node = this.get(key, true);
@@ -132843,8 +132843,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path9, keepScalar) {
-        const [key, ...rest] = path9;
+      getIn(path10, keepScalar) {
+        const [key, ...rest] = path10;
         const node = this.get(key, true);
         if (rest.length === 0)
           return !keepScalar && identity.isScalar(node) ? node.value : node;
@@ -132862,8 +132862,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path9) {
-        const [key, ...rest] = path9;
+      hasIn(path10) {
+        const [key, ...rest] = path10;
         if (rest.length === 0)
           return this.has(key);
         const node = this.get(key, true);
@@ -132873,8 +132873,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path9, value) {
-        const [key, ...rest] = path9;
+      setIn(path10, value) {
+        const [key, ...rest] = path10;
         if (rest.length === 0) {
           this.set(key, value);
         } else {
@@ -135389,9 +135389,9 @@ var require_Document = __commonJS({
           this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path9, value) {
+      addIn(path10, value) {
         if (assertCollection(this.contents))
-          this.contents.addIn(path9, value);
+          this.contents.addIn(path10, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -135466,14 +135466,14 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path9) {
-        if (Collection.isEmptyPath(path9)) {
+      deleteIn(path10) {
+        if (Collection.isEmptyPath(path10)) {
           if (this.contents == null)
             return false;
           this.contents = null;
           return true;
         }
-        return assertCollection(this.contents) ? this.contents.deleteIn(path9) : false;
+        return assertCollection(this.contents) ? this.contents.deleteIn(path10) : false;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -135488,10 +135488,10 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path9, keepScalar) {
-        if (Collection.isEmptyPath(path9))
+      getIn(path10, keepScalar) {
+        if (Collection.isEmptyPath(path10))
           return !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents;
-        return identity.isCollection(this.contents) ? this.contents.getIn(path9, keepScalar) : void 0;
+        return identity.isCollection(this.contents) ? this.contents.getIn(path10, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -135502,10 +135502,10 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path9) {
-        if (Collection.isEmptyPath(path9))
+      hasIn(path10) {
+        if (Collection.isEmptyPath(path10))
           return this.contents !== void 0;
-        return identity.isCollection(this.contents) ? this.contents.hasIn(path9) : false;
+        return identity.isCollection(this.contents) ? this.contents.hasIn(path10) : false;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -135522,13 +135522,13 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path9, value) {
-        if (Collection.isEmptyPath(path9)) {
+      setIn(path10, value) {
+        if (Collection.isEmptyPath(path10)) {
           this.contents = value;
         } else if (this.contents == null) {
-          this.contents = Collection.collectionFromPath(this.schema, Array.from(path9), value);
+          this.contents = Collection.collectionFromPath(this.schema, Array.from(path10), value);
         } else if (assertCollection(this.contents)) {
-          this.contents.setIn(path9, value);
+          this.contents.setIn(path10, value);
         }
       }
       /**
@@ -137488,9 +137488,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path9) => {
+    visit.itemAtPath = (cst, path10) => {
       let item = cst;
-      for (const [field, index2] of path9) {
+      for (const [field, index2] of path10) {
         const tok = item?.[field];
         if (tok && "items" in tok) {
           item = tok.items[index2];
@@ -137499,23 +137499,23 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path9) => {
-      const parent = visit.itemAtPath(cst, path9.slice(0, -1));
-      const field = path9[path9.length - 1][0];
+    visit.parentCollection = (cst, path10) => {
+      const parent = visit.itemAtPath(cst, path10.slice(0, -1));
+      const field = path10[path10.length - 1][0];
       const coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path9, item, visitor) {
-      let ctrl = visitor(item, path9);
+    function _visit(path10, item, visitor) {
+      let ctrl = visitor(item, path10);
       if (typeof ctrl === "symbol")
         return ctrl;
       for (const field of ["key", "value"]) {
         const token = item[field];
         if (token && "items" in token) {
           for (let i2 = 0; i2 < token.items.length; ++i2) {
-            const ci = _visit(Object.freeze(path9.concat([[field, i2]])), token.items[i2], visitor);
+            const ci = _visit(Object.freeze(path10.concat([[field, i2]])), token.items[i2], visitor);
             if (typeof ci === "number")
               i2 = ci - 1;
             else if (ci === BREAK)
@@ -137526,10 +137526,10 @@ var require_cst_visit = __commonJS({
             }
           }
           if (typeof ctrl === "function" && field === "key")
-            ctrl = ctrl(item, path9);
+            ctrl = ctrl(item, path10);
         }
       }
-      return typeof ctrl === "function" ? ctrl(item, path9) : ctrl;
+      return typeof ctrl === "function" ? ctrl(item, path10) : ctrl;
     }
     exports2.visit = visit;
   }
@@ -139578,7 +139578,7 @@ var require_ignore = __commonJS({
       //   path matching.
       // - check `string` either `MODE_IGNORE` or `MODE_CHECK_IGNORE`
       // @returns {TestResult} true if a file is ignored
-      test(path9, checkUnignored, mode) {
+      test(path10, checkUnignored, mode) {
         let ignored = false;
         let unignored = false;
         let matchedRule;
@@ -139587,7 +139587,7 @@ var require_ignore = __commonJS({
           if (unignored === negative && ignored !== unignored || negative && !ignored && !unignored && !checkUnignored) {
             return;
           }
-          const matched = rule[mode].test(path9);
+          const matched = rule[mode].test(path10);
           if (!matched) {
             return;
           }
@@ -139608,17 +139608,17 @@ var require_ignore = __commonJS({
     var throwError2 = (message, Ctor) => {
       throw new Ctor(message);
     };
-    var checkPath = (path9, originalPath, doThrow) => {
-      if (!isString(path9)) {
+    var checkPath = (path10, originalPath, doThrow) => {
+      if (!isString(path10)) {
         return doThrow(
           `path must be a string, but got \`${originalPath}\``,
           TypeError
         );
       }
-      if (!path9) {
+      if (!path10) {
         return doThrow(`path must not be empty`, TypeError);
       }
-      if (checkPath.isNotRelative(path9)) {
+      if (checkPath.isNotRelative(path10)) {
         const r2 = "`path.relative()`d";
         return doThrow(
           `path should be a ${r2} string, but got "${originalPath}"`,
@@ -139627,7 +139627,7 @@ var require_ignore = __commonJS({
       }
       return true;
     };
-    var isNotRelative = (path9) => REGEX_TEST_INVALID_PATH.test(path9);
+    var isNotRelative = (path10) => REGEX_TEST_INVALID_PATH.test(path10);
     checkPath.isNotRelative = isNotRelative;
     checkPath.convert = (p) => p;
     var Ignore = class {
@@ -139657,19 +139657,19 @@ var require_ignore = __commonJS({
       }
       // @returns {TestResult}
       _test(originalPath, cache, checkUnignored, slices) {
-        const path9 = originalPath && checkPath.convert(originalPath);
+        const path10 = originalPath && checkPath.convert(originalPath);
         checkPath(
-          path9,
+          path10,
           originalPath,
           this._strictPathCheck ? throwError2 : RETURN_FALSE
         );
-        return this._t(path9, cache, checkUnignored, slices);
+        return this._t(path10, cache, checkUnignored, slices);
       }
-      checkIgnore(path9) {
-        if (!REGEX_TEST_TRAILING_SLASH.test(path9)) {
-          return this.test(path9);
+      checkIgnore(path10) {
+        if (!REGEX_TEST_TRAILING_SLASH.test(path10)) {
+          return this.test(path10);
         }
-        const slices = path9.split(SLASH).filter(Boolean);
+        const slices = path10.split(SLASH).filter(Boolean);
         slices.pop();
         if (slices.length) {
           const parent = this._t(
@@ -139682,18 +139682,18 @@ var require_ignore = __commonJS({
             return parent;
           }
         }
-        return this._rules.test(path9, false, MODE_CHECK_IGNORE);
+        return this._rules.test(path10, false, MODE_CHECK_IGNORE);
       }
-      _t(path9, cache, checkUnignored, slices) {
-        if (path9 in cache) {
-          return cache[path9];
+      _t(path10, cache, checkUnignored, slices) {
+        if (path10 in cache) {
+          return cache[path10];
         }
         if (!slices) {
-          slices = path9.split(SLASH).filter(Boolean);
+          slices = path10.split(SLASH).filter(Boolean);
         }
         slices.pop();
         if (!slices.length) {
-          return cache[path9] = this._rules.test(path9, checkUnignored, MODE_IGNORE);
+          return cache[path10] = this._rules.test(path10, checkUnignored, MODE_IGNORE);
         }
         const parent = this._t(
           slices.join(SLASH) + SLASH,
@@ -139701,29 +139701,29 @@ var require_ignore = __commonJS({
           checkUnignored,
           slices
         );
-        return cache[path9] = parent.ignored ? parent : this._rules.test(path9, checkUnignored, MODE_IGNORE);
+        return cache[path10] = parent.ignored ? parent : this._rules.test(path10, checkUnignored, MODE_IGNORE);
       }
-      ignores(path9) {
-        return this._test(path9, this._ignoreCache, false).ignored;
+      ignores(path10) {
+        return this._test(path10, this._ignoreCache, false).ignored;
       }
       createFilter() {
-        return (path9) => !this.ignores(path9);
+        return (path10) => !this.ignores(path10);
       }
       filter(paths) {
         return makeArray(paths).filter(this.createFilter());
       }
       // @returns {TestResult}
-      test(path9) {
-        return this._test(path9, this._testCache, true);
+      test(path10) {
+        return this._test(path10, this._testCache, true);
       }
     };
     var factory = (options) => new Ignore(options);
-    var isPathValid = (path9) => checkPath(path9 && checkPath.convert(path9), path9, RETURN_FALSE);
+    var isPathValid = (path10) => checkPath(path10 && checkPath.convert(path10), path10, RETURN_FALSE);
     var setupWindows = () => {
       const makePosix = (str2) => /^\\\\\?\\/.test(str2) || /["<>|\u0000-\u001F]+/u.test(str2) ? str2 : str2.replace(/\\/g, "/");
       checkPath.convert = makePosix;
       const REGEX_TEST_WINDOWS_PATH_ABSOLUTE = /^[a-z]:\//i;
-      checkPath.isNotRelative = (path9) => REGEX_TEST_WINDOWS_PATH_ABSOLUTE.test(path9) || isNotRelative(path9);
+      checkPath.isNotRelative = (path10) => REGEX_TEST_WINDOWS_PATH_ABSOLUTE.test(path10) || isNotRelative(path10);
     };
     if (
       // Detect `process` so that it can run in browsers.
@@ -140426,7 +140426,7 @@ ${inlineSummary}`;
 });
 
 // src/index.ts
-var import_node_fs5 = require("fs");
+var import_node_fs6 = require("fs");
 
 // ../../node_modules/typebox/build/system/memory/memory.mjs
 var memory_exports = {};
@@ -149258,12 +149258,12 @@ var MutateError = class extends Error {
 };
 
 // ../../node_modules/typebox/build/value/mutate/from_array.mjs
-function FromArray14(root, path9, current, next) {
+function FromArray14(root, path10, current, next) {
   if (!guard_exports.IsArray(current)) {
-    pointer_exports.Set(root, path9, Clone2(next));
+    pointer_exports.Set(root, path10, Clone2(next));
   } else {
     for (let index2 = 0; index2 < next.length; index2++) {
-      FromValue5(root, `${path9}/${index2}`, current[index2], next[index2]);
+      FromValue5(root, `${path10}/${index2}`, current[index2], next[index2]);
     }
     current.splice(next.length);
   }
@@ -149274,9 +149274,9 @@ function AssertKey(key) {
   if (guard_exports.IsUnsafePropertyKey(key))
     throw Error("Attempted to Mutate with unsafe property key");
 }
-function FromObject17(root, path9, current, next) {
+function FromObject17(root, path10, current, next) {
   if (!guard_exports.IsObjectNotArray(current)) {
-    pointer_exports.Set(root, path9, Clone2(next));
+    pointer_exports.Set(root, path10, Clone2(next));
   } else {
     const currentKeys = guard_exports.Keys(current);
     const nextKeys = guard_exports.Keys(next);
@@ -149294,25 +149294,25 @@ function FromObject17(root, path9, current, next) {
     }
     for (const nextKey of nextKeys) {
       AssertKey(nextKey);
-      FromValue5(root, `${path9}/${nextKey}`, current[nextKey], next[nextKey]);
+      FromValue5(root, `${path10}/${nextKey}`, current[nextKey], next[nextKey]);
     }
   }
 }
 
 // ../../node_modules/typebox/build/value/mutate/from_unknown.mjs
-function FromUnknown2(root, path9, current, next) {
+function FromUnknown2(root, path10, current, next) {
   if (current === next)
     return;
-  pointer_exports.Set(root, path9, next);
+  pointer_exports.Set(root, path10, next);
 }
 
 // ../../node_modules/typebox/build/value/mutate/from_value.mjs
-function FromValue5(root, path9, current, next) {
+function FromValue5(root, path10, current, next) {
   if (guard_exports.IsArray(next))
-    return FromArray14(root, path9, current, next);
+    return FromArray14(root, path10, current, next);
   if (guard_exports.IsObject(next))
-    return FromObject17(root, path9, current, next);
-  return FromUnknown2(root, path9, current, next);
+    return FromObject17(root, path10, current, next);
+  return FromUnknown2(root, path10, current, next);
 }
 
 // ../../node_modules/typebox/build/value/mutate/mutate.mjs
@@ -149362,23 +149362,23 @@ function Parse(...args) {
 }
 
 // ../../node_modules/typebox/build/value/delta/diff.mjs
-function CreateUpdate(path9, value) {
-  return { type: "update", path: path9, value };
+function CreateUpdate(path10, value) {
+  return { type: "update", path: path10, value };
 }
-function CreateInsert(path9, value) {
-  return { type: "insert", path: path9, value };
+function CreateInsert(path10, value) {
+  return { type: "insert", path: path10, value };
 }
-function CreateDelete(path9) {
-  return { type: "delete", path: path9 };
+function CreateDelete(path10) {
+  return { type: "delete", path: path10 };
 }
 function AssertCanDiffObject(value) {
   if (guard_exports.IsObject(value) && guard_exports.IsEqual(guard_exports.Symbols(value).length, 0))
     return;
   throw new Error("Cannot create diffs for objects with symbols keys");
 }
-function* FromObject18(path9, left, right) {
+function* FromObject18(path10, left, right) {
   if (!guard_exports.IsObject(right) || guard_exports.IsArray(right))
-    return yield CreateUpdate(path9, right);
+    return yield CreateUpdate(path10, right);
   AssertCanDiffObject(left);
   AssertCanDiffObject(right);
   const leftKeys = guard_exports.Keys(left);
@@ -149388,7 +149388,7 @@ function* FromObject18(path9, left, right) {
       continue;
     if (guard_exports.IsUnsafePropertyKey(key))
       continue;
-    yield CreateInsert(`${path9}/${key}`, right[key]);
+    yield CreateInsert(`${path10}/${key}`, right[key]);
   }
   for (const key of leftKeys) {
     if (!guard_exports.HasPropertyKey(right, key))
@@ -149397,52 +149397,52 @@ function* FromObject18(path9, left, right) {
       continue;
     if (Equal(left, right))
       continue;
-    yield* FromValue6(`${path9}/${key}`, left[key], right[key]);
+    yield* FromValue6(`${path10}/${key}`, left[key], right[key]);
   }
   for (const key of leftKeys) {
     if (guard_exports.HasPropertyKey(right, key))
       continue;
     if (guard_exports.IsUnsafePropertyKey(key))
       continue;
-    yield CreateDelete(`${path9}/${key}`);
+    yield CreateDelete(`${path10}/${key}`);
   }
 }
-function* FromArray15(path9, left, right) {
+function* FromArray15(path10, left, right) {
   if (!guard_exports.IsArray(right))
-    return yield CreateUpdate(path9, right);
+    return yield CreateUpdate(path10, right);
   for (let i2 = 0; i2 < Math.min(left.length, right.length); i2++) {
-    yield* FromValue6(`${path9}/${i2}`, left[i2], right[i2]);
+    yield* FromValue6(`${path10}/${i2}`, left[i2], right[i2]);
   }
   for (let i2 = 0; i2 < right.length; i2++) {
     if (i2 < left.length)
       continue;
-    yield CreateInsert(`${path9}/${i2}`, right[i2]);
+    yield CreateInsert(`${path10}/${i2}`, right[i2]);
   }
   for (let i2 = left.length - 1; i2 >= 0; i2--) {
     if (i2 < right.length)
       continue;
-    yield CreateDelete(`${path9}/${i2}`);
+    yield CreateDelete(`${path10}/${i2}`);
   }
 }
-function* FromTypedArray2(path9, left, right) {
+function* FromTypedArray2(path10, left, right) {
   const typeLeft = globalThis.Object.getPrototypeOf(left).constructor.name;
   const typeRight = globalThis.Object.getPrototypeOf(right).constructor.name;
   const predicate = globals_exports.IsTypeArray(right) && guard_exports.IsEqual(left.length, right.length) && guard_exports.IsEqual(typeLeft, typeRight);
   if (predicate) {
     for (let index2 = 0; index2 < Math.min(left.length, right.length); index2++) {
-      yield* FromValue6(`${path9}/${index2}`, left[index2], right[index2]);
+      yield* FromValue6(`${path10}/${index2}`, left[index2], right[index2]);
     }
   } else {
-    return yield CreateUpdate(path9, right);
+    return yield CreateUpdate(path10, right);
   }
 }
-function* FromUnknown3(path9, left, right) {
+function* FromUnknown3(path10, left, right) {
   if (left === right)
     return;
-  yield CreateUpdate(path9, right);
+  yield CreateUpdate(path10, right);
 }
-function* FromValue6(path9, left, right) {
-  return globals_exports.IsTypeArray(left) ? yield* FromTypedArray2(path9, left, right) : guard_exports.IsArray(left) ? yield* FromArray15(path9, left, right) : guard_exports.IsObject(left) ? yield* FromObject18(path9, left, right) : yield* FromUnknown3(path9, left, right);
+function* FromValue6(path10, left, right) {
+  return globals_exports.IsTypeArray(left) ? yield* FromTypedArray2(path10, left, right) : guard_exports.IsArray(left) ? yield* FromArray15(path10, left, right) : guard_exports.IsObject(left) ? yield* FromObject18(path10, left, right) : yield* FromUnknown3(path10, left, right);
 }
 function Diff(current, next) {
   return [...FromValue6("", current, next)];
@@ -150085,8 +150085,8 @@ function formatValidationPath(error51) {
       return basePath ? `${basePath}.${requiredProperty}` : requiredProperty;
     }
   }
-  const path9 = error51.instancePath.replace(/^\//, "").replace(/\//g, ".");
-  return path9 || "root";
+  const path10 = error51.instancePath.replace(/^\//, "").replace(/\//g, ".");
+  return path10 || "root";
 }
 function validateToolArguments(tool, toolCall) {
   const args = structuredClone(toolCall.arguments);
@@ -150185,13 +150185,13 @@ var azureOpenAIResponsesApi = () => lazyApi(() => Promise.resolve().then(() => (
 // ../../node_modules/@earendil-works/pi-ai/dist/api/bedrock-converse-stream.lazy.js
 init_lazy();
 var import_meta = {};
-var __rewriteRelativeImportExtension2 = function(path9, preserveJsx) {
-  if (typeof path9 === "string" && /^\.\.?\//.test(path9)) {
-    return path9.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
+var __rewriteRelativeImportExtension2 = function(path10, preserveJsx) {
+  if (typeof path10 === "string" && /^\.\.?\//.test(path10)) {
+    return path10.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
       return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m2 : d + ext + "." + cm.toLowerCase() + "js";
     });
   }
-  return path9;
+  return path10;
 };
 var importNodeOnlyApi = (specifier) => {
   const runtimeSpecifier = import_meta.url.endsWith(".js") ? specifier.replace(/\.ts$/, ".js") : specifier;
@@ -150222,13 +150222,13 @@ var openAIResponsesApi = () => lazyApi(() => Promise.resolve().then(() => (init_
 
 // ../../node_modules/@earendil-works/pi-ai/dist/env-api-keys.js
 init_provider_env();
-var __rewriteRelativeImportExtension4 = function(path9, preserveJsx) {
-  if (typeof path9 === "string" && /^\.\.?\//.test(path9)) {
-    return path9.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
+var __rewriteRelativeImportExtension4 = function(path10, preserveJsx) {
+  if (typeof path10 === "string" && /^\.\.?\//.test(path10)) {
+    return path10.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
       return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m2 : d + ext + "." + cm.toLowerCase() + "js";
     });
   }
-  return path9;
+  return path10;
 };
 var _existsSync = null;
 var _homedir = null;
@@ -168329,13 +168329,13 @@ init_models();
 
 // ../../node_modules/@earendil-works/pi-ai/dist/utils/oauth/load.js
 var import_meta2 = {};
-var __rewriteRelativeImportExtension5 = function(path9, preserveJsx) {
-  if (typeof path9 === "string" && /^\.\.?\//.test(path9)) {
-    return path9.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
+var __rewriteRelativeImportExtension5 = function(path10, preserveJsx) {
+  if (typeof path10 === "string" && /^\.\.?\//.test(path10)) {
+    return path10.replace(/\.(tsx)$|((?:\.d)?)((?:\.[^./]+?)?)\.([cm]?)ts$/i, function(m2, tsx, d, ext, cm) {
       return tsx ? preserveJsx ? ".jsx" : ".js" : d && (!ext || !cm) ? m2 : d + ext + "." + cm.toLowerCase() + "js";
     });
   }
-  return path9;
+  return path10;
 };
 var importOAuthModule = (specifier) => {
   const runtimeSpecifier = import_meta2.url.endsWith(".js") ? specifier.replace(/\.ts$/, ".js") : specifier;
@@ -170178,8 +170178,8 @@ ${opts.diff}`;
 }
 
 // src/orchestrate.ts
-var import_node_fs4 = require("fs");
-var import_node_path6 = __toESM(require("path"));
+var import_node_fs5 = require("fs");
+var import_node_path7 = __toESM(require("path"));
 
 // ../../node_modules/js-yaml/dist/js-yaml.mjs
 var NOT_RESOLVED = /* @__PURE__ */ Symbol("NOT_RESOLVED");
@@ -172428,11 +172428,22 @@ function reviewerHead(focus, checks) {
 var BUILT_IN_PERSONAS = [
   {
     name: "quality",
+    useStyleGuide: true,
     prompt: reviewerHead("code quality", [
       "Code quality issues",
       "Potential bugs or logic errors",
       "Code style consistency",
       "Error handling completeness"
+    ])
+  },
+  {
+    name: "style",
+    useStyleGuide: true,
+    prompt: reviewerHead("style-guide enforcement", [
+      "Conformance to the repository style-guide provided below",
+      "Naming conventions, formatting, and project-specific patterns",
+      "Consistency with documented style rules",
+      "Readability and maintainability issues that the style-guide calls out"
     ])
   },
   {
@@ -172488,7 +172499,11 @@ function isPersonaFile(v) {
   if (typeof v !== "object" || v === null) return false;
   if (!("name" in v) || !("prompt" in v)) return false;
   const obj = v;
-  return typeof obj.name === "string" && typeof obj.prompt === "string";
+  if (typeof obj.name !== "string" || typeof obj.prompt !== "string") return false;
+  if (obj["use-style-guide"] !== void 0 && typeof obj["use-style-guide"] !== "boolean") {
+    return false;
+  }
+  return true;
 }
 function loadPersonas(cwd) {
   const dir = import_node_path5.default.join(cwd, ".github", "reviewers");
@@ -172507,10 +172522,14 @@ function loadPersonas(cwd) {
     const parsed = load(raw);
     if (!isPersonaFile(parsed)) {
       throw new Error(
-        `${full}: persona file must have string 'name' and string 'prompt' fields`
+        `${full}: persona file must have string 'name' and string 'prompt' fields, and optional 'use-style-guide' boolean`
       );
     }
-    const persona = { name: parsed.name, prompt: parsed.prompt };
+    const persona = {
+      name: parsed.name,
+      prompt: parsed.prompt,
+      useStyleGuide: parsed["use-style-guide"]
+    };
     if (!byName[persona.name]) order.push(persona.name);
     byName[persona.name] = persona;
   }
@@ -172538,6 +172557,30 @@ function resolveTeam(spec, available) {
     for (let i2 = 0; i2 < count; i2++) personas.push(persona);
   }
   return { personas, unknown: unknown2 };
+}
+
+// src/style-guide.ts
+var import_node_fs4 = require("fs");
+var import_node_path6 = __toESM(require("path"));
+var DEFAULT_STYLE_GUIDE_PATHS = [
+  "STYLE_GUIDE.md",
+  ".github/STYLE_GUIDE.md",
+  "docs/style-guide.md",
+  ".github/style-guide.md"
+];
+function loadStyleGuide(cwd, explicitPath) {
+  if (explicitPath) {
+    const full = import_node_path6.default.resolve(cwd, explicitPath);
+    return (0, import_node_fs4.readFileSync)(full, "utf8");
+  }
+  for (const relative of DEFAULT_STYLE_GUIDE_PATHS) {
+    const full = import_node_path6.default.join(cwd, relative);
+    try {
+      return (0, import_node_fs4.readFileSync)(full, "utf8");
+    } catch {
+    }
+  }
+  return void 0;
 }
 
 // src/severity.ts
@@ -172879,6 +172922,13 @@ var COORDINATOR_PROMPT = [
 function coordinatorPersona() {
   return { name: "coordinator", prompt: COORDINATOR_PROMPT };
 }
+function buildSystemPrompt(persona, styleGuide) {
+  if (!styleGuide || !persona.useStyleGuide) return persona.prompt;
+  return `${persona.prompt}
+
+Repository style-guide:
+${styleGuide}`;
+}
 function extractVerdict(text) {
   const first = text.trim().split("\n")[0]?.toUpperCase() ?? "";
   if (first.includes("CAN MERGE") && !first.includes("CANNOT")) return "CAN MERGE";
@@ -172934,6 +172984,7 @@ async function runTeamReview(opts) {
   if (personas.length === 0) {
     throw new Error("no personas resolved; pass --team or add .github/reviewers/*.yaml");
   }
+  const styleGuide = loadStyleGuide(opts.cwd, opts.styleGuide);
   const personaResults = await Promise.all(
     personas.map(async (persona) => {
       try {
@@ -172946,7 +172997,7 @@ async function runTeamReview(opts) {
           prContext: opts.prContext,
           sessionsRoot: opts.sessionsRoot,
           cwd: opts.cwd,
-          systemPrompt: persona.prompt,
+          systemPrompt: buildSystemPrompt(persona, styleGuide),
           language: opts.language,
           timeoutMs: opts.timeoutMs,
           maxAttempts: opts.maxAttempts,
@@ -173215,7 +173266,8 @@ function parseArgs(argv) {
       args["include-pr-context"] ?? process.env.PI_REVIEW_INCLUDE_PR_CONTEXT ?? "true"
     ),
     prContext: "",
-    platform: args.platform || process.env.PI_REVIEW_PLATFORM
+    platform: args.platform || process.env.PI_REVIEW_PLATFORM,
+    styleGuide: args["style-guide"] || process.env.PI_REVIEW_STYLE_GUIDE
   };
 }
 function intEnv(argVal, envVal, fallback) {
@@ -173242,7 +173294,7 @@ function parseFailMode(raw) {
 }
 function loadDiff(opts) {
   if (opts.diffInline) return opts.diffInline;
-  if (opts.diffFile) return (0, import_node_fs5.readFileSync)(opts.diffFile, "utf8");
+  if (opts.diffFile) return (0, import_node_fs6.readFileSync)(opts.diffFile, "utf8");
   throw new Error("no diff source: set --diff-file, PI_REVIEW_DIFF_FILE, or PI_REVIEW_DIFF");
 }
 function prepareDiff(opts) {
@@ -173266,14 +173318,14 @@ function prepareDiff(opts) {
   return r2.filtered;
 }
 function appendStepSummary(markdown) {
-  const path9 = process.env.GITHUB_STEP_SUMMARY;
-  if (!path9) return;
-  (0, import_node_fs5.appendFileSync)(path9, markdown);
+  const path10 = process.env.GITHUB_STEP_SUMMARY;
+  if (!path10) return;
+  (0, import_node_fs6.appendFileSync)(path10, markdown);
 }
 function appendOutputs(lines) {
-  const path9 = process.env.GITHUB_OUTPUT;
-  if (!path9) return;
-  (0, import_node_fs5.appendFileSync)(path9, lines.join("\n") + "\n");
+  const path10 = process.env.GITHUB_OUTPUT;
+  if (!path10) return;
+  (0, import_node_fs6.appendFileSync)(path10, lines.join("\n") + "\n");
 }
 function writeSingleSummary(result, persona) {
   const md = `### pi-review-agent \u2014 ${persona} (resumed=${result.resumed})
@@ -173323,31 +173375,36 @@ function writeTeamSummary(result) {
 }
 async function runSingle(opts) {
   const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
-  const persona = opts.persona;
+  const personaName = opts.persona;
+  const available = loadPersonas(opts.cwd);
+  const persona = available.find((p) => p.name === personaName);
+  const styleGuide = loadStyleGuide(opts.cwd, opts.styleGuide);
+  const systemPrompt = persona ? buildSystemPrompt(persona, styleGuide) : void 0;
   const diff = prepareDiff(opts);
   const result = await runReview({
     provider,
     pr: opts.pr,
-    persona,
+    persona: personaName,
     modelId: opts.modelId,
     diff,
     prContext: opts.prContext,
     sessionsRoot: opts.sessionsRoot,
     cwd: opts.cwd,
+    systemPrompt,
     language: opts.language,
     timeoutMs: opts.timeoutMs,
     maxAttempts: opts.maxAttempts,
     retryBackoffMs: opts.retryBackoffMs
   });
   process.stdout.write(`
-=== review (${persona}, resumed=${result.resumed}) ===
+=== review (${personaName}, resumed=${result.resumed}) ===
 ${result.content}
 `);
   process.stdout.write(
     `cacheRead: ${result.usage.cacheRead}  cost: $${result.usage.costTotal.toFixed(6)}
 `
   );
-  writeSingleSummary(result, persona);
+  writeSingleSummary(result, personaName);
   appendOutputs([
     `cacheRead=${result.usage.cacheRead}`,
     `costTotal=${result.usage.costTotal.toFixed(6)}`,
@@ -173373,7 +173430,8 @@ async function runTeam(opts, adapter) {
     skipCoordinator: opts.skipCoordinator,
     timeoutMs: opts.timeoutMs,
     maxAttempts: opts.maxAttempts,
-    retryBackoffMs: opts.retryBackoffMs
+    retryBackoffMs: opts.retryBackoffMs,
+    styleGuide: opts.styleGuide
   });
   process.stdout.write(`
 === team review (${result.personas.length} personas) ===
