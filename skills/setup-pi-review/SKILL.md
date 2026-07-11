@@ -63,7 +63,19 @@ prompt: |
   <output format instructions>
 ```
 
-These override built-ins of the same name and add new ones. Built-ins: quality, security, performance, architecture, regression-test, test-value.
+These override built-ins of the same name and add new ones. Built-ins: quality, security, performance, architecture, regression-test, test-value, style.
+
+Add `use-style-guide: true` to a custom persona to append the repository style-guide to its prompt.
+
+## Style-guide
+
+If the repo has a style-guide at one of these paths, the agent loads it automatically:
+- `STYLE_GUIDE.md`
+- `.github/STYLE_GUIDE.md`
+- `docs/style-guide.md`
+- `.github/style-guide.md`
+
+The guide is injected into the `style` and `quality` personas (and custom personas with `use-style-guide: true`). Users can override the path with the `style-guide` action input.
 
 ## Key inputs (quick reference)
 
@@ -75,6 +87,7 @@ These override built-ins of the same name and add new ones. Built-ins: quality, 
 | `litellm-api-key` | Proxy API key | required |
 | `model` | Model id (deepseek-* family) | `"deepseek-v4-flash"` |
 | `skip-coordinator` | Skip synthesis step | `"false"` |
+| `style-guide` | Explicit path to repo style-guide file | `""` (auto-detect) |
 
 Full input reference: [references/inputs.md](references/inputs.md)
 

@@ -18,9 +18,15 @@ All inputs are optional unless noted. Defaults shown.
 | `persona` | `"quality"` | Single-persona name. Ignored when `team` is set. |
 | `skip-coordinator` | `"false"` | Skip coordinator synthesis (team mode only). Verdict falls back to persona severity vote. |
 
-Built-in personas: `quality`, `security`, `performance`, `architecture`, `regression-test`, `test-value`.
+Built-in personas: `quality`, `style`, `security`, `performance`, `architecture`, `regression-test`, `test-value`.
 
 Count >1 is accepted (e.g. `quality:2`) but currently runs as 1 — kept for spec compatibility with opencode-actions.
+
+## Style-guide
+
+| Input | Default | Description |
+|---|---|---|
+| `style-guide` | `""` | Explicit path to a repository style-guide file. When empty, the agent auto-detects `STYLE_GUIDE.md`, `.github/STYLE_GUIDE.md`, `docs/style-guide.md`, or `.github/style-guide.md`. The loaded guide is appended to the prompts of the `style` and `quality` personas and any custom persona with `use-style-guide: true`. |
 
 ## PR context
 

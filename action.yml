@@ -145,6 +145,15 @@ inputs:
       (the default github.token has it). Set "false" to disable.
     required: false
     default: "true"
+  style-guide:
+    description: >
+      Path to a repository style-guide file. When set, this file is used
+      instead of auto-detecting STYLE_GUIDE.md, .github/STYLE_GUIDE.md,
+      docs/style-guide.md, or .github/style-guide.md. The guide is appended
+      to the prompts of the `style` and `quality` personas (and any custom
+      persona with `use-style-guide: true`).
+    required: false
+    default: ""
 
 outputs:
   verdict:
@@ -244,6 +253,7 @@ runs:
         PI_REVIEW_DIFF_EXCLUDE: ${{ inputs.diff-exclude }}
         PI_REVIEW_DIFF_MAX_SIZE_KB: ${{ inputs.diff-max-size-kb }}
         PI_REVIEW_FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
+        PI_REVIEW_STYLE_GUIDE: ${{ inputs.style-guide }}
         # PR comment posting reads these:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GITHUB_REF: ${{ github.ref }}
