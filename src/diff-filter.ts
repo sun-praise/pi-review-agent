@@ -11,6 +11,8 @@
  * Pure: no fs, no env, no side effects. All callers can test it directly.
  */
 
+import { parseDiffPath } from "./diff-path.js";
+
 /** Basename patterns for known lock / auto-generated files. */
 const LOCK_PATTERNS: RegExp[] = [
   /\.lockb?$/,
@@ -83,12 +85,6 @@ function globToRegex(pattern: string): RegExp {
     },
   );
   return new RegExp("^" + replaced + "$");
-}
-
-/** Parse a "diff --git a/<path> b/<path>" header and return the b-side path. */
-function parseDiffPath(header: string): string | null {
-  const m = header.match(/^diff --git a\/.* b\/(.+?)(?:\s|$)/);
-  return m ? m[1] : null;
 }
 
 /**
