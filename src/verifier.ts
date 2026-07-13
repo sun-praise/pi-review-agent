@@ -52,22 +52,15 @@ export interface VerifyOptions {
   changedLines: Map<string, ChangedLines>;
   /** Skip the LLM layer; run rule layer only. Default false (run both). */
   skipLlm?: boolean;
-  /** Injected LLM verify function. Production wires the real agent-based one
-   *  (buildVerifierAgent); tests inject a stub. Undefined + skipLlm false →
-   *  build the real one from the provider/options below. */
+  /** Injected LLM verify function. The caller is responsible for building the
+   *  real agent-based verifier (buildVerifierAgent) and passing it in; this
+   *  module never constructs an LLM itself, so the LLM layer is a no-op when
+   *  llmVerify is unset (regardless of skipLlm). Tests inject a stub. */
   llmVerify?: LLMVerifyFn;
-  /** Provider/model/session wiring for the real LLM layer. Required only when
-   *  llmVerify is unset and skipLlm is false. */
-  provider?: unknown;
-  modelId?: string;
-  pr?: number;
-  sessionsRoot?: string;
-  /** Per-finding timeout / retry for the LLM layer. Default 120_000 / 1 attempt. */
-  timeoutMs?: number;
-  maxAttempts?: number;
-  retryBackoffMs?: number;
-  /** Grep walker for the LLM layer's grep tool (test injection, like review.ts). */
-  grepWalker?: GrepWalkerLike;
+  /** Max concurrent LLM verification calls. Bounds fan-out so a PR with many
+   *  findings doesn't trigger provider rate limits (which would silently
+   *  degrade the LLM layer to all-verified under fail-open). Default 5. */
+  concurrency?: number;
 }
 
 /** A single finding's verdict from the LLM layer. */
@@ -80,12 +73,7 @@ export interface LLMVerdict {
 
 /** Injectable LLM verify function: read+grep to check one finding's body. */
 export interface LLMVerifyFn {
-  (comment: InlineComment, opts: VerifyOptions): Promise<LLMVerdict | null>;
-}
-
-/** Subset of the grep-walker signature we need (avoids importing tools.ts here). */
-export interface GrepWalkerLike {
-  (cwd: string, pattern: string, glob: string | undefined, cap: number): Promise<string>;
+  (comment: InlineComment): Promise<LLMVerdict | null>;
 }
 
 export interface VerifyResult {
@@ -97,41 +85,40 @@ export interface VerifyResult {
 /**
  * Verify a batch of inline findings through both layers.
  *
- * The rule layer runs synchronously over every comment. The LLM layer then
- * runs (in parallel via Promise.all, mirroring runTeamReview's persona fan-out)
- * over the survivors. A null/throwing LLM verdict leaves the finding verified
- * — never demote on uncertainty.
+ * The rule layer runs over every comment (sharing a file-existence cache so
+ * repeated paths don't hit the filesystem N times). The LLM layer then runs
+ * over the survivors with a bounded-concurrency pool (default 5) so a large
+ * batch can't trigger provider rate limits. A null/throwing LLM verdict leaves
+ * the finding verified — never demote on uncertainty.
  */
 export async function verifyInlineComments(
   comments: InlineComment[],
   opts: VerifyOptions,
 ): Promise<VerifyResult> {
-  // Layer 1: rule layer.
+  // Layer 1: rule layer. The file-existence cache is shared across all
+  // findings so a file cited by N comments is stat()'d once, not N times.
+  const existsCache = new Map<string, boolean>();
   const afterRules = await Promise.all(
-    comments.map((c) => applyRuleLayer(c, opts.cwd, opts.changedLines)),
+    comments.map((c) => applyRuleLayer(c, opts.cwd, opts.changedLines, existsCache)),
   );
 
   // Layer 2: LLM layer (only over findings that passed the rule layer).
   let annotated = afterRules;
-  if (!opts.skipLlm && afterRules.some((c) => c.status === "verified")) {
-    const llm = opts.llmVerify ?? null;
-    if (llm) {
-      annotated = await Promise.all(
-        afterRules.map(async (c) => {
-          if (c.status !== "verified") return c;
-          try {
-            const verdict = await llm(c, opts);
-            if (verdict && verdict.verdict === "demote") {
-              return { ...c, status: "demoted" as const, demoteReason: verdict.reason };
-            }
-            return c; // uphold, or verdict was null → stay verified
-          } catch {
-            // LLM failure must never demote a real finding.
-            return c;
-          }
-        }),
-      );
-    }
+  const llm = opts.skipLlm ? null : opts.llmVerify ?? null;
+  if (llm && afterRules.some((c) => c.status === "verified")) {
+    annotated = await mapWithConcurrency(afterRules, opts.concurrency ?? 5, async (c) => {
+      if (c.status !== "verified") return c;
+      try {
+        const verdict = await llm(c);
+        if (verdict && verdict.verdict === "demote") {
+          return { ...c, status: "demoted" as const, demoteReason: verdict.reason };
+        }
+        return c; // uphold, or verdict was null → stay verified
+      } catch {
+        // LLM failure must never demote a real finding.
+        return c;
+      }
+    });
   }
 
   const demotedList = annotated.filter((c): c is VerifiedComment => c.status === "demoted");
@@ -146,17 +133,46 @@ export async function verifyInlineComments(
   };
 }
 
+/**
+ * Map over an array with a bounded concurrency pool. Preserves input order in
+ * the output. No external dependency (the repo has no p-limit); the pool is a
+ * simple slot-release loop. Used by the LLM layer to avoid fanning out every
+ * finding at once and tripping provider rate limits.
+ */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let cursor = 0;
+  const effectiveLimit = Math.max(1, limit);
+  async function worker(): Promise<void> {
+    while (true) {
+      const i = cursor++;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i]);
+    }
+  }
+  const workers: Promise<void>[] = [];
+  for (let w = 0; w < Math.min(effectiveLimit, items.length); w++) workers.push(worker());
+  await Promise.all(workers);
+  return results;
+}
+
 // ── Layer 1: rule layer ─────────────────────────────────────────────────
 
 /**
  * Check one finding against the diff's changed-line set + filesystem.
- * Pure except for the file-existence fs.access check (best-effort; an access
- * error is treated as "not found" rather than thrown, to stay fail-open).
+ * `existsCache` is shared across all findings in one verify pass so a file
+ * cited by multiple comments is stat()'d once. Best-effort: an access error is
+ * treated as "not found" rather than thrown, to stay fail-open.
  */
 async function applyRuleLayer(
   comment: InlineComment,
   cwd: string,
   changedLines: Map<string, ChangedLines>,
+  existsCache: Map<string, boolean>,
 ): Promise<VerifiedComment> {
   // (a) File present in the diff at all? A finding on a file the PR didn't
   //     touch can't be pinned to a changed line.
@@ -172,10 +188,19 @@ async function applyRuleLayer(
   }
   // (c) File exists on disk? A path from the diff that the checkout can't
   //     resolve (deleted in a later commit, rename edge case) means we can't
-  //     trust the pin. Best-effort: access failure → demote, never throw.
-  try {
-    await fs.access(path.resolve(cwd, comment.file));
-  } catch {
+  //     trust the pin. Cached per path so repeated comments on the same file
+  //     don't repeat the syscall.
+  let exists = existsCache.get(comment.file);
+  if (exists === undefined) {
+    try {
+      await fs.access(path.resolve(cwd, comment.file));
+      exists = true;
+    } catch {
+      exists = false;
+    }
+    existsCache.set(comment.file, exists);
+  }
+  if (!exists) {
     return { ...comment, status: "demoted", demoteReason: "file not found on disk" };
   }
   return { ...comment, status: "verified" };

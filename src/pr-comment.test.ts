@@ -87,6 +87,20 @@ test("postPrReview", async (t) => {
     });
   });
 
+  await t.test("prefixes body with ✅ verify emoji when status is set", async () => {
+    // When the verifier ran, findings carry status="verified" and the body
+    // gains a ✅ marker before the severity emoji. Absent status (skip-verify)
+    // renders with no verify marker — covered by the test above.
+    const verified: InlineComment[] = [
+      { file: "src/a.ts", line: 10, side: "RIGHT", severity: "blocking", body: "bug", status: "verified" },
+    ];
+    await withFetchStub([{ status: 200, ok: true }], async (calls) => {
+      await postPrReview(CTX, "summary", verified);
+      const body = calls[0].body as { comments: { body: string }[] };
+      assert.equal(body.comments[0].body, "✅ 🔴 bug");
+    });
+  });
+
   await t.test("falls back to summary review when inline batch rejected", async () => {
     await withFetchStub(
       [{ status: 422, ok: false }, { status: 200, ok: true }],

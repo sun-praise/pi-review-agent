@@ -150,4 +150,28 @@ describe("verifyInlineComments — LLM layer", () => {
     assert.equal(called, 0);
     assert.equal(r.summary.verified, 1);
   });
+
+  it("bounds LLM concurrency to the configured limit", async () => {
+    // Track how many LLM calls are in flight at once; the high-water mark
+    // must not exceed opts.concurrency. 8 findings, limit 3 → peak ≤ 3.
+    let inFlight = 0;
+    let peak = 0;
+    const llm: LLMVerifyFn = async () => {
+      inFlight++;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight--;
+      return { verdict: "uphold", reason: "ok" };
+    };
+    const findings = Array.from({ length: 8 }, (_, i) => comment("src/foo.ts", i + 1, "RIGHT"));
+    const opts: VerifyOptions = {
+      cwd: dir,
+      changedLines: cl("src/foo.ts", [], [1, 2, 3, 4, 5, 6, 7, 8]),
+      llmVerify: llm,
+      concurrency: 3,
+    };
+    await verifyInlineComments(findings, opts);
+    assert.ok(peak <= 3, `peak concurrency ${peak} exceeded limit 3`);
+    assert.ok(peak >= 2, `peak concurrency ${peak} suggests serial execution`);
+  });
 });

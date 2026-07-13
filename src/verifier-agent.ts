@@ -13,7 +13,7 @@
  * verdict. No session persistence — verification is a one-shot, stateless
  * check (unlike reviews, which resume across pushes).
  */
-import { Agent, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
+import { Agent, type AgentEvent } from "@earendil-works/pi-agent-core";
 import {
   createModels,
   type Api,
@@ -21,10 +21,10 @@ import {
   type Model,
   type Provider,
 } from "@earendil-works/pi-ai";
-import { createReadFileTool, createGrepTool } from "./tools.js";
+import { createReadFileTool, createGrepTool, type GrepWalker } from "./tools.js";
 import { walkGrep } from "./walk-grep.js";
 import type { InlineComment } from "./inline-comments.js";
-import type { LLMVerifyFn, LLMVerdict, VerifyOptions } from "./verifier.js";
+import type { LLMVerifyFn, LLMVerdict } from "./verifier.js";
 
 const VERIFIER_SYSTEM = [
   "You are a verification agent. A code reviewer reported a finding pinned to a",
@@ -132,7 +132,8 @@ function parseVerdict(text: string): LLMVerdict | null {
 export function buildVerifierAgent(provider: Provider<"openai-completions">, opts: {
   cwd: string;
   modelId?: string;
-  grepWalker?: VerifyOptions["grepWalker"];
+  /** Inject a custom grep walker (tests). Defaults to the file-system walker. */
+  grepWalker?: GrepWalker;
 }): LLMVerifyFn {
   // Models are set up once; the per-finding loop reuses them across calls.
   const models = createModels();
@@ -145,7 +146,7 @@ export function buildVerifierAgent(provider: Provider<"openai-completions">, opt
   const tools = [createReadFileTool(opts.cwd), createGrepTool(opts.cwd, opts.grepWalker ?? walkGrep)];
 
   return async (comment: InlineComment): Promise<LLMVerdict | null> => {
-    const prompt = [
+    const userPrompt = [
       `Finding to verify: ${comment.file}:${comment.line} (${comment.side} side)`,
       `Severity: ${comment.severity}`,
       `Claim: ${comment.body}`,
@@ -154,7 +155,6 @@ export function buildVerifierAgent(provider: Provider<"openai-completions">, opt
     ].join("\n");
 
     try {
-      const newMessages: AgentMessage[] = [];
       const agent = new Agent({
         initialState: {
           systemPrompt: VERIFIER_SYSTEM,
@@ -163,14 +163,15 @@ export function buildVerifierAgent(provider: Provider<"openai-completions">, opt
           tools,
           messages: [],
         },
-        sessionId: `verifier-${comment.file}:${comment.line}`,
+        // Include `side` so LEFT and RIGHT comments on the same file+line
+        // don't collide on a shared session key.
+        sessionId: `verifier-${comment.file}:${comment.line}:${comment.side}`,
         streamFn: async (m, ctx, streamOpts) =>
           models.streamSimple(m, ctx, streamOpts ?? {}) as never,
       });
       const done = collectText(agent);
-      const promptP = agent.prompt(prompt);
       // Verifier turns are short; cap well under the 10-min review budget.
-      await withTimeout(promptP, 120_000);
+      await withTimeout(agent.prompt(userPrompt), 120_000);
       const text = await done;
       return parseVerdict(text);
     } catch {

@@ -333,6 +333,11 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
   // and surfacing "we caught N bad findings" is more honest than silent drop.
   let inlineComments: InlineComment[] = rawComments;
   let verification: VerifySummary | undefined;
+  // Note: when rawComments is empty OR skipVerify is set, this block is
+  // skipped and `verification` stays undefined. That's intentional — the
+  // renderer (team-comment.ts) treats undefined as "no verification line",
+  // and findings are posted as-is (pre-verifier behavior). Same when the
+  // verifier throws: we catch, keep all findings, and leave verification unset.
   if (rawComments.length > 0 && !opts.skipVerify) {
     const changedLines = parseChangedLines(opts.diff);
     // Lazy import: buildVerifierAgent pulls in pi-agent-core at runtime, which
