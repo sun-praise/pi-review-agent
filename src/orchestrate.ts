@@ -18,6 +18,14 @@ import { loadPersonas, resolveTeam, type Persona } from "./personas.js";
 import { loadStyleGuide } from "./style-guide.js";
 import { parseSeverity, withFailedReviewerOverride, type Severity } from "./severity.js";
 import { parseInlineComments, type InlineComment } from "./inline-comments.js";
+import { parseChangedLines } from "./changed-lines.js";
+import { verifyInlineComments, type VerifySummary } from "./verifier.js";
+// buildVerifierAgent is imported LAZILY inside runTeamReview (not at module
+// top level). It pulls in @earendil-works/pi-agent-core, whose `exports` map
+// tsx can't resolve under `node --test`; a top-level import here breaks the
+// orchestrate-modelid / orchestrate-style-guide test suites that import this
+// module for its pure helpers. The lazy import keeps that load out of the test
+// graph entirely.
 
 export interface TeamReviewOptions {
   provider: Provider<"openai-completions">;
@@ -47,6 +55,13 @@ export interface TeamReviewOptions {
    *  paths are tried. The loaded guide is appended to prompts of personas that
    *  opt in via `useStyleGuide`. */
   styleGuide?: string;
+  /** Skip the verifier entirely (both rule + LLM layers). Default false.
+   *  When true, inline comments are posted unverified (pre-verifier behavior). */
+  skipVerify?: boolean;
+  /** Skip only the LLM verification layer; the rule layer still runs. Default
+   *  false. Use to avoid the per-finding LLM cost while still dropping findings
+   *  that point at unchanged lines / missing files. */
+  skipLlmVerify?: boolean;
 }
 
 export interface PersonaReview {
@@ -67,11 +82,17 @@ export interface TeamReviewResult {
    *  Consumers use this for the fail-on-severity exit gate. */
   severity: Severity;
   /** Structured, line-pinned findings extracted from the coordinator's
-   *  `<inline_comments>` block. Empty when the coordinator produced none,
-   *  when skipCoordinator is true, or when parsing found nothing valid.
+   *  `<inline_comments>` block, AFTER verification filters out demoted ones.
+   *  Empty when the coordinator produced none, when skipCoordinator is true,
+   *  when parsing found nothing valid, or when all findings were demoted.
    *  Consumed by the PR-comment layer to post inline review comments via
    *  the GitHub Reviews API (with fallback to a summary comment). */
   inlineComments: InlineComment[];
+  /** Result of the verifier pass over the coordinator's findings. Present
+   *  only when verification ran (findings existed and skipVerify was false).
+   *  Carries counts + the demoted findings (with reasons) so the PR comment
+   *  can show what was suppressed and why. */
+  verification?: VerifySummary;
 }
 
 const COORDINATOR_PROMPT = [
@@ -290,7 +311,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
   // "block present but yielded nothing" lives here at the call site rather
   // than inside the parser. Helps catch a model that keeps emitting
   // malformed JSON — otherwise the failure is silently an empty array.
-  const inlineComments = coordinator ? parseInlineComments(coordinator.content) : [];
+  const rawComments = coordinator ? parseInlineComments(coordinator.content) : [];
   // Diagnostic: warn only when a real paired block exists but yielded
   // nothing. We check for the CLOSING tag `</inline_comments>` rather than
   // the opening tag (or calling extractAllBlocks again): the coordinator
@@ -299,11 +320,49 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
   // This avoids both the false-positive of `includes("<inline_comments>")`
   // and the double full-text scan that a second extractAllBlocks call would
   // cost (parseInlineComments already scanned once internally).
-  if (coordinator && inlineComments.length === 0 && coordinator.content.includes("</inline_comments>")) {
+  if (coordinator && rawComments.length === 0 && coordinator.content.includes("</inline_comments>")) {
     process.stderr.write(
       "coordinator emitted an <inline_comments> block but it yielded no valid comments; " +
         "falling back to a summary-only review\n",
     );
+  }
+  // Verifier: drop findings that the rule layer (line/file checks) or the LLM
+  // layer (body contradicts code) judge invalid. Demoted findings are kept in
+  // `verification.demotedList` for the PR comment instead of being posted as
+  // inline comments — GitHub would reject out-of-range line numbers anyway,
+  // and surfacing "we caught N bad findings" is more honest than silent drop.
+  let inlineComments: InlineComment[] = rawComments;
+  let verification: VerifySummary | undefined;
+  if (rawComments.length > 0 && !opts.skipVerify) {
+    const changedLines = parseChangedLines(opts.diff);
+    // Lazy import: buildVerifierAgent pulls in pi-agent-core at runtime, which
+    // we must not load at module-eval time (see the note near the imports).
+    const { buildVerifierAgent } = await import("./verifier-agent.js");
+    const llmVerify = opts.skipLlmVerify
+      ? undefined
+      : buildVerifierAgent(opts.provider, { cwd: opts.cwd, modelId: opts.modelId });
+    try {
+      const v = await verifyInlineComments(rawComments, {
+        cwd: opts.cwd,
+        changedLines,
+        skipLlm: opts.skipLlmVerify,
+        llmVerify,
+      });
+      inlineComments = v.comments.filter((c) => c.status === "verified");
+      verification = v.summary;
+      if (v.summary.demoted > 0) {
+        process.stderr.write(
+          `verifier: demoted ${v.summary.demoted}/${v.summary.total} inline comment(s)\n`,
+        );
+      }
+    } catch (err: unknown) {
+      // Verification must never break the review. If it throws, keep all
+      // findings (unverified) and surface the error — better to post shaky
+      // findings than to fail the whole run or silently drop real ones.
+      process.stderr.write(
+        `verifier: failed (${err instanceof Error ? err.message : String(err)}); posting findings unverified\n`,
+      );
+    }
   }
   return {
     personas: personaResults,
@@ -313,6 +372,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
     totalCacheRead,
     severity,
     inlineComments,
+    verification,
   };
 }
 

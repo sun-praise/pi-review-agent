@@ -63,6 +63,11 @@ interface CliOptions {
   platform: string | undefined;
   /** Explicit path to a repository style-guide file, or undefined to auto-detect. */
   styleGuide: string | undefined;
+  /** Skip the verifier entirely (both layers). Default false (verify on).
+   *  Mirrors skip-coordinator's "1"/"true" truthiness convention. */
+  skipVerify: boolean;
+  /** Skip only the LLM verifier layer; the rule layer still runs. Default false. */
+  skipLlmVerify: boolean;
 }
 
 function parseArgs(argv: string[]): CliOptions {
@@ -122,7 +127,17 @@ function parseArgs(argv: string[]): CliOptions {
     prContext: "",
     platform: args.platform || process.env.PI_REVIEW_PLATFORM,
     styleGuide: args["style-guide"] || process.env.PI_REVIEW_STYLE_GUIDE,
+    skipVerify: isTruthyFlag(args["skip-verify"], process.env.PI_REVIEW_SKIP_VERIFY),
+    skipLlmVerify: isTruthyFlag(args["skip-llm-verify"], process.env.PI_REVIEW_SKIP_LLM_VERIFY),
   };
+}
+
+/** Resolve a boolean skip-flag from a CLI arg or env var. Only "1"/"true"
+ *  (case-insensitive) are truthy — mirroring the skip-coordinator convention so
+ *  GitHub Actions' literal "false" string doesn't accidentally enable skipping. */
+function isTruthyFlag(argVal: string | undefined, envVal: string | undefined): boolean {
+  const raw = argVal ?? envVal;
+  return raw === "1" || raw?.toLowerCase() === "true";
 }
 
 function intEnv(argVal: string | undefined, envVal: string | undefined, fallback: number): number {
@@ -303,6 +318,8 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
     maxAttempts: opts.maxAttempts,
     retryBackoffMs: opts.retryBackoffMs,
     styleGuide: opts.styleGuide,
+    skipVerify: opts.skipVerify,
+    skipLlmVerify: opts.skipLlmVerify,
   });
   process.stdout.write(`\n=== team review (${result.personas.length} personas) ===\n`);
   process.stdout.write(`verdict: ${result.verdict}\n`);
