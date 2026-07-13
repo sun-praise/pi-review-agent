@@ -33,6 +33,11 @@ export interface InlineComment {
   severity: InlineSeverity;
   /** Markdown body. We prefix the severity emoji at render time, not here. */
   body: string;
+  /** Verifier status, set when the verifier ran. Absent/undefined on comments
+   *  that predate verification (skip-verify) or that the coordinator emits —
+   *  renderers treat absence as "verified" (no negative marker). Comments that
+   *  were demoted never reach the render layer (filtered in orchestrate). */
+  status?: "verified" | "demoted";
 }
 
 const SEVERITY_ALIAS: Record<string, InlineSeverity> = {

@@ -53,6 +53,9 @@ export interface InlineComment {
   severity: "blocking" | "warning" | "suggestion";
   /** Markdown body */
   body: string;
+  /** Verifier status. Absent when verification was skipped (backward compat).
+   *  Demoted comments never reach the adapter layer (filtered upstream). */
+  status?: "verified" | "demoted";
 }
 
 export type PostReviewResult = "review" | "summary-review" | "created" | "updated" | "skipped";

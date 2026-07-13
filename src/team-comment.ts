@@ -7,6 +7,7 @@
  * imports here are erased at compile time.
  */
 import type { ReviewResult } from "./review.js";
+import type { VerifySummary } from "./verifier.js";
 
 export type Verdict = "CAN MERGE" | "CONDITIONAL MERGE" | "CANNOT MERGE" | "UNKNOWN";
 
@@ -22,6 +23,8 @@ export interface CommentTeamView {
   verdict: Verdict;
   totalCost: number;
   totalCacheRead: number;
+  /** Verifier roll-up. Present only when verification ran over findings. */
+  verification?: VerifySummary;
 }
 
 /** Render a team result as a markdown comment body for PR posting. */
@@ -37,6 +40,15 @@ export function renderTeamComment(result: CommentTeamView): string {
           : "❓";
   lines.push(`${icon} ${result.verdict}`);
   lines.push("");
+
+  if (result.verification && result.verification.total > 0) {
+    const v = result.verification;
+    lines.push(
+      `> 🔍 **Verification:** ${v.verified}/${v.total} inline findings independently verified` +
+        (v.demoted > 0 ? ` · ${v.demoted} demoted (see below)` : ""),
+    );
+    lines.push("");
+  }
 
   const failedNames = result.personas
     .filter((r) => Boolean(r.error) || r.result.content.trim() === "")
@@ -54,6 +66,24 @@ export function renderTeamComment(result: CommentTeamView): string {
     lines.push("<details><summary><b>Coordinator synthesis</b></summary>");
     lines.push("");
     lines.push(result.coordinator.content);
+    lines.push("");
+    lines.push("</details>");
+    lines.push("");
+  }
+  if (result.verification && result.verification.demoted > 0) {
+    lines.push(
+      `<details><summary><b>⚠️ Demoted findings</b> (${result.verification.demoted})</summary>`,
+    );
+    lines.push("");
+    lines.push(
+      "_The verifier suppressed these as unverified (line not in the diff, file " +
+        "not found, or the description contradicts the code). They are NOT posted " +
+        "as inline comments._",
+    );
+    lines.push("");
+    for (const d of result.verification.demotedList) {
+      lines.push(`- \`${d.file}:${d.line}\` (${d.side}) — _${d.demoteReason ?? "unverified"}_ — ${d.body}`);
+    }
     lines.push("");
     lines.push("</details>");
     lines.push("");

@@ -53,3 +53,63 @@ describe("renderTeamComment fail-closed", () => {
     assert.ok(body.includes("_(review failed: no usage)_"));
   });
 });
+
+describe("renderTeamComment verification", () => {
+  it("shows the verification summary line when verification ran", () => {
+    const result: CommentTeamView = {
+      personas: [{ persona: "quality", result: review("CAN MERGE\n\nfine", OK_USAGE, "quality") }],
+      coordinator: { content: "CAN MERGE\n\nfine" },
+      verdict: "CAN MERGE",
+      totalCost: 0.0001,
+      totalCacheRead: 0,
+      verification: { total: 3, verified: 2, demoted: 1, demotedList: [] },
+    };
+    const body = renderTeamComment(result);
+    assert.ok(body.includes("🔍 **Verification:** 2/3"));
+    assert.ok(body.includes("1 demoted"));
+  });
+
+  it("omits the verification line when no verification ran (skip-verify regression guard)", () => {
+    const result: CommentTeamView = {
+      personas: [{ persona: "quality", result: review("CAN MERGE\n\nfine", OK_USAGE, "quality") }],
+      coordinator: { content: "CAN MERGE\n\nfine" },
+      verdict: "CAN MERGE",
+      totalCost: 0.0001,
+      totalCacheRead: 0,
+      // no verification field — pre-verifier / skip-verify path
+    };
+    const body = renderTeamComment(result);
+    assert.ok(!body.includes("Verification"));
+  });
+
+  it("lists demoted findings with their reasons in a collapsible section", () => {
+    const result: CommentTeamView = {
+      personas: [{ persona: "quality", result: review("CAN MERGE", OK_USAGE, "quality") }],
+      coordinator: { content: "CAN MERGE" },
+      verdict: "CAN MERGE",
+      totalCost: 0.0001,
+      totalCacheRead: 0,
+      verification: {
+        total: 2,
+        verified: 1,
+        demoted: 1,
+        demotedList: [
+          {
+            file: "src/auth.ts",
+            line: 99,
+            side: "RIGHT",
+            severity: "blocking",
+            body: "unvalidated call",
+            status: "demoted",
+            demoteReason: "line 99 not changed on RIGHT side",
+          },
+        ],
+      },
+    };
+    const body = renderTeamComment(result);
+    assert.ok(body.includes("Demoted findings"));
+    assert.ok(body.includes("`src/auth.ts:99`"));
+    assert.ok(body.includes("line 99 not changed"));
+    assert.ok(body.includes("unvalidated call"));
+  });
+});

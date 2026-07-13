@@ -31,6 +31,16 @@ const SEVERITY_EMOJI: Record<InlineSeverity, string> = {
   suggestion: "🔵",
 };
 
+/** Emoji prefix per verifier status. Demoted findings are filtered out before
+ *  reaching this layer (orchestrate.ts), so in practice every inline comment
+ *  posted here is verified and carries ✅. The mapping exists so a future
+ *  caller can opt to post demoted comments with a ⚠️ marker instead. Absent
+ *  status (skip-verify) renders with no marker — backward compatible. */
+const VERIFY_EMOJI: Record<NonNullable<InlineComment["status"]>, string> = {
+  verified: "✅",
+  demoted: "⚠️",
+};
+
 const MARKER = "<!-- pi-review-agent -->";
 
 export interface PrCommentContext {
@@ -241,7 +251,9 @@ export async function postPrReview(
     path: c.file,
     line: c.line,
     side: c.side,
-    body: `${SEVERITY_EMOJI[c.severity]} ${c.body}`,
+    // Status emoji first (✅ verified), then severity emoji, then body.
+    // Absent status (skip-verify path) omits the marker entirely.
+    body: `${c.status ? `${VERIFY_EMOJI[c.status]} ` : ""}${SEVERITY_EMOJI[c.severity]} ${c.body}`,
   }));
 
   // Attempt 1: review carrying the inline comments.

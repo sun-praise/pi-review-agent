@@ -146,7 +146,10 @@ export class GiteaAdapter implements PlatformAdapter {
     // Fall back to posting a summary comment with inline findings formatted as text.
     if (comments.length > 0) {
       const inlineSummary = comments
-        .map((c) => `**${c.file}:${c.line}** (${c.severity}): ${c.body}`)
+        .map(
+          (c) =>
+            `**${c.file}:${c.line}** (${c.severity}${c.status ? `, ${c.status}` : ""}): ${c.body}`,
+        )
         .join("\n\n");
       const fullSummary = `${summary}\n\n---\n\n### Inline Comments\n\n${inlineSummary}`;
       return this.postComment(context, fullSummary);
