@@ -6,3 +6,5 @@ sessions/
 .env.*
 # dist/ is committed: the action runs `node dist/index.cjs` with no install.
 .worktrees/
+
+.mimocode
