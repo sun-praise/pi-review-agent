@@ -27,11 +27,14 @@ export async function walkGrep(
   if (!pattern) return "";
   const out: string[] = [];
   const matcher = glob ? compileGlob(glob) : null;
-  const re = literal ? null : safeRegex(pattern);
-  if (!literal && !re) return ""; // invalid regex → no matches
-  const match = literal
-    ? (line: string) => line.includes(pattern)
-    : (line: string) => re!.test(line);
+  let match: (line: string) => boolean;
+  if (literal) {
+    match = (line) => line.includes(pattern);
+  } else {
+    const re = safeRegex(pattern);
+    if (!re) return ""; // invalid regex → no matches
+    match = (line) => re.test(line);
+  }
 
   async function visit(dir: string): Promise<void> {
     if (out.length >= cap) return;
@@ -76,8 +79,12 @@ function compileGlob(glob: string): (p: string) => boolean {
     .replace(/\*\*/g, "\u0000")
     .replace(/\*/g, "[^/]*")
     .replace(/\u0000/g, ".*");
-  const full = new RegExp(`^${re}$`);
-  return (p) => full.test(p);
+  try {
+    const full = new RegExp(`^${re}$`);
+    return (p) => full.test(p);
+  } catch {
+    return () => false;
+  }
 }
 
 /** Compile a regex pattern, returning null if invalid. */

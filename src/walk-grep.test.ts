@@ -48,7 +48,7 @@ afterEach(async () => {
 describe("walkGrep", () => {
   // --- regex mode (default) ---
 
-  it("matches regex patterns", async () => {
+  it("matches regex pattern", async () => {
     const out = await walkGrep(dir, "catch\\s*\\(", undefined, 50);
     assert.ok(out.includes("auth.ts"), "should find auth.ts");
     assert.ok(out.includes("catch (e)"), "should match catch (e)");

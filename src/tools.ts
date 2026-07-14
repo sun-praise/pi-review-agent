@@ -74,6 +74,7 @@ export function createGrepTool(
   cwd: string,
   walk: GrepWalker,
 ): AgentTool<typeof grepSchema, GrepDetails> {
+  return {
     label: "grep",
     name: "grep",
     description:
