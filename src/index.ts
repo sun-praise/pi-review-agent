@@ -103,7 +103,7 @@ function parseArgs(argv: string[]): CliOptions {
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
     language: args.language || process.env.PI_REVIEW_LANGUAGE || "zh",
     modelId: args.model || process.env.PI_REVIEW_MODEL,
-    fallbackModels: args["fallback-models"] || process.env.PI_REVIEW_FALLBACK_MODELS || "mimo-v2.5",
+    fallbackModels: args["fallback-models"] ?? process.env.PI_REVIEW_FALLBACK_MODELS ?? "mimo-v2.5",
     cwd: args.cwd || process.cwd(),
     timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], process.env),
     maxAttempts: intEnv(args["max-attempts"], process.env.PI_REVIEW_MAX_ATTEMPTS, 3),
@@ -263,7 +263,7 @@ function writeTeamSummary(result: TeamReviewResult): void {
   ]);
 }
 
-function parseFallbackModels(raw: string | undefined): string[] {
+export function parseFallbackModels(raw: string | undefined): string[] {
   if (!raw) return [];
   return raw.split(",").map((s) => s.trim()).filter(Boolean);
 }

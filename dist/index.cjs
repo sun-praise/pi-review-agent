@@ -31,6 +31,7 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // node_modules/typebox/build/system/memory/metrics.mjs
 var Metrics;
@@ -177624,6 +177625,11 @@ ${inlineSummary}`;
 });
 
 // src/index.ts
+var index_exports = {};
+__export(index_exports, {
+  parseFallbackModels: () => parseFallbackModels
+});
+module.exports = __toCommonJS(index_exports);
 var import_node_fs7 = require("fs");
 
 // src/provider.ts
@@ -177883,27 +177889,25 @@ async function runReview(opts) {
   const primaryModel = opts.modelId ?? "deepseek-v4-flash";
   const fallbackModels = opts.fallbackModels ?? [];
   const allModels = [primaryModel, ...fallbackModels];
-  let lastError;
+  const errors = [];
   for (const modelId of allModels) {
     try {
       process.stderr.write(`[${opts.persona}] trying model: ${modelId}
 `);
       return await runModelAttempt(opts, modelId, file2, transcript, resumed, systemPrompt, sessionId, cwd);
     } catch (err2) {
-      lastError = err2;
       const msg = err2 instanceof Error ? err2.message : String(err2);
-      if (isTransientReviewerError(err2)) {
-        throw err2;
-      }
+      errors.push(`${modelId}: ${msg}`);
       if (modelId !== allModels[allModels.length - 1]) {
         process.stderr.write(
-          `[${opts.persona}] model ${modelId} failed permanently (${msg}), trying next fallback
+          `[${opts.persona}] model ${modelId} failed (${msg}), trying next fallback
 `
         );
       }
     }
   }
-  throw lastError instanceof Error ? lastError : new Error(`all models failed for ${opts.persona}`);
+  throw new Error(`all models failed for ${opts.persona}:
+${errors.join("\n")}`);
 }
 
 // src/orchestrate.ts
@@ -181166,7 +181170,7 @@ function parseArgs(argv) {
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
     language: args.language || process.env.PI_REVIEW_LANGUAGE || "zh",
     modelId: args.model || process.env.PI_REVIEW_MODEL,
-    fallbackModels: args["fallback-models"] || process.env.PI_REVIEW_FALLBACK_MODELS || "mimo-v2.5",
+    fallbackModels: args["fallback-models"] ?? process.env.PI_REVIEW_FALLBACK_MODELS ?? "mimo-v2.5",
     cwd: args.cwd || process.cwd(),
     timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], process.env),
     maxAttempts: intEnv(args["max-attempts"], process.env.PI_REVIEW_MAX_ATTEMPTS, 3),
@@ -181433,6 +181437,10 @@ async function main() {
 main().then((code) => process.exit(code)).catch((err2) => {
   console.error("pi-review-agent failed:", err2);
   process.exit(1);
+});
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  parseFallbackModels
 });
 /*! Bundled license information:
 

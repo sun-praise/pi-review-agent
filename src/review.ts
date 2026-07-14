@@ -344,28 +344,25 @@ export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
   const primaryModel = opts.modelId ?? "deepseek-v4-flash";
   const fallbackModels = opts.fallbackModels ?? [];
 
-  // Try primary model first, then fallbacks in order
+  // Try primary model first, then fallbacks in order. runModelAttempt already
+  // retries transient errors internally (maxAttempts × backoff); if it throws,
+  // retries are exhausted and we should try the next model regardless of error
+  // type — the fallback model may route through a different upstream endpoint.
   const allModels = [primaryModel, ...fallbackModels];
-  let lastError: unknown;
+  const errors: string[] = [];
   for (const modelId of allModels) {
     try {
       process.stderr.write(`[${opts.persona}] trying model: ${modelId}\n`);
       return await runModelAttempt(opts, modelId, file, transcript, resumed, systemPrompt, sessionId, cwd);
     } catch (err) {
-      lastError = err;
       const msg = err instanceof Error ? err.message : String(err);
-      // Only fallback on permanent (non-transient) failures
-      if (isTransientReviewerError(err)) {
-        throw err;
-      }
+      errors.push(`${modelId}: ${msg}`);
       if (modelId !== allModels[allModels.length - 1]) {
         process.stderr.write(
-          `[${opts.persona}] model ${modelId} failed permanently (${msg}), trying next fallback\n`,
+          `[${opts.persona}] model ${modelId} failed (${msg}), trying next fallback\n`,
         );
       }
     }
   }
-  throw lastError instanceof Error
-    ? lastError
-    : new Error(`all models failed for ${opts.persona}`);
+  throw new Error(`all models failed for ${opts.persona}:\n${errors.join("\n")}`);
 }
