@@ -126,6 +126,15 @@ inputs:
       stay under LLM proxy body limits (HTTP 413). Set 0 to disable.
     required: false
     default: "200"
+  diff-include-build-artifacts:
+    description: >
+      Keep build artifacts (dist/, build/, out/, lib/, .next/, *.min.js, …) in
+      the review diff instead of excluding them by default. Defaults to "false"
+      — generated output has no review value and is the usual cause of HTTP 413
+      when a repo commits its bundle (this one does). Set "true" only if you
+      genuinely review generated files.
+    required: false
+    default: "false"
   fail-on-severity:
     description: >
       Control the action exit code based on review severity. Allowed values:
@@ -252,6 +261,7 @@ runs:
         PI_REVIEW_RETRY_BACKOFF_MS: ${{ inputs.retry-backoff-ms }}
         PI_REVIEW_DIFF_EXCLUDE: ${{ inputs.diff-exclude }}
         PI_REVIEW_DIFF_MAX_SIZE_KB: ${{ inputs.diff-max-size-kb }}
+        PI_REVIEW_DIFF_INCLUDE_BUILD_ARTIFACTS: ${{ inputs.diff-include-build-artifacts }}
         PI_REVIEW_FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
         PI_REVIEW_STYLE_GUIDE: ${{ inputs.style-guide }}
         # PR comment posting reads these:
