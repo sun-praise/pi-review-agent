@@ -1,8 +1,6 @@
 /**
- * Default file walker backing the grep tool: literal substring search across
- * text files under cwd, filtered by an optional glob. Deliberately simple —
- * no regex engine, no ripgrep dependency. The reviewer needs "find callers",
- * not a full search DSL.
+ * Default file walker backing the grep tool: regex or literal substring search
+ * across text files under cwd, filtered by an optional glob.
  */
 import { readFile, readdir } from "node:fs/promises";
 import type { Dirent } from "node:fs";
@@ -24,10 +22,19 @@ export async function walkGrep(
   pattern: string,
   glob: string | undefined,
   cap: number,
+  literal?: boolean,
 ): Promise<string> {
   if (!pattern) return "";
   const out: string[] = [];
   const matcher = glob ? compileGlob(glob) : null;
+  let match: (line: string) => boolean;
+  if (literal) {
+    match = (line) => line.includes(pattern);
+  } else {
+    const re = safeRegex(pattern);
+    if (!re) return ""; // invalid regex → no matches
+    match = (line) => re.test(line);
+  }
 
   async function visit(dir: string): Promise<void> {
     if (out.length >= cap) return;
@@ -51,7 +58,7 @@ export async function walkGrep(
         const text = await readFile(path.join(dir, ent.name), "utf8");
         const lines = text.split("\n");
         for (let i = 0; i < lines.length && out.length < cap; i++) {
-          if (lines[i].includes(pattern)) {
+          if (match(lines[i])) {
             out.push(`${rel}:${i + 1}:${lines[i].slice(0, 200)}`);
           }
         }
@@ -72,6 +79,19 @@ function compileGlob(glob: string): (p: string) => boolean {
     .replace(/\*\*/g, "\u0000")
     .replace(/\*/g, "[^/]*")
     .replace(/\u0000/g, ".*");
-  const full = new RegExp(`^${re}$`);
-  return (p) => full.test(p);
+  try {
+    const full = new RegExp(`^${re}$`);
+    return (p) => full.test(p);
+  } catch {
+    return () => false;
+  }
+}
+
+/** Compile a regex pattern, returning null if invalid. */
+function safeRegex(pattern: string): RegExp | null {
+  try {
+    return new RegExp(pattern);
+  } catch {
+    return null;
+  }
 }
