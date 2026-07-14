@@ -38,6 +38,8 @@ interface CliOptions {
   baseURL: string;
   sessionsRoot: string;
   modelId: string | undefined;
+  /** Comma-separated fallback model ids. Example: "gpt-4o,mimo-v2.5". */
+  fallbackModels: string | undefined;
   cwd: string;
   /** Output language for review prose. Default "zh" (中文). */
   language: string;
@@ -101,6 +103,7 @@ function parseArgs(argv: string[]): CliOptions {
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
     language: args.language || process.env.PI_REVIEW_LANGUAGE || "zh",
     modelId: args.model || process.env.PI_REVIEW_MODEL,
+    fallbackModels: args["fallback-models"] || process.env.PI_REVIEW_FALLBACK_MODELS || "mimo-v2.5",
     cwd: args.cwd || process.cwd(),
     timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], process.env),
     maxAttempts: intEnv(args["max-attempts"], process.env.PI_REVIEW_MAX_ATTEMPTS, 3),
@@ -260,6 +263,11 @@ function writeTeamSummary(result: TeamReviewResult): void {
   ]);
 }
 
+function parseFallbackModels(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
 async function runSingle(opts: CliOptions): Promise<number> {
   const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
   const personaName = opts.persona as string;
@@ -273,6 +281,7 @@ async function runSingle(opts: CliOptions): Promise<number> {
     pr: opts.pr,
     persona: personaName,
     modelId: opts.modelId,
+    fallbackModels: parseFallbackModels(opts.fallbackModels),
     diff,
     prContext: opts.prContext,
     sessionsRoot: opts.sessionsRoot,
@@ -312,6 +321,7 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
     sessionsRoot: opts.sessionsRoot,
     team: opts.team,
     modelId: opts.modelId,
+    fallbackModels: parseFallbackModels(opts.fallbackModels),
     language: opts.language,
     skipCoordinator: opts.skipCoordinator,
     timeoutMs: opts.timeoutMs,

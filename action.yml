@@ -78,6 +78,13 @@ inputs:
       Change this if your proxy routes a different model name.
     required: false
     default: "deepseek-v4-flash"
+  fallback-models:
+    description: >
+      Comma-separated fallback model ids to try when the primary model fails
+      permanently (non-transient error). Tried in order; first success wins.
+      Default "mimo-v2.5". Set to empty string to disable fallback.
+    required: false
+    default: "mimo-v2.5"
   sessions-root:
     description: >
       Directory used to persist per-PR review sessions across runs (the
@@ -241,6 +248,7 @@ runs:
         PI_REVIEW_TEAM: ${{ inputs.team }}
         PI_REVIEW_SKIP_COORDINATOR: ${{ inputs.skip-coordinator }}
         PI_REVIEW_MODEL: ${{ inputs.model }}
+        PI_REVIEW_FALLBACK_MODELS: ${{ inputs.fallback-models }}
         PI_REVIEW_LANGUAGE: ${{ inputs.language }}
         PI_REVIEW_INCLUDE_PR_CONTEXT: ${{ inputs.include-pr-context }}
         PI_REVIEW_SESSIONS_ROOT: ${{ inputs.sessions-root != '' && inputs.sessions-root || format('{0}/.pi-review-sessions', runner.temp) }}

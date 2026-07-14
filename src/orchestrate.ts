@@ -42,6 +42,11 @@ export interface TeamReviewOptions {
   team?: string;
   /** Model id registered in the provider. Default "deepseek-v4-flash". */
   modelId?: string;
+  /**
+   * Fallback model ids to try when the primary model fails permanently.
+   * Passed through to every reviewer + coordinator. Example: ["gpt-4o", "mimo-v2.5"].
+   */
+  fallbackModels?: string[];
   /** Skip the coordinator synthesis step. Default false. */
   skipCoordinator?: boolean;
   /** Output language for review prose. Passed through to every reviewer + the coordinator. Default undefined = English. */
@@ -233,6 +238,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
           pr: opts.pr,
           persona: persona.name,
           modelId: opts.modelId,
+          fallbackModels: opts.fallbackModels,
           diff: opts.diff,
           prContext: opts.prContext,
           sessionsRoot: opts.sessionsRoot,
@@ -265,6 +271,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
         pr: opts.pr,
         persona: coord.name,
         modelId: opts.modelId,
+        fallbackModels: opts.fallbackModels,
         diff: input,
         sessionsRoot: opts.sessionsRoot,
         cwd: opts.cwd,
