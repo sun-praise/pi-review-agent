@@ -153,4 +153,36 @@ describe("filterDiff", () => {
     assert.ok(r.filtered.includes("src/index.ts"));
     assert.equal(r.truncated, false, "src change alone is well under budget");
   });
+
+  it("keeps a source file whose path contains spaces (#25)", () => {
+    const d = [
+      "diff --git a/src/foo bar.ts b/src/foo bar.ts",
+      "--- a/src/foo bar.ts",
+      "+++ b/src/foo bar.ts",
+      "@@ -1 +1 @@",
+      "-old",
+      "+new",
+    ].join("\n");
+    const r = filterDiff(d);
+    assert.deepEqual(r.removedFiles, []);
+    // The full spaced path must survive into the kept diff (not truncated to
+    // "src/foo"), so the model sees the right file.
+    assert.ok(r.filtered.includes("src/foo bar.ts"));
+  });
+
+  it("strips a lock file whose path contains spaces, via basename (#25)", () => {
+    const d = [
+      "diff --git a/pkg/dep cache.lock b/pkg/dep cache.lock",
+      "--- a/pkg/dep cache.lock",
+      "+++ b/pkg/dep cache.lock",
+      "@@ -1 +1 @@",
+      "-x",
+      "+y",
+    ].join("\n");
+    const r = filterDiff(d);
+    // Lock detection runs on the basename; a spaced lock file must still be
+    // caught and reported by its full path.
+    assert.deepEqual(r.removedFiles, ["pkg/dep cache.lock"]);
+    assert.ok(!r.filtered.includes("dep cache.lock"));
+  });
 });
