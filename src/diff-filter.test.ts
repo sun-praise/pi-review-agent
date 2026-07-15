@@ -60,20 +60,97 @@ describe("filterDiff", () => {
     assert.ok(r.filtered.includes("main.go"));
   });
 
-  it("truncates to byte budget keeping whole sections, first always kept", () => {
-    // package-lock section is ~140 bytes; set budget below total but above
-    // the smallest single section so at least the first is kept.
-    const r = filterDiff(LOCK_DIFF, { maxSizeBytes: 80 });
+  it("truncates to byte budget keeping whole leading sections that fit", () => {
+    // LOCK_DIFF has three sections; package-lock is stripped as a lock file,
+    // so the kept set is [package.json (~127 B), src/foo.ts (~92 B)]. A budget
+    // between the two sizes keeps the first and drops the second whole.
+    const r = filterDiff(LOCK_DIFF, { maxSizeBytes: 160 });
     assert.equal(r.truncated, true);
     assert.ok(r.filtered.includes("[Diff truncated:"));
-    // First section (package.json) must always survive even if oversized.
+    assert.ok(r.filtered.includes("package.json"), "first kept section fits the budget");
+    assert.ok(!r.filtered.includes("src/foo.ts"), "second kept section dropped (whole, not sliced)");
+  });
+
+  it("drops even the first section when it alone exceeds the budget (#28)", () => {
+    // The pre-#28 bug unconditionally kept the first section regardless of
+    // budget, so a single 13 MB dist/ section sailed past a 200 KB budget.
+    // Now a section that doesn't fit is dropped whole — never sliced.
     const onlyFirst = filterDiff("diff --git a/x b/x\n--- a/x\n+++ b/x\n+yyyy\n", { maxSizeBytes: 1 });
-    assert.ok(onlyFirst.truncated);
-    assert.ok(onlyFirst.filtered.includes("diff --git a/x"));
+    assert.ok(onlyFirst.truncated, "oversized diff is still flagged truncated");
+    assert.ok(!onlyFirst.filtered.includes("diff --git a/x"), "oversized first section is NOT kept");
+    assert.ok(onlyFirst.filtered.includes("[Diff truncated:"), "notice still appended");
   });
 
   it("leaves diff alone when under budget", () => {
     const r = filterDiff(LOCK_DIFF, { maxSizeBytes: 10_000 });
     assert.equal(r.truncated, false);
+  });
+
+  it("excludes build artifacts (dist/, build/, *.min.js) by default (#28)", () => {
+    const d = [
+      "diff --git a/dist/index.cjs b/dist/index.cjs",
+      "--- a/dist/index.cjs",
+      "+++ a/dist/index.cjs",
+      "@@ -1 +1 @@",
+      "-old bundle",
+      "+new bundle",
+      "diff --git a/app.min.js b/app.min.js",
+      "--- a/app.min.js",
+      "+++ b/app.min.js",
+      "@@ -1 +1 @@",
+      "-x",
+      "+y",
+      "diff --git a/src/index.ts b/src/index.ts",
+      "--- a/src/index.ts",
+      "+++ b/src/index.ts",
+      "@@ -1 +1 @@",
+      "-old",
+      "+new",
+    ].join("\n");
+    const r = filterDiff(d);
+    assert.deepEqual(r.removedFiles.sort(), ["app.min.js", "dist/index.cjs"]);
+    assert.ok(r.filtered.includes("src/index.ts"));
+    assert.ok(!r.filtered.includes("dist/"));
+    assert.ok(!r.filtered.includes("app.min.js"));
+  });
+
+  it("keeps build artifacts when includeBuildArtifacts is set (#28 escape hatch)", () => {
+    const d = [
+      "diff --git a/dist/index.cjs b/dist/index.cjs",
+      "--- a/dist/index.cjs",
+      "+++ a/dist/index.cjs",
+      "@@ -1 +1 @@",
+      "-x",
+      "+y",
+    ].join("\n");
+    const r = filterDiff(d, { includeBuildArtifacts: true });
+    assert.deepEqual(r.removedFiles, []);
+    assert.ok(r.filtered.includes("dist/index.cjs"));
+  });
+
+  it("build-artifact exclusion + byte budget together defeat the #28 scenario", () => {
+    // Mirror the real trigger: a huge dist/ section first, a small src change
+    // second. The dist/ section is excluded outright (not counted toward the
+    // budget), and the small src change survives — no 413, real change reviewed.
+    const huge = "x".repeat(5000);
+    const d = [
+      "diff --git a/dist/index.cjs b/dist/index.cjs",
+      "--- a/dist/index.cjs",
+      "+++ a/dist/index.cjs",
+      "@@ -1 +1 @@",
+      "-" + huge,
+      "+" + huge,
+      "diff --git a/src/index.ts b/src/index.ts",
+      "--- a/src/index.ts",
+      "+++ b/src/index.ts",
+      "@@ -1 +1 @@",
+      "-old",
+      "+new",
+    ].join("\n");
+    // 200 KB budget (the real default). dist/ is 10 KB but excluded; src/ is tiny.
+    const r = filterDiff(d, { maxSizeBytes: 200 * 1024 });
+    assert.deepEqual(r.removedFiles, ["dist/index.cjs"]);
+    assert.ok(r.filtered.includes("src/index.ts"));
+    assert.equal(r.truncated, false, "src change alone is well under budget");
   });
 });

@@ -19,5 +19,9 @@ jobs:
         uses: ./
         with:
           team: "quality:1,security:1,performance:1"
+          # This repo must commit dist/index.cjs (the action runs from it), so
+          # every src change inflates the diff ~13 MB. Exclude it from the
+          # self-review payload to stay under the LLM proxy body limit (#28).
+          diff-exclude: "dist/**"
           litellm-url: ${{ secrets.LITELLM_URL }}
           litellm-api-key: ${{ secrets.LITELLM_API_KEY }}
