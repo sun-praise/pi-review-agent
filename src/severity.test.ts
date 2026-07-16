@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseSeverity, shouldFail, withFailedReviewerOverride, type FailMode } from "./severity.js";
+import { parseSeverity, shouldFail, withFailedReviewerOverride } from "./severity.js";
 
 const CLEAN = [
   "CAN MERGE",
@@ -89,13 +89,10 @@ describe("parseSeverity", () => {
 });
 
 describe("shouldFail", () => {
-  const modes: FailMode[] = ["none", "blocking", "warning"];
-
-  it("none never fails", () => {
-    for (const m of modes) {
-      const s = parseSeverity(WITH_BLOCKER);
-      assert.equal(shouldFail(s, "none"), false);
-    }
+  it("none never fails, regardless of severity", () => {
+    assert.equal(shouldFail(parseSeverity(WITH_BLOCKER), "none"), false);
+    assert.equal(shouldFail(parseSeverity(WARNINGS_ONLY), "none"), false);
+    assert.equal(shouldFail(parseSeverity(CLEAN), "none"), false);
   });
 
   it("blocking fires on blockers, not on warnings-only", () => {

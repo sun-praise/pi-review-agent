@@ -52,7 +52,9 @@ export async function walkGrep(
         continue;
       }
       if (!ent.isFile()) continue;
-      const rel = path.relative(cwd, path.join(dir, ent.name));
+      // Normalize to forward slashes: globs use `/` as the separator on every
+      // platform, but `path.relative` yields `\` on Windows.
+      const rel = path.relative(cwd, path.join(dir, ent.name)).split(path.sep).join("/");
       if (matcher && !matcher(rel)) continue;
       try {
         const text = await readFile(path.join(dir, ent.name), "utf8");

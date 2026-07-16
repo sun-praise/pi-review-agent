@@ -26,7 +26,7 @@ import { loadPersonas } from "./personas.js";
 import { loadStyleGuide } from "./style-guide.js";
 import { createAdapterFromEnv, type PlatformAdapter } from "./platforms/index.js";
 import { filterDiff } from "./diff-filter.js";
-import { parseSeverity, shouldFail, type FailMode } from "./severity.js";
+import { parseSeverity, shouldFail } from "./severity.js";
 import { parseFallbackModels } from "./fallback.js";
 
 interface CliOptions {

@@ -8,7 +8,7 @@
  */
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { Type, type Static } from "typebox";
+import { Type } from "typebox";
 import type { AgentTool, AgentToolResult } from "@earendil-works/pi-agent-core";
 
 const readFileSchema = Type.Object({
@@ -18,7 +18,6 @@ const readFileSchema = Type.Object({
     Type.Number({ description: "Max lines to return. Default 2000; hard cap 2000." }),
   ),
 });
-type ReadFileParams = Static<typeof readFileSchema>;
 interface ReadFileDetails {
   lines: number;
   truncated: boolean;
@@ -60,7 +59,6 @@ const grepSchema = Type.Object({
     Type.Number({ description: "Cap on matches. Default 50; hard cap 200." }),
   ),
 });
-type GrepParams = Static<typeof grepSchema>;
 interface GrepDetails {
   matches: number;
   truncated: boolean;

@@ -2,7 +2,7 @@
  * Platform adapter factory and auto-detection logic.
  */
 
-import type { Platform, PlatformAdapter, AdapterFactory } from "./types.js";
+import type { Platform, PlatformAdapter } from "./types.js";
 
 export type { PlatformAdapter, Platform };
 
