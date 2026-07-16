@@ -6,6 +6,9 @@
  * type-level correctness; lint focuses on patterns tsc can't catch —
  * unused vars, leaked `debugger`, `var`, duplicate keys, etc.
  *
+ * Written as `.mjs` (not `.ts`) so ESLint can load it without the optional
+ * `jiti` dependency, which keeps `npm ci` installs minimal in CI.
+ *
  * Type-checked rules (recommendedTypeChecked) were considered but produce
  * ~150 false positives in `*.test.ts` against the node:test runner's
  * `it(name, async () => …)` callback idiom (no-floating-promises /
