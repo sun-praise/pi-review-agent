@@ -27,6 +27,7 @@ import { loadStyleGuide } from "./style-guide.js";
 import { createAdapterFromEnv, type PlatformAdapter } from "./platforms/index.js";
 import { filterDiff } from "./diff-filter.js";
 import { parseSeverity, shouldFail, type FailMode } from "./severity.js";
+import { parseFallbackModels } from "./fallback.js";
 
 interface CliOptions {
   pr: number;
@@ -38,6 +39,8 @@ interface CliOptions {
   baseURL: string;
   sessionsRoot: string;
   modelId: string | undefined;
+  /** Comma-separated fallback model ids. Example: "gpt-4o,mimo-v2.5". */
+  fallbackModels: string | undefined;
   cwd: string;
   /** Output language for review prose. Default "zh" (中文). */
   language: string;
@@ -104,6 +107,7 @@ function parseArgs(argv: string[]): CliOptions {
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
     language: args.language || process.env.PI_REVIEW_LANGUAGE || "zh",
     modelId: args.model || process.env.PI_REVIEW_MODEL,
+    fallbackModels: args["fallback-models"] ?? process.env.PI_REVIEW_FALLBACK_MODELS ?? "mimo-v2.5",
     cwd: args.cwd || process.cwd(),
     timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], process.env),
     maxAttempts: intEnv(args["max-attempts"], process.env.PI_REVIEW_MAX_ATTEMPTS, 3),
@@ -282,6 +286,7 @@ async function runSingle(opts: CliOptions): Promise<number> {
     pr: opts.pr,
     persona: personaName,
     modelId: opts.modelId,
+    fallbackModels: parseFallbackModels(opts.fallbackModels),
     diff,
     prContext: opts.prContext,
     sessionsRoot: opts.sessionsRoot,
@@ -321,6 +326,7 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
     sessionsRoot: opts.sessionsRoot,
     team: opts.team,
     modelId: opts.modelId,
+    fallbackModels: parseFallbackModels(opts.fallbackModels),
     language: opts.language,
     skipCoordinator: opts.skipCoordinator,
     timeoutMs: opts.timeoutMs,

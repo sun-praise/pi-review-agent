@@ -177827,19 +177827,9 @@ function sleep5(ms) {
   setTimeout(resolve, ms);
   return promise2;
 }
-async function runReview(opts) {
-  const file2 = await sessionFile(opts);
-  const transcript = await loadTranscript(file2);
-  const resumed = transcript.length > 0;
-  const systemPrompt = appendLanguageDirective(
-    opts.systemPrompt ?? defaultSystemPrompt(opts.persona),
-    opts.language
-  );
-  const sessionId = `${opts.pr}-${opts.persona}`;
-  const cwd = opts.cwd ?? process.cwd();
+async function runModelAttempt(opts, modelId, file2, transcript, resumed, systemPrompt, sessionId, cwd) {
   const models = createModels();
   models.setProvider(opts.provider);
-  const modelId = opts.modelId ?? "deepseek-v4-flash";
   const model = models.getModel(opts.provider.id, modelId);
   if (!model) {
     throw new Error(`model ${modelId} not found in provider ${opts.provider.id}`);
@@ -177901,6 +177891,39 @@ ${opts.diff}`;
     }
   }
   throw lastError instanceof Error ? lastError : new Error(`review failed for ${opts.persona} without a captured error`);
+}
+async function runReview(opts) {
+  const file2 = await sessionFile(opts);
+  const transcript = await loadTranscript(file2);
+  const resumed = transcript.length > 0;
+  const systemPrompt = appendLanguageDirective(
+    opts.systemPrompt ?? defaultSystemPrompt(opts.persona),
+    opts.language
+  );
+  const sessionId = `${opts.pr}-${opts.persona}`;
+  const cwd = opts.cwd ?? process.cwd();
+  const primaryModel = opts.modelId ?? "deepseek-v4-flash";
+  const fallbackModels = opts.fallbackModels ?? [];
+  const allModels = [primaryModel, ...fallbackModels];
+  const errors = [];
+  for (const modelId of allModels) {
+    try {
+      process.stderr.write(`[${opts.persona}] trying model: ${modelId}
+`);
+      return await runModelAttempt(opts, modelId, file2, transcript, resumed, systemPrompt, sessionId, cwd);
+    } catch (err2) {
+      const msg = err2 instanceof Error ? err2.message : String(err2);
+      errors.push(`${modelId}: ${msg}`);
+      if (modelId !== allModels[allModels.length - 1]) {
+        process.stderr.write(
+          `[${opts.persona}] model ${modelId} failed (${msg}), trying next fallback
+`
+        );
+      }
+    }
+  }
+  throw new Error(`all models failed for ${opts.persona}:
+${errors.join("\n")}`);
 }
 
 // src/orchestrate.ts
@@ -180884,6 +180907,7 @@ async function runTeamReview(opts) {
           pr: opts.pr,
           persona: persona.name,
           modelId: opts.modelId,
+          fallbackModels: opts.fallbackModels,
           diff: opts.diff,
           prContext: opts.prContext,
           sessionsRoot: opts.sessionsRoot,
@@ -180915,6 +180939,7 @@ async function runTeamReview(opts) {
         pr: opts.pr,
         persona: coord.name,
         modelId: opts.modelId,
+        fallbackModels: opts.fallbackModels,
         diff: input,
         sessionsRoot: opts.sessionsRoot,
         cwd: opts.cwd,
@@ -181139,6 +181164,12 @@ function filterDiff(diff, options) {
   };
 }
 
+// src/fallback.ts
+function parseFallbackModels(raw) {
+  if (!raw) return [];
+  return raw.split(",").map((s2) => s2.trim()).filter(Boolean);
+}
+
 // src/index.ts
 function parseArgs(argv) {
   const args = {};
@@ -181167,6 +181198,7 @@ function parseArgs(argv) {
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
     language: args.language || process.env.PI_REVIEW_LANGUAGE || "zh",
     modelId: args.model || process.env.PI_REVIEW_MODEL,
+    fallbackModels: args["fallback-models"] ?? process.env.PI_REVIEW_FALLBACK_MODELS ?? "mimo-v2.5",
     cwd: args.cwd || process.cwd(),
     timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], process.env),
     maxAttempts: intEnv(args["max-attempts"], process.env.PI_REVIEW_MAX_ATTEMPTS, 3),
@@ -181318,6 +181350,7 @@ async function runSingle(opts) {
     pr: opts.pr,
     persona: personaName,
     modelId: opts.modelId,
+    fallbackModels: parseFallbackModels(opts.fallbackModels),
     diff,
     prContext: opts.prContext,
     sessionsRoot: opts.sessionsRoot,
@@ -181358,6 +181391,7 @@ async function runTeam(opts, adapter) {
     sessionsRoot: opts.sessionsRoot,
     team: opts.team,
     modelId: opts.modelId,
+    fallbackModels: parseFallbackModels(opts.fallbackModels),
     language: opts.language,
     skipCoordinator: opts.skipCoordinator,
     timeoutMs: opts.timeoutMs,

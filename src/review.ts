@@ -47,6 +47,13 @@ export interface RunReviewOptions {
   /** Reviewer cwd for read/grep tools. Default process.cwd(). */
   cwd?: string;
   modelId?: string;
+  /**
+   * Fallback model ids to try when the primary model fails permanently
+   * (non-transient). Tried in order; the first successful result wins.
+   * Each fallback gets its own fresh retry loop (maxAttempts × backoff).
+   * Example: ["gpt-4o", "mimo-v2.5"].
+   */
+  fallbackModels?: string[];
   systemPrompt?: string;
   /**
    * Output language for the review prose (summary, findings, suggestions).
@@ -247,26 +254,27 @@ function sleep(ms: number): Promise<void> {
 }
 
 
-export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
-  const file = await sessionFile(opts);
-  const transcript = await loadTranscript(file);
-  const resumed = transcript.length > 0;
-  const systemPrompt = appendLanguageDirective(
-    opts.systemPrompt ?? defaultSystemPrompt(opts.persona),
-    opts.language,
-  );
-  const sessionId = `${opts.pr}-${opts.persona}`;
-  const cwd = opts.cwd ?? process.cwd();
-
+/**
+ * Run a single model attempt with retry loop. Returns the result or throws
+ * on permanent failure (after exhausting retries for transient errors).
+ */
+async function runModelAttempt(
+  opts: RunReviewOptions,
+  modelId: string,
+  file: string,
+  transcript: AgentMessage[],
+  resumed: boolean,
+  systemPrompt: string,
+  sessionId: string,
+  cwd: string,
+): Promise<ReviewResult> {
   const models = createModels();
   models.setProvider(opts.provider);
-  const modelId = opts.modelId ?? "deepseek-v4-flash";
   const model = models.getModel(opts.provider.id, modelId);
   if (!model) {
     throw new Error(`model ${modelId} not found in provider ${opts.provider.id}`);
   }
   const tools = [createReadFileTool(cwd), createGrepTool(cwd, opts.grepWalker ?? walkGrep)];
-
   const timeoutMs = opts.timeoutMs ?? 600_000;
   const maxAttempts = opts.maxAttempts ?? 3;
   const backoffBase = opts.retryBackoffMs ?? 1000;
@@ -274,9 +282,6 @@ export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      // Fresh Agent per attempt: a half-run agent after a stream error is
-      // not safe to continue. The transcript seed is replayed each time;
-      // DeepSeek's prefix cache absorbs the replay at a discount.
       const newMessages: AgentMessage[] = [];
       const agent = new Agent({
         initialState: {
@@ -298,16 +303,9 @@ export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
       await (timeoutMs > 0 ? withTimeout(promptP, timeoutMs, opts.persona) : promptP);
       const collected = await done;
       if (!collected.usage) {
-        // Stream errored without producing real content. The real cause is in
-        // collected.errorMessage (captured from pi-agent-core's failureMessage);
-        // surface it so transient/permanent classification and logs are useful.
         const cause = collected.errorMessage ?? "no usage returned";
         throw new Error(`review completed with no usage — ${cause}`);
       }
-
-      // Only persist the transcript of a successful attempt — a partial
-      // transcript from a failed run would poison the next session's cache
-      // prefix and confuse the resume path.
       await appendTranscript(file, newMessages);
       return {
         content: collected.content,
@@ -320,9 +318,6 @@ export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
       lastError = err;
       const transient = isTransientReviewerError(err);
       if (attempt >= maxAttempts || !transient) throw err;
-      // Exponential backoff + jitter: the original failure mode was N
-      // reviewers dying in the same second, so without jitter they'd all
-      // retry in the same second too and re-impose identical burst load.
       const backoff = backoffBase * 2 ** (attempt - 1) + Math.floor(Math.random() * backoffBase);
       const msg = err instanceof Error ? err.message : String(err);
       process.stderr.write(
@@ -331,9 +326,43 @@ export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
       await sleep(backoff);
     }
   }
-  // Unreachable — the loop returns on success and throws on terminal failure
-  // — but TS can't prove the for-loop never falls through.
   throw lastError instanceof Error
     ? lastError
     : new Error(`review failed for ${opts.persona} without a captured error`);
+}
+
+export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
+  const file = await sessionFile(opts);
+  const transcript = await loadTranscript(file);
+  const resumed = transcript.length > 0;
+  const systemPrompt = appendLanguageDirective(
+    opts.systemPrompt ?? defaultSystemPrompt(opts.persona),
+    opts.language,
+  );
+  const sessionId = `${opts.pr}-${opts.persona}`;
+  const cwd = opts.cwd ?? process.cwd();
+  const primaryModel = opts.modelId ?? "deepseek-v4-flash";
+  const fallbackModels = opts.fallbackModels ?? [];
+
+  // Try primary model first, then fallbacks in order. runModelAttempt already
+  // retries transient errors internally (maxAttempts × backoff); if it throws,
+  // retries are exhausted and we should try the next model regardless of error
+  // type — the fallback model may route through a different upstream endpoint.
+  const allModels = [primaryModel, ...fallbackModels];
+  const errors: string[] = [];
+  for (const modelId of allModels) {
+    try {
+      process.stderr.write(`[${opts.persona}] trying model: ${modelId}\n`);
+      return await runModelAttempt(opts, modelId, file, transcript, resumed, systemPrompt, sessionId, cwd);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      errors.push(`${modelId}: ${msg}`);
+      if (modelId !== allModels[allModels.length - 1]) {
+        process.stderr.write(
+          `[${opts.persona}] model ${modelId} failed (${msg}), trying next fallback\n`,
+        );
+      }
+    }
+  }
+  throw new Error(`all models failed for ${opts.persona}:\n${errors.join("\n")}`);
 }
