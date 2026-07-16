@@ -106,3 +106,43 @@ GitHub Marketplace 对 action.yml 有硬限制：
 不要把 pi-review-agent 和 opencode multi-review 的概念混淆：
 - session resume 机制不同（pi 用 JSONL 文件 + actions/cache；opencode 用 export/import bundle）
 - persona yaml 格式兼容（drop-in），但运行时完全独立
+
+## 经验沉淀（`.learnings/`）
+
+**IMPORTANT**: 开发中遇到不直觉的坑、根因不明显的问题、容易复犯的错误，**必须**记到 `.learnings/LEARNINGS.md`。光靠记忆下次还会踩；写下来才能让后续开发（人 or agent）查到、少走弯路。**只放文件不够**——本节就是让 agent 知道这个机制的存在和用法，改动才会被执行。
+
+### 何时记录
+
+- 一个问题**根因不显而易见**（不是 typo、不是单纯配置笔误）
+- **未来预计还会再犯**（不是已删除模块的历史包袱）
+- 调试花了明显时间，且下次遇到靠 grep/报错不能秒定位
+
+### 条目格式
+
+```
+## [LRN-YYYYMMDD-NNN] <type>          // type: pitfall / correction / convention
+**Logged**: ISO 时间
+**Priority**: high | medium | low
+**Status**: active | resolved
+**Area**: ci | testing | security | build | ...
+
+### Summary     // 一句话：什么坑
+### Details     // 发生了什么、为什么难发现、根因（引 file:line）
+### Suggested Action  // 可复用的判断标志 / 修法模板
+### Metadata
+- Source: session_analysis | user_feedback | review
+- Related Files: ...
+- Tags: ...
+```
+
+详见 `.learnings/LEARNINGS.md` 现有条目（照抄格式）。
+
+### 经验索引（按类别，排查时先 grep 关键词）
+
+- **CI / dogfood 跑的是 dist 不是 src** — `uses: ./` 跑 `dist/index.cjs`；只改 src 不重建提交 dist = 自我评审用旧代码评审新代码，且**静默无报错**。调试技巧：`grep "<特征字符串>" dist/index.cjs`。→ LRN-20260716-001
+- **orchestrate.ts 顶层 import pi-agent-core 搞挂测试** — exports map + tsx 在 `node --test` 下解析失败；新依赖若拉入 pi-agent-core 必须**懒加载** `await import()`（这是 TS 规则"静态 import"的已知例外，仅此一处）。→ LRN-20260716-002
+- **路径越界校验用 path.relative 不用 startsWith** — `startsWith(root)` 会把同名前缀兄弟目录（`/repo` vs `/repo-secret`）误放行。→ LRN-20260716-003
+- **walk-grep glob 在 Windows 失败** — `*` 编译成 `[^/]*`，但 Windows 分隔符是 `\`；CI 跑 ubuntu 不暴露，本地开发才中招。→ LRN-20260716-004
+
+同类坑累积 ≥2 条时，把一句话警示提取到这里（pattern-level 提示）。
+
