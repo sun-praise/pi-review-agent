@@ -36,6 +36,11 @@ export interface TeamReviewOptions {
    * reviewer's prompt (NOT the coordinator — it sees reviewer outputs only).
    * Undefined/empty → diff-only. */
   prContext?: string;
+  /**
+   * Pre-formatted related-files context block (reverse import edges). Prepended
+   * to every reviewer's prompt alongside prContext. NOT passed to the
+   * coordinator (same rationale as prContext). Undefined/empty → none. */
+  relatedContext?: string;
   cwd: string;
   sessionsRoot: string;
   /** e.g. "quality:1,security:1,performance:1". Default: all built-ins. */
@@ -241,6 +246,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
           fallbackModels: opts.fallbackModels,
           diff: opts.diff,
           prContext: opts.prContext,
+          relatedContext: opts.relatedContext,
           sessionsRoot: opts.sessionsRoot,
           cwd: opts.cwd,
           systemPrompt: buildSystemPrompt(persona, styleGuide),

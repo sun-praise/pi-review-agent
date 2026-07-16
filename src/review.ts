@@ -42,6 +42,12 @@ export interface RunReviewOptions {
    * diff-only (legacy behavior). Best-effort: callers should obtain this
    * via fetchPrContext which never throws. */
   prContext?: string;
+  /**
+   * Pre-formatted related-files context block (files that import the changed
+   * files — reverse edges). When set, prepended to the diff so the reviewer
+   * sees the blast radius of the change without having to grep for callers.
+   * Empty/undefined → no related context. Best-effort like prContext. */
+  relatedContext?: string;
   /** Root directory for session JSONL files. */
   sessionsRoot: string;
   /** Reviewer cwd for read/grep tools. Default process.cwd(). */
@@ -296,8 +302,12 @@ async function runModelAttempt(
           models.streamSimple(m, ctx, streamOpts ?? {}) as never,
       });
       const done = collectFromAgent(agent, newMessages);
-      const userMessage = opts.prContext
-        ? `${opts.prContext}\n\n=== Review request ===\nReview this diff:\n\n${opts.diff}`
+      // Assemble the prompt prefix (PR metadata + related files), keeping the
+      // diff last so the "Review this diff" instruction sits right above it.
+      // Empty/undefined blocks are skipped so a diff-only run is unchanged.
+      const prefix = [opts.prContext, opts.relatedContext].filter((s): s is string => Boolean(s && s.trim())).join("\n\n");
+      const userMessage = prefix
+        ? `${prefix}\n\n=== Review request ===\nReview this diff:\n\n${opts.diff}`
         : `Review this diff:\n\n${opts.diff}`;
       const promptP = agent.prompt(userMessage);
       await (timeoutMs > 0 ? withTimeout(promptP, timeoutMs, opts.persona) : promptP);
