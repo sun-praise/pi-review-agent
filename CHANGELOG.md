@@ -5,6 +5,45 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-07-16
+
+### Added
+
+- **Two-layer verifier** to suppress hallucinated findings (#21): rule-based
+  layer checks that findings reference changed lines/files, LLM layer re-reads
+  the code to confirm or demote each surviving finding. Demoted items appear in
+  a collapsible section below the review.
+- **Regex support in grep tool**: the `walkGrep` matcher now accepts regex
+  patterns by default, with a `literal` flag for exact substring matching.
+- **Cross-model fallback** (#29): when the primary model fails, the agent
+  retries on a configurable comma-separated fallback list
+  (`PI_REVIEW_FALLBACK_MODELS`).
+
+### Fixed
+
+- `parseDiffPath` handles file paths containing spaces (#25).
+- `filterDiff` truncates at section boundaries and excludes build artifacts
+  (`dist/`, `build/`, `*.min.js`) by default to avoid context-window blowup on
+  large PRs (#28).
+- `walkGrep` glob matching normalizes path separators for Windows compatibility.
+
+## [1.4.0] - 2026-07-10
+
+### Added
+
+- **Inline review comments** via the GitHub Reviews API (#10): findings are
+  posted as line-level review comments instead of a single wall of text.
+- **Gitea platform support**: new platform adapter alongside GitHub, with
+  HTTPS protocol validation for `GITEA_URL`.
+- **Repository style-guide injection**: auto-detects `STYLE_GUIDE.md` or
+  `.github/STYLE_GUIDE.md` and injects it into the quality persona prompt.
+
+### Fixed
+
+- Thread `modelId` through team mode so the correct model is used for every
+  reviewer and coordinator call.
+- Use CJS format for dist build to match Node.js action runner expectations.
+
 ## [1.3.0] - 2026-06-30
 
 ### Added
