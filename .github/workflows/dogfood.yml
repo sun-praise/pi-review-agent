@@ -22,6 +22,15 @@ jobs:
       # with src-only changes, and dist only caught up in a later PR). Building
       # here from the PR's own src guarantees the dogfood review exercises the
       # exact code under review. See discussion on the PR that added this step.
+      #
+      # Pin Node explicitly: tsup.config.ts targets "node22" and the build
+      # toolchain (tsup/tsx) expects it. ubuntu-latest's default Node drifts
+      # over time (~20.x today), which could break the build silently.
+      # node-version-file + cache reads .nvmrc and speeds up repeat runs.
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
       - name: Install deps
         run: npm ci
       - name: Rebuild dist from this PR's src
