@@ -5,7 +5,7 @@
 
 import type { PlatformAdapter, PrContextOptions, PrCommentContext, PrInfo, InlineComment, PostReviewResult } from "../types.js";
 import { fetchPrContext, githubAuthFromEnv } from "../../github-context.js";
-import { postPrComment, postPrReview, prCommentContextFromEnv } from "../../pr-comment.js";
+import { postPrComment, postPrReview } from "../../pr-comment.js";
 
 export class GitHubAdapter implements PlatformAdapter {
   async fetchPrContext(options: PrContextOptions): Promise<string> {

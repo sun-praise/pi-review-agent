@@ -67,8 +67,9 @@ interface ExcludeRule {
 
 /**
  * Convert a simple glob to a RegExp. Supports `*`, `?`, and `**` (globstar).
- * Globstar semantics: leading `**/` → zero or more leading segments;
- * trailing `/**` → zero or more trailing segments; standalone `**` → `.*`.
+ * Globstar semantics: a leading globstar matches zero or more leading path
+ * segments; a trailing globstar matches zero or more trailing segments; a
+ * standalone globstar matches any characters.
  */
 function globToRegex(pattern: string): RegExp {
   const escaped = pattern
