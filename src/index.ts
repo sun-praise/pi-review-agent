@@ -27,6 +27,7 @@ import { loadStyleGuide } from "./style-guide.js";
 import { createAdapterFromEnv, type PlatformAdapter } from "./platforms/index.js";
 import { filterDiff } from "./diff-filter.js";
 import { parseSeverity, shouldFail, type FailMode } from "./severity.js";
+import { parseFallbackModels } from "./fallback.js";
 
 interface CliOptions {
   pr: number;
@@ -53,6 +54,9 @@ interface CliOptions {
   diffExclude: string[];
   /** Max diff size in KB after filtering. 0 = no limit. */
   diffMaxSizeKb: number;
+  /** Keep build artifacts (dist/, build/, *.min.js, …) instead of excluding
+   *  them by default. Opt-in; defaults to false. */
+  diffIncludeBuildArtifacts: boolean;
   /** Fail-on-severity gate: "none" | "blocking" | "warning". */
   failOnSeverity: "none" | "blocking" | "warning";
   /** Fetch PR metadata (title/body/comments/reviews) and prepend to reviewer
@@ -120,6 +124,11 @@ function parseArgs(argv: string[]): CliOptions {
       args["diff-max-size-kb"],
       process.env.PI_REVIEW_DIFF_MAX_SIZE_KB,
       200,
+    ),
+    diffIncludeBuildArtifacts: !/^(0|false|no|off)$/i.test(
+      args["diff-include-build-artifacts"] ??
+        process.env.PI_REVIEW_DIFF_INCLUDE_BUILD_ARTIFACTS ??
+        "false",
     ),
     failOnSeverity: parseFailMode(
       args["fail-on-severity"] || process.env.PI_REVIEW_FAIL_ON_SEVERITY || "none",
@@ -196,6 +205,7 @@ function prepareDiff(opts: CliOptions): string {
   const r = filterDiff(raw, {
     excludePatterns: opts.diffExclude.length > 0 ? opts.diffExclude : undefined,
     maxSizeBytes: opts.diffMaxSizeKb > 0 ? opts.diffMaxSizeKb * 1024 : undefined,
+    includeBuildArtifacts: opts.diffIncludeBuildArtifacts,
   });
   if (r.removedFiles.length > 0) {
     process.stderr.write(
@@ -261,11 +271,6 @@ function writeTeamSummary(result: TeamReviewResult): void {
     `totalCost=${result.totalCost.toFixed(6)}`,
     `totalCacheRead=${result.totalCacheRead}`,
   ]);
-}
-
-export function parseFallbackModels(raw: string | undefined): string[] {
-  if (!raw) return [];
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
 async function runSingle(opts: CliOptions): Promise<number> {

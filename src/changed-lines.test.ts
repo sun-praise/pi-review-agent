@@ -174,4 +174,34 @@ describe("parseChangedLines", () => {
     ].join("\n");
     assert.equal(parseChangedLines(d).size, 0);
   });
+
+  it("keys the map by the full path when the path contains spaces (#25)", () => {
+    const d = [
+      "diff --git a/src/foo bar.ts b/src/foo bar.ts",
+      "--- a/src/foo bar.ts",
+      "+++ b/src/foo bar.ts",
+      "@@ -1,1 +1,2 @@",
+      " ctx",          // context: new 1
+      "+new",          // added: new 2
+    ].join("\n");
+    const m = parseChangedLines(d);
+    // The full "src/foo bar.ts" must be the key — not the truncated "src/foo".
+    assert.ok(m.get("src/foo bar.ts"), "expected entry keyed by full spaced path");
+    assert.equal(m.get("src/foo"), undefined, "must not truncate at the space");
+    const e = m.get("src/foo bar.ts");
+    assert.ok(e);
+    assert.deepEqual([...e.right].sort((a, b) => a - b), [1, 2]);
+  });
+
+  it("keys the map by the full path for git's quoted header form (#25)", () => {
+    const d = [
+      'diff --git "a/src/foo bar.ts" "b/src/foo bar.ts"',
+      "--- a/src/foo bar.ts",
+      "+++ b/src/foo bar.ts",
+      "@@ -1,1 +1,1 @@",
+      "+x",
+    ].join("\n");
+    const m = parseChangedLines(d);
+    assert.ok(m.get("src/foo bar.ts"), "quoted header must yield the spaced path");
+  });
 });

@@ -13,8 +13,9 @@
  * additions), so the `right` set includes ` ` (context) lines within hunks.
  * `left` is strictly removed (`-`) lines.
  *
- * Pure: no fs, no side effects. Section splitting + path extraction mirror
- * diff-filter.ts; the hunk-range walk is new (diff-filter discards @@ headers).
+ * Pure: no fs, no side effects. Section splitting mirrors diff-filter.ts and
+ * path extraction is shared with it via `./diff-path.js`; the hunk-range walk
+ * is new (diff-filter discards @@ headers).
  *
  * Unified-diff hunk header grammar: `@@ -oldStart[,oldLen] +newStart[,newLen] @@`.
  * When the length is omitted it defaults to 1. `oldLen === 0` means a hunk
@@ -22,6 +23,8 @@
  * which insertions happen, so old lines start at oldStart+1 (none to walk).
  * Same for newLen === 0 on a pure deletion.
  */
+
+import { parseDiffPath } from "./diff-path.js";
 
 /** Changed-line sets for one file. */
 export interface ChangedLines {
@@ -103,12 +106,6 @@ export function parseChangedLines(diff: string): Map<string, ChangedLines> {
     }
   }
   return result;
-}
-
-/** Parse a "diff --git a/<path> b/<path>" header, return the b-side path. */
-function parseDiffPath(header: string): string | null {
-  const m = header.match(/^diff --git a\/.* b\/(.+?)(?:\s|$)/);
-  return m ? m[1] : null;
 }
 
 function ensureEntry(map: Map<string, ChangedLines>, path: string): ChangedLines {

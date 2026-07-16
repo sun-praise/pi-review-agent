@@ -49,9 +49,12 @@ export function createReadFileTool(cwd: string): AgentTool<typeof readFileSchema
 }
 
 const grepSchema = Type.Object({
-  pattern: Type.String({ description: "Substring (not regex) to search for." }),
+  pattern: Type.String({ description: "Search pattern — regex by default, or literal string when `literal` is true." }),
   glob: Type.Optional(
     Type.String({ description: "Restrict to files matching this glob, e.g. '**/*.ts'." }),
+  ),
+  literal: Type.Optional(
+    Type.Boolean({ description: "Treat pattern as a literal string instead of regex. Default false (regex mode)." }),
   ),
   maxResults: Type.Optional(
     Type.Number({ description: "Cap on matches. Default 50; hard cap 200." }),
@@ -64,7 +67,7 @@ interface GrepDetails {
 }
 
 export interface GrepWalker {
-  (cwd: string, pattern: string, glob: string | undefined, cap: number): Promise<string>;
+  (cwd: string, pattern: string, glob: string | undefined, cap: number, literal?: boolean): Promise<string>;
 }
 
 export function createGrepTool(
@@ -75,12 +78,13 @@ export function createGrepTool(
     label: "grep",
     name: "grep",
     description:
-      "Search file contents for a literal pattern under cwd. Returns matching lines " +
-      "as `file:line:text`. Use to find callers, usages, or definitions.",
+      "Search file contents under cwd. Returns matching lines as `file:line:text`. " +
+      "Pattern is a regex by default; set `literal: true` for plain substring matching. " +
+      "Use to find callers, usages, error-handling patterns, or definitions.",
     parameters: grepSchema,
     execute: async (_id, params): Promise<AgentToolResult<GrepDetails>> => {
       const cap = Math.min(200, params.maxResults ?? 50);
-      const out = await walk(cwd, params.pattern, params.glob, cap);
+      const out = await walk(cwd, params.pattern, params.glob, cap, params.literal);
       const matches = out ? out.split("\n").length : 0;
       return {
         content: [{ type: "text", text: out || "(no matches)" }],

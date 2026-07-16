@@ -11,6 +11,8 @@
  * Pure: no fs, no env, no side effects. All callers can test it directly.
  */
 
+import { parseDiffPath } from "./diff-path.js";
+
 /** Basename patterns for known lock / auto-generated files. */
 const LOCK_PATTERNS: RegExp[] = [
   /\.lockb?$/,
@@ -21,15 +23,33 @@ const LOCK_PATTERNS: RegExp[] = [
   /^flake\.lock$/,
 ];
 
+/**
+ * Machine-generated build outputs. No review value (a human edit to one is
+ * almost always a regenerated artifact) and routinely huge — the
+ * `dist/index.cjs` bundle in this repo is ~13 MB and was the #28 413 trigger.
+ * Matched against the full b-side path. Disabled only via the explicit
+ * `includeBuildArtifacts` opt-in.
+ */
+const BUILD_ARTIFACT_PATTERNS: RegExp[] = [
+  /^(dist|build|out|lib|\.next|\.turbo|coverage)\//,
+  /\.(|min)\.(js|cjs|mjs|css)$/,
+];
+
 export interface FilterDiffOptions {
   /** Additional glob patterns to exclude, matched against the full file
    *  path in the diff header (e.g. "vendor/**", "*.generated.ts").
    *  Patterns without "/" match basename; patterns with "/" match full path. */
   excludePatterns?: string[];
   /** Maximum diff size in bytes. If the filtered diff exceeds this, whole
-   *  sections are dropped from the end and a truncation notice is appended.
-   *  The first section is always kept so we never send an empty diff. */
+   *  leading sections are kept until the budget is exhausted and a truncation
+   *  notice is appended. Sections are dropped whole (never sliced mid-hunk):
+   *  the same filtered diff feeds parseChangedLines for the verifier rule
+   *  layer, which walks hunk ranges and would mis-count lines on a half-hunk. */
   maxSizeBytes?: number;
+  /** Keep build artifacts (dist/, build/, *.min.js, …) in the diff instead of
+   *  excluding them by default. Opt-in escape hatch; defaults to false since
+   *  generated output has no review value and is the usual #28 413 cause. */
+  includeBuildArtifacts?: boolean;
 }
 
 export interface FilterDiffResult {
@@ -67,18 +87,13 @@ function globToRegex(pattern: string): RegExp {
   return new RegExp("^" + replaced + "$");
 }
 
-/** Parse a "diff --git a/<path> b/<path>" header and return the b-side path. */
-function parseDiffPath(header: string): string | null {
-  const m = header.match(/^diff --git a\/.* b\/(.+?)(?:\s|$)/);
-  return m ? m[1] : null;
-}
-
 /**
  * Filter lock / auto-generated / user-excluded files from a unified diff.
  *
- * Splits the diff into per-file sections, drops any whose path matches a
- * lock pattern or user exclusion, and optionally truncates to a byte budget
- * (keeping whole leading sections).
+ * Splits the diff into per-file sections, drops any whose path matches a lock
+ * pattern, a build-artifact pattern (dist/, build/, *.min.js, …), or a user
+ * exclusion, and optionally truncates to a byte budget (keeping whole leading
+ * sections; never slicing a section — see the loop comment for why).
  */
 export function filterDiff(diff: string, options?: FilterDiffOptions): FilterDiffResult {
   if (!diff) return { filtered: "", removedFiles: [], truncated: false, filteredBytes: 0 };
@@ -87,6 +102,7 @@ export function filterDiff(diff: string, options?: FilterDiffOptions): FilterDif
     regex: globToRegex(p),
     full: p.includes("/"),
   }));
+  const excludeBuildArtifacts = !options?.includeBuildArtifacts;
   const maxBytes = options?.maxSizeBytes;
 
   const sections = diff.split(/(?=^diff --git )/m);
@@ -102,11 +118,15 @@ export function filterDiff(diff: string, options?: FilterDiffOptions): FilterDif
     const base = filePath ? (slashIdx >= 0 ? filePath.slice(slashIdx + 1) : filePath) : null;
 
     const isLock = base !== null && LOCK_PATTERNS.some((re) => re.test(base));
+    const isBuildArtifact =
+      excludeBuildArtifacts &&
+      filePath !== null &&
+      BUILD_ARTIFACT_PATTERNS.some((re) => re.test(filePath));
     const isExcluded =
       (base !== null && excludeRules.some((r) => !r.full && r.regex.test(base))) ||
       (filePath !== null && excludeRules.some((r) => r.full && r.regex.test(filePath)));
 
-    if (isLock || isExcluded) {
+    if (isLock || isBuildArtifact || isExcluded) {
       removed.push(filePath ?? base ?? "unknown");
     } else {
       kept.push(section);
@@ -123,7 +143,13 @@ export function filterDiff(diff: string, options?: FilterDiffOptions): FilterDif
       let budget = maxBytes;
       for (const section of kept) {
         const size = Buffer.byteLength(section, "utf8");
-        if (truncatedKept.length > 0 && size > budget) break;
+        // Drop the section whole once it would blow the budget — including the
+        // FIRST one. Slicing mid-hunk is not an option: this same filtered diff
+        // feeds parseChangedLines (verifier rule layer), which walks @@ ranges
+        // and would emit wrong line numbers on a half-hunk. If even the first
+        // section exceeds the budget, truncatedKept stays empty and we surface
+        // only the notice — preferable to shipping an oversized payload (#28).
+        if (size > budget) break;
         truncatedKept.push(section);
         budget -= size;
       }

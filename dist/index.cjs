@@ -31,7 +31,6 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // node_modules/typebox/build/system/memory/metrics.mjs
 var Metrics;
@@ -176685,11 +176684,11 @@ function createGrepTool(cwd, walk) {
   return {
     label: "grep",
     name: "grep",
-    description: "Search file contents for a literal pattern under cwd. Returns matching lines as `file:line:text`. Use to find callers, usages, or definitions.",
+    description: "Search file contents under cwd. Returns matching lines as `file:line:text`. Pattern is a regex by default; set `literal: true` for plain substring matching. Use to find callers, usages, error-handling patterns, or definitions.",
     parameters: grepSchema,
     execute: async (_id, params) => {
       const cap = Math.min(200, params.maxResults ?? 50);
-      const out = await walk(cwd, params.pattern, params.glob, cap);
+      const out = await walk(cwd, params.pattern, params.glob, cap, params.literal);
       const matches = out ? out.split("\n").length : 0;
       return {
         content: [{ type: "text", text: out || "(no matches)" }],
@@ -176713,9 +176712,12 @@ var init_tools = __esm({
       )
     });
     grepSchema = typebox_exports.Object({
-      pattern: typebox_exports.String({ description: "Substring (not regex) to search for." }),
+      pattern: typebox_exports.String({ description: "Search pattern \u2014 regex by default, or literal string when `literal` is true." }),
       glob: typebox_exports.Optional(
         typebox_exports.String({ description: "Restrict to files matching this glob, e.g. '**/*.ts'." })
+      ),
+      literal: typebox_exports.Optional(
+        typebox_exports.Boolean({ description: "Treat pattern as a literal string instead of regex. Default false (regex mode)." })
       ),
       maxResults: typebox_exports.Optional(
         typebox_exports.Number({ description: "Cap on matches. Default 50; hard cap 200." })
@@ -176725,10 +176727,18 @@ var init_tools = __esm({
 });
 
 // src/walk-grep.ts
-async function walkGrep(cwd, pattern, glob, cap) {
+async function walkGrep(cwd, pattern, glob, cap, literal2) {
   if (!pattern) return "";
   const out = [];
   const matcher = glob ? compileGlob(glob) : null;
+  let match2;
+  if (literal2) {
+    match2 = (line) => line.includes(pattern);
+  } else {
+    const re2 = safeRegex(pattern);
+    if (!re2) return "";
+    match2 = (line) => re2.test(line);
+  }
   async function visit(dir) {
     if (out.length >= cap) return;
     let entries;
@@ -176751,7 +176761,7 @@ async function walkGrep(cwd, pattern, glob, cap) {
         const text = await (0, import_promises4.readFile)(import_node_path3.default.join(dir, ent.name), "utf8");
         const lines = text.split("\n");
         for (let i2 = 0; i2 < lines.length && out.length < cap; i2++) {
-          if (lines[i2].includes(pattern)) {
+          if (match2(lines[i2])) {
             out.push(`${rel}:${i2 + 1}:${lines[i2].slice(0, 200)}`);
           }
         }
@@ -176764,8 +176774,19 @@ async function walkGrep(cwd, pattern, glob, cap) {
 }
 function compileGlob(glob) {
   const re2 = glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*/g, "\0").replace(/\*/g, "[^/]*").replace(/\u0000/g, ".*");
-  const full = new RegExp(`^${re2}$`);
-  return (p) => full.test(p);
+  try {
+    const full = new RegExp(`^${re2}$`);
+    return (p) => full.test(p);
+  } catch {
+    return () => false;
+  }
+}
+function safeRegex(pattern) {
+  try {
+    return new RegExp(pattern);
+  } catch {
+    return null;
+  }
 }
 var import_promises4, import_node_path3, IGNORE;
 var init_walk_grep = __esm({
@@ -177625,11 +177646,6 @@ ${inlineSummary}`;
 });
 
 // src/index.ts
-var index_exports = {};
-__export(index_exports, {
-  parseFallbackModels: () => parseFallbackModels
-});
-module.exports = __toCommonJS(index_exports);
 var import_node_fs7 = require("fs");
 
 // src/provider.ts
@@ -180569,6 +180585,14 @@ function parseInlineComments(text) {
   return [];
 }
 
+// src/diff-path.ts
+function parseDiffPath(header) {
+  const quoted = header.match(/^diff --git "a\/[^"]*" "b\/(.+)"/);
+  if (quoted) return quoted[1];
+  const unquoted = header.match(/^diff --git a\/.* b\/(.+?)\r?$/);
+  return unquoted ? unquoted[1] : null;
+}
+
 // src/changed-lines.ts
 function parseChangedLines(diff) {
   const result = /* @__PURE__ */ new Map();
@@ -180617,10 +180641,6 @@ function parseChangedLines(diff) {
     }
   }
   return result;
-}
-function parseDiffPath(header) {
-  const m2 = header.match(/^diff --git a\/.* b\/(.+?)(?:\s|$)/);
-  return m2 ? m2[1] : null;
 }
 function ensureEntry(map2, path11) {
   let e2 = map2.get(path11);
@@ -181070,6 +181090,10 @@ var LOCK_PATTERNS = [
   /^(Pipfile|requirements)\.lock$/,
   /^flake\.lock$/
 ];
+var BUILD_ARTIFACT_PATTERNS = [
+  /^(dist|build|out|lib|\.next|\.turbo|coverage)\//,
+  /\.(|min)\.(js|cjs|mjs|css)$/
+];
 function globToRegex(pattern) {
   const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*\*/g, "{{GLOBSTAR}}").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]");
   const replaced = escaped.replace(
@@ -181082,16 +181106,13 @@ function globToRegex(pattern) {
   );
   return new RegExp("^" + replaced + "$");
 }
-function parseDiffPath2(header) {
-  const m2 = header.match(/^diff --git a\/.* b\/(.+?)(?:\s|$)/);
-  return m2 ? m2[1] : null;
-}
 function filterDiff(diff, options) {
   if (!diff) return { filtered: "", removedFiles: [], truncated: false, filteredBytes: 0 };
   const excludeRules = (options?.excludePatterns ?? []).map((p) => ({
     regex: globToRegex(p),
     full: p.includes("/")
   }));
+  const excludeBuildArtifacts = !options?.includeBuildArtifacts;
   const maxBytes = options?.maxSizeBytes;
   const sections = diff.split(/(?=^diff --git )/m);
   const kept = [];
@@ -181100,12 +181121,13 @@ function filterDiff(diff, options) {
     if (!section) continue;
     const newlineIdx = section.indexOf("\n");
     const header = newlineIdx >= 0 ? section.slice(0, newlineIdx) : section;
-    const filePath = parseDiffPath2(header);
+    const filePath = parseDiffPath(header);
     const slashIdx = filePath ? filePath.lastIndexOf("/") : -1;
     const base = filePath ? slashIdx >= 0 ? filePath.slice(slashIdx + 1) : filePath : null;
     const isLock = base !== null && LOCK_PATTERNS.some((re2) => re2.test(base));
+    const isBuildArtifact = excludeBuildArtifacts && filePath !== null && BUILD_ARTIFACT_PATTERNS.some((re2) => re2.test(filePath));
     const isExcluded = base !== null && excludeRules.some((r2) => !r2.full && r2.regex.test(base)) || filePath !== null && excludeRules.some((r2) => r2.full && r2.regex.test(filePath));
-    if (isLock || isExcluded) {
+    if (isLock || isBuildArtifact || isExcluded) {
       removed.push(filePath ?? base ?? "unknown");
     } else {
       kept.push(section);
@@ -181120,7 +181142,7 @@ function filterDiff(diff, options) {
       let budget = maxBytes;
       for (const section of kept) {
         const size = Buffer.byteLength(section, "utf8");
-        if (truncatedKept.length > 0 && size > budget) break;
+        if (size > budget) break;
         truncatedKept.push(section);
         budget -= size;
       }
@@ -181140,6 +181162,12 @@ function filterDiff(diff, options) {
     truncated,
     filteredBytes: Buffer.byteLength(filtered, "utf8")
   };
+}
+
+// src/fallback.ts
+function parseFallbackModels(raw) {
+  if (!raw) return [];
+  return raw.split(",").map((s2) => s2.trim()).filter(Boolean);
 }
 
 // src/index.ts
@@ -181184,6 +181212,9 @@ function parseArgs(argv) {
       args["diff-max-size-kb"],
       process.env.PI_REVIEW_DIFF_MAX_SIZE_KB,
       200
+    ),
+    diffIncludeBuildArtifacts: !/^(0|false|no|off)$/i.test(
+      args["diff-include-build-artifacts"] ?? process.env.PI_REVIEW_DIFF_INCLUDE_BUILD_ARTIFACTS ?? "false"
     ),
     failOnSeverity: parseFailMode(
       args["fail-on-severity"] || process.env.PI_REVIEW_FAIL_ON_SEVERITY || "none"
@@ -181233,7 +181264,8 @@ function prepareDiff(opts) {
   const raw = loadDiff(opts);
   const r2 = filterDiff(raw, {
     excludePatterns: opts.diffExclude.length > 0 ? opts.diffExclude : void 0,
-    maxSizeBytes: opts.diffMaxSizeKb > 0 ? opts.diffMaxSizeKb * 1024 : void 0
+    maxSizeBytes: opts.diffMaxSizeKb > 0 ? opts.diffMaxSizeKb * 1024 : void 0,
+    includeBuildArtifacts: opts.diffIncludeBuildArtifacts
   });
   if (r2.removedFiles.length > 0) {
     process.stderr.write(
@@ -181304,10 +181336,6 @@ function writeTeamSummary(result) {
     `totalCost=${result.totalCost.toFixed(6)}`,
     `totalCacheRead=${result.totalCacheRead}`
   ]);
-}
-function parseFallbackModels(raw) {
-  if (!raw) return [];
-  return raw.split(",").map((s2) => s2.trim()).filter(Boolean);
 }
 async function runSingle(opts) {
   const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
@@ -181437,10 +181465,6 @@ async function main() {
 main().then((code) => process.exit(code)).catch((err2) => {
   console.error("pi-review-agent failed:", err2);
   process.exit(1);
-});
-// Annotate the CommonJS export names for ESM import in node:
-0 && (module.exports = {
-  parseFallbackModels
 });
 /*! Bundled license information:
 

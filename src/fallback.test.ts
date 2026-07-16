@@ -1,11 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-
-/** Copy of parseFallbackModels from index.ts for pure unit testing. */
-function parseFallbackModels(raw: string | undefined): string[] {
-  if (!raw) return [];
-  return raw.split(",").map((s) => s.trim()).filter(Boolean);
-}
+import { parseFallbackModels } from "./fallback.js";
 
 describe("parseFallbackModels", () => {
   it("returns empty array for undefined", () => {
