@@ -170,6 +170,15 @@ inputs:
       persona with `use-style-guide: true`).
     required: false
     default: ""
+  skip-related-context:
+    description: >
+      Skip the related-files context computation. When enabled (default), the
+      action builds an import graph over the repo and pushes the files that
+      import the PR's changed files (reverse edges) into every reviewer's
+      prompt, so reviewers see the blast radius without grepping. Set "true"
+      to disable and review the diff only.
+    required: false
+    default: "false"
 
 outputs:
   verdict:
@@ -272,6 +281,7 @@ runs:
         PI_REVIEW_DIFF_INCLUDE_BUILD_ARTIFACTS: ${{ inputs.diff-include-build-artifacts }}
         PI_REVIEW_FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
         PI_REVIEW_STYLE_GUIDE: ${{ inputs.style-guide }}
+        PI_REVIEW_SKIP_RELATED_CONTEXT: ${{ inputs.skip-related-context }}
         # PR comment posting reads these:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GITHUB_REF: ${{ github.ref }}

@@ -108,6 +108,25 @@ export function parseChangedLines(diff: string): Map<string, ChangedLines> {
   return result;
 }
 
+/**
+ * List every file path mentioned in the diff (the b-side of each `diff --git`
+ * header), regardless of whether it has hunks. Lighter than parseChangedLines
+ * when you only need the file names — no per-line counters, no Set allocations.
+ * Binary/rename-only sections ARE included (parseChangedLines omits them).
+ */
+export function listDiffFiles(diff: string): string[] {
+  if (!diff) return [];
+  const files: string[] = [];
+  for (const section of diff.split(/(?=^diff --git )/m)) {
+    if (!section) continue;
+    const newlineIdx = section.indexOf("\n");
+    const header = newlineIdx >= 0 ? section.slice(0, newlineIdx) : section;
+    const filePath = parseDiffPath(header);
+    if (filePath) files.push(filePath);
+  }
+  return files;
+}
+
 function ensureEntry(map: Map<string, ChangedLines>, path: string): ChangedLines {
   let e = map.get(path);
   if (!e) {

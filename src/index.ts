@@ -28,7 +28,7 @@ import { createAdapterFromEnv, type PlatformAdapter } from "./platforms/index.js
 import { filterDiff } from "./diff-filter.js";
 import { parseSeverity, shouldFail } from "./severity.js";
 import { parseFallbackModels } from "./fallback.js";
-import { parseChangedLines } from "./changed-lines.js";
+import { listDiffFiles } from "./changed-lines.js";
 import { buildRelatedContext } from "./related-context.js";
 
 interface CliOptions {
@@ -418,7 +418,7 @@ async function main(): Promise<number> {
   if (opts.includeRelatedContext) {
     try {
       const diff = prepareDiff(opts);
-      const changedFiles = [...parseChangedLines(diff).keys()];
+      const changedFiles = listDiffFiles(diff);
       opts.relatedContext = await buildRelatedContext(changedFiles, opts.cwd);
     } catch (err: unknown) {
       process.stderr.write(
