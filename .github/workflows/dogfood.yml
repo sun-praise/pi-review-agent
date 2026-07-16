@@ -15,6 +15,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      # The action runs `node dist/index.cjs`, and dist/ is a committed build
+      # artifact. Without this rebuild step, the self-review would run the
+      # LAST committed dist — which can lag behind src when a PR changes source
+      # without also rebuilding dist (this happened: the verifier PR merged
+      # with src-only changes, and dist only caught up in a later PR). Building
+      # here from the PR's own src guarantees the dogfood review exercises the
+      # exact code under review. See discussion on the PR that added this step.
+      - name: Install deps
+        run: npm ci
+      - name: Rebuild dist from this PR's src
+        run: npm run build
+
       - name: Run pi-review-agent on this PR
         uses: ./
         with:
