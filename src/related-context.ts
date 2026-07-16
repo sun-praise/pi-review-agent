@@ -295,6 +295,15 @@ export async function buildRelatedContext(
   try {
     const graph = await buildImportGraph(cwd);
     const related = findRelatedFiles(changedFiles, graph, opts?.limit ?? 10);
+    if (related.length > 0) {
+      process.stderr.write(
+        `related context: ${related.length} file(s) import changed files [${changedFiles.join(", ")}] → [${related.join(", ")}]\n`,
+      );
+    } else {
+      process.stderr.write(
+        `related context: no files import the changed files [${changedFiles.join(", ")}]\n`,
+      );
+    }
     return renderRelatedContext(related, cwd, { maxBytes: opts?.maxBytes });
   } catch (err: unknown) {
     process.stderr.write(
