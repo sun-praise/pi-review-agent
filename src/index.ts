@@ -28,6 +28,8 @@ import { createAdapterFromEnv, type PlatformAdapter } from "./platforms/index.js
 import { filterDiff } from "./diff-filter.js";
 import { parseSeverity, shouldFail } from "./severity.js";
 import { parseFallbackModels } from "./fallback.js";
+import { parseChangedLines } from "./changed-lines.js";
+import { buildRelatedContext } from "./related-context.js";
 
 interface CliOptions {
   pr: number;
@@ -65,6 +67,12 @@ interface CliOptions {
   /** Populated in main() after parseArgs when includePrContext is on. Empty
    *  string = no context (fetch skipped, failed, or PR has no discussion). */
   prContext: string;
+  /** Whether to compute and inject related-files context. Default true.
+   *  Set PI_REVIEW_SKIP_RELATED_CONTEXT=1/true to disable. */
+  includeRelatedContext: boolean;
+  /** Populated in main() after the import graph is built. Empty string when
+   *  disabled, no changed files, or graph building failed (fail-open). */
+  relatedContext: string;
   /** Platform override: "github" | "gitea". Auto-detected if not set. */
   platform: string | undefined;
   /** Explicit path to a repository style-guide file, or undefined to auto-detect. */
@@ -137,6 +145,14 @@ function parseArgs(argv: string[]): CliOptions {
       args["include-pr-context"] ?? process.env.PI_REVIEW_INCLUDE_PR_CONTEXT ?? "true",
     ),
     prContext: "",
+    // Related context is on by default; flip via --skip-related-context or env.
+    // Uses the "1"/"true" truthiness convention (like skip-coordinator) so a
+    // literal "false" string from action.yml doesn't accidentally disable it.
+    includeRelatedContext: !isTruthyFlag(
+      args["skip-related-context"],
+      process.env.PI_REVIEW_SKIP_RELATED_CONTEXT,
+    ),
+    relatedContext: "",
     platform: args.platform || process.env.PI_REVIEW_PLATFORM,
     styleGuide: args["style-guide"] || process.env.PI_REVIEW_STYLE_GUIDE,
     skipVerify: isTruthyFlag(args["skip-verify"], process.env.PI_REVIEW_SKIP_VERIFY),
@@ -289,6 +305,7 @@ async function runSingle(opts: CliOptions): Promise<number> {
     fallbackModels: parseFallbackModels(opts.fallbackModels),
     diff,
     prContext: opts.prContext,
+    relatedContext: opts.relatedContext,
     sessionsRoot: opts.sessionsRoot,
     cwd: opts.cwd,
     systemPrompt,
@@ -322,6 +339,7 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
     pr: opts.pr,
     diff,
     prContext: opts.prContext,
+    relatedContext: opts.relatedContext,
     cwd: opts.cwd,
     sessionsRoot: opts.sessionsRoot,
     team: opts.team,
@@ -391,6 +409,20 @@ async function main(): Promise<number> {
     } else {
       process.stderr.write(
         "includePrContext enabled but platform env vars not configured; skipping context fetch\n",
+      );
+    }
+  }
+  // Related-files context: build a reverse-import graph over cwd and surface
+  // the files that import the PR's changed files. Fail-open — any error leaves
+  // relatedContext empty and the reviewer falls back to diff-only.
+  if (opts.includeRelatedContext) {
+    try {
+      const diff = prepareDiff(opts);
+      const changedFiles = [...parseChangedLines(diff).keys()];
+      opts.relatedContext = await buildRelatedContext(changedFiles, opts.cwd);
+    } catch (err: unknown) {
+      process.stderr.write(
+        `related context: failed (${err instanceof Error ? err.message : String(err)}); skipping\n`,
       );
     }
   }
