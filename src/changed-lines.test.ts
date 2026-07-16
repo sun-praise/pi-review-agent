@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseChangedLines } from "./changed-lines.js";
+import { parseChangedLines, listDiffFiles } from "./changed-lines.js";
 
 /** A single-file diff with context, add, and remove lines. */
 const MIXED_DIFF = [
@@ -203,5 +203,37 @@ describe("parseChangedLines", () => {
     ].join("\n");
     const m = parseChangedLines(d);
     assert.ok(m.get("src/foo bar.ts"), "quoted header must yield the spaced path");
+  });
+});
+
+describe("listDiffFiles", () => {
+  it("returns all file paths from diff headers", () => {
+    const d = [
+      "diff --git a/package.json b/package.json",
+      "--- a/package.json",
+      "+++ b/package.json",
+      "@@ -1 +1 @@",
+      '-"old"',
+      '+"new"',
+      "diff --git a/src/foo.ts b/src/foo.ts",
+      "--- a/src/foo.ts",
+      "+++ b/src/foo.ts",
+      "@@ -1 +1 @@",
+      "-old",
+      "+new",
+    ].join("\n");
+    assert.deepEqual(listDiffFiles(d), ["package.json", "src/foo.ts"]);
+  });
+
+  it("returns [] for empty diff", () => {
+    assert.deepEqual(listDiffFiles(""), []);
+  });
+
+  it("includes binary/rename-only sections (no hunks)", () => {
+    const d = [
+      "diff --git a/binary.bin b/binary.bin",
+      "Binary files differ",
+    ].join("\n");
+    assert.deepEqual(listDiffFiles(d), ["binary.bin"]);
   });
 });
