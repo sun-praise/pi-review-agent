@@ -65,14 +65,6 @@ const DYNAMIC_IMPORT = new RegExp(
   "\\bimport\\s*\\(\\s*[\"']((?:\\./|\\.\\./|/)[^\"']+)['\"]\\s*\\)",
 );
 
-/** A relative import specifier extracted from a source file. */
-interface ImportEdge {
-  /** The importing file (repo-relative, normalized). */
-  from: string;
-  /** The specifier as written, e.g. "./foo.js" or "../util". */
-  specifier: string;
-}
-
 /**
  * Resolve an import specifier to the repo-relative path of the file it likely
  * refers to, or null if no candidate exists on disk. TypeScript ESM writes
