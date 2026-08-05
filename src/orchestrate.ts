@@ -45,7 +45,7 @@ export interface TeamReviewOptions {
   sessionsRoot: string;
   /** e.g. "quality:1,security:1,performance:1". Default: all built-ins. */
   team?: string;
-  /** Model id registered in the provider. Default "deepseek-v4-flash". */
+  /** Model id registered in the provider. Default "mimo-v2.5" (action.yml). */
   modelId?: string;
   /**
    * Fallback model ids to try when the primary model fails permanently.

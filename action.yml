@@ -74,17 +74,17 @@ inputs:
     default: ""
   model:
     description: >
-      Model id to request from the endpoint. Defaults to `deepseek-v4-flash`.
+      Model id to request from the endpoint. Defaults to `mimo-v2.5`.
       Change this if your proxy routes a different model name.
     required: false
-    default: "deepseek-v4-flash"
+    default: "mimo-v2.5"
   fallback-models:
     description: >
       Comma-separated fallback model ids to try when the primary model fails
       permanently (non-transient error). Tried in order; first success wins.
-      Default "mimo-v2.5". Set to empty string to disable fallback.
+      Default "deepseek-v4-flash". Set to empty string to disable fallback.
     required: false
-    default: "mimo-v2.5"
+    default: "deepseek-v4-flash"
   sessions-root:
     description: >
       Directory used to persist per-PR review sessions across runs (the
