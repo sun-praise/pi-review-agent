@@ -5,6 +5,26 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Per-role model configuration** (#44): new `coordinator-model` and
+  `verifier-model` inputs (CLI `--coordinator-model` / `--verifier-model`,
+  env `PI_REVIEW_COORDINATOR_MODEL` / `PI_REVIEW_VERIFIER_MODEL`) let the
+  coordinator and LLM verifier run on a stronger model while persona
+  reviewers stay on the cheap `model`. Both default to the `model` input —
+  existing configurations are unchanged. Setting `coordinator-model` while
+  `skip-coordinator: true` logs a warning.
+
+### Fixed
+
+- The provider now registers every model id the run may request (per-role
+  overrides and the whole `fallback-models` chain), not just the primary.
+  Previously fallback attempts failed instantly with "model not found in
+  provider" because pi-ai's `Models.getModel()` is a strict lookup over the
+  registered list.
+
 ## [1.5.0] - 2026-07-16
 
 ### Added

@@ -20,6 +20,7 @@
  */
 import { readFileSync, appendFileSync } from "node:fs";
 import { createLiteLLMDeepSeekProvider } from "./provider.js";
+import { resolveModelIds, DEFAULT_MODEL_ID } from "./model-ids.js";
 import { runReview, type ReviewResult } from "./review.js";
 import { runTeamReview, renderTeamComment, buildSystemPrompt, type TeamReviewResult } from "./orchestrate.js";
 import { loadPersonas } from "./personas.js";
@@ -41,6 +42,10 @@ interface CliOptions {
   baseURL: string;
   sessionsRoot: string;
   modelId: string | undefined;
+  /** Per-role override: coordinator model id. Undefined → fall back to modelId. */
+  coordinatorModelId: string | undefined;
+  /** Per-role override: LLM-verifier model id. Undefined → fall back to modelId. */
+  verifierModelId: string | undefined;
   /** Comma-separated fallback model ids. Example: "gpt-4o,mimo-v2.5". */
   fallbackModels: string | undefined;
   cwd: string;
@@ -115,6 +120,12 @@ function parseArgs(argv: string[]): CliOptions {
     sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
     language: args.language || process.env.PI_REVIEW_LANGUAGE || "zh",
     modelId: args.model || process.env.PI_REVIEW_MODEL,
+    // `|| undefined`: GitHub Actions always injects env vars as strings, so an
+    // unset input arrives as "" — which is NOT nullish and would otherwise
+    // slip past the `??` fallbacks in runTeam as a blank model id.
+    coordinatorModelId:
+      args["coordinator-model"] || process.env.PI_REVIEW_COORDINATOR_MODEL || undefined,
+    verifierModelId: args["verifier-model"] || process.env.PI_REVIEW_VERIFIER_MODEL || undefined,
     fallbackModels: args["fallback-models"] ?? process.env.PI_REVIEW_FALLBACK_MODELS ?? "mimo-v2.5",
     cwd: args.cwd || process.cwd(),
     timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], process.env),
@@ -290,7 +301,17 @@ function writeTeamSummary(result: TeamReviewResult): void {
 }
 
 async function runSingle(opts: CliOptions): Promise<number> {
-  const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
+  const provider = createLiteLLMDeepSeekProvider({
+    baseURL: opts.baseURL,
+    // The primary must be defaulted HERE, not only in runReview: when --model
+    // is unset, runReview still requests deepseek-v4-flash first, and
+    // resolveModelIds only defaults an EMPTY list — fallbacks alone must not
+    // crowd out the primary.
+    modelIds: resolveModelIds([
+      opts.modelId ?? DEFAULT_MODEL_ID,
+      ...parseFallbackModels(opts.fallbackModels),
+    ]),
+  });
   const personaName = opts.persona as string;
   const available = loadPersonas(opts.cwd);
   const persona = available.find((p) => p.name === personaName);
@@ -333,7 +354,27 @@ async function runSingle(opts: CliOptions): Promise<number> {
 
 async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<number> {
   const diff = prepareDiff(opts);
-  const provider = createLiteLLMDeepSeekProvider({ baseURL: opts.baseURL, modelId: opts.modelId });
+  // Per-role resolution: an unset override falls back to the reviewer model —
+  // exactly the pre-per-role behavior (one model for every role).
+  const reviewerModelId = opts.modelId ?? DEFAULT_MODEL_ID;
+  const coordinatorModelId = opts.coordinatorModelId ?? reviewerModelId;
+  const verifierModelId = opts.verifierModelId ?? reviewerModelId;
+  if (opts.skipCoordinator && opts.coordinatorModelId) {
+    process.stderr.write(
+      "coordinator-model is set but skip-coordinator is enabled; the override has no effect\n",
+    );
+  }
+  // Every id any role or fallback may request must be registered on the
+  // provider — pi-ai's getModel() is a strict lookup, unregistered ids throw.
+  const provider = createLiteLLMDeepSeekProvider({
+    baseURL: opts.baseURL,
+    modelIds: resolveModelIds([
+      reviewerModelId,
+      coordinatorModelId,
+      verifierModelId,
+      ...parseFallbackModels(opts.fallbackModels),
+    ]),
+  });
   const result = await runTeamReview({
     provider,
     pr: opts.pr,
@@ -344,6 +385,8 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
     sessionsRoot: opts.sessionsRoot,
     team: opts.team,
     modelId: opts.modelId,
+    coordinatorModelId,
+    verifierModelId,
     fallbackModels: parseFallbackModels(opts.fallbackModels),
     language: opts.language,
     skipCoordinator: opts.skipCoordinator,

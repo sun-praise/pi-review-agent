@@ -85,6 +85,22 @@ inputs:
       Default "mimo-v2.5". Set to empty string to disable fallback.
     required: false
     default: "mimo-v2.5"
+  coordinator-model:
+    description: >
+      Model id for the coordinator synthesis step (team mode only). Empty
+      (default) falls back to the `model` input — the pre-per-role behavior
+      where every role shares one model. Set a stronger model here while
+      reviewers stay on the cheaper `model`.
+    required: false
+    default: ""
+  verifier-model:
+    description: >
+      Model id for the LLM verifier layer (team mode only). Empty (default)
+      falls back to the `model` input. The verifier suppresses hallucinated
+      findings, so it can be upgraded independently of reviewers and
+      coordinator. The rule-layer checks never use a model.
+    required: false
+    default: ""
   sessions-root:
     description: >
       Directory used to persist per-PR review sessions across runs (the
@@ -267,6 +283,8 @@ runs:
         PI_REVIEW_SKIP_COORDINATOR: ${{ inputs.skip-coordinator }}
         PI_REVIEW_MODEL: ${{ inputs.model }}
         PI_REVIEW_FALLBACK_MODELS: ${{ inputs.fallback-models }}
+        PI_REVIEW_COORDINATOR_MODEL: ${{ inputs.coordinator-model }}
+        PI_REVIEW_VERIFIER_MODEL: ${{ inputs.verifier-model }}
         PI_REVIEW_LANGUAGE: ${{ inputs.language }}
         PI_REVIEW_INCLUDE_PR_CONTEXT: ${{ inputs.include-pr-context }}
         PI_REVIEW_SESSIONS_ROOT: ${{ inputs.sessions-root != '' && inputs.sessions-root || format('{0}/.pi-review-sessions', runner.temp) }}
