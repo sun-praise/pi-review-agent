@@ -177883,6 +177883,120 @@ function createLiteLLMDeepSeekProvider(opts) {
   });
 }
 
+// src/parse-args.ts
+function optionalString(argVal, envVal) {
+  for (const val of [argVal, envVal]) {
+    if (val !== void 0 && val.trim()) return val;
+  }
+  return void 0;
+}
+function resolveCostOverrides(raw) {
+  const parsed = parseCostOverrides(raw);
+  if (parsed.ok) return parsed.costs;
+  process.stderr.write(`cost-overrides ignored: ${parsed.error}
+`);
+  return {};
+}
+function parseArgs(argv, env2 = process.env) {
+  const args = {};
+  for (let i2 = 2; i2 < argv.length; i2 += 2) {
+    const k = argv[i2]?.replace(/^--/, "");
+    args[k ?? ""] = argv[i2 + 1] ?? "";
+  }
+  const pr = Number(args.pr || env2.PI_REVIEW_PR || 0);
+  if (!Number.isFinite(pr) || pr <= 0) {
+    throw new Error(`--pr <number> (or PI_REVIEW_PR) required`);
+  }
+  const persona = optionalString(args.persona, env2.PI_REVIEW_PERSONA);
+  const team = optionalString(args.team, env2.PI_REVIEW_TEAM);
+  const skipEnv = env2.PI_REVIEW_SKIP_COORDINATOR;
+  if (!persona && !team) {
+    throw new Error("--persona <name> or --team <spec> required");
+  }
+  const modelRaw = args.model !== void 0 ? args.model : env2.PI_REVIEW_MODEL;
+  if (modelRaw !== void 0 && !modelRaw.trim()) {
+    throw new Error("--model (or PI_REVIEW_MODEL) must not be empty \u2014 unset it to use the default model");
+  }
+  return {
+    pr,
+    diffFile: optionalString(args["diff-file"], env2.PI_REVIEW_DIFF_FILE),
+    diffInline: optionalString(void 0, env2.PI_REVIEW_DIFF),
+    persona,
+    team,
+    skipCoordinator: skipEnv === "1" || skipEnv?.toLowerCase() === "true" || args["skip-coordinator"] === "true",
+    baseURL: optionalString(args["base-url"], env2.LITELLM_BASE_URL) ?? "https://llm.sun-praise.com",
+    sessionsRoot: optionalString(args["sessions-root"], env2.PI_REVIEW_SESSIONS_ROOT) ?? "./sessions",
+    language: optionalString(args.language, env2.PI_REVIEW_LANGUAGE) ?? "zh",
+    modelId: optionalString(args.model, env2.PI_REVIEW_MODEL),
+    coordinatorModelId: optionalString(
+      args["coordinator-model"],
+      env2.PI_REVIEW_COORDINATOR_MODEL
+    ),
+    verifierModelId: optionalString(args["verifier-model"], env2.PI_REVIEW_VERIFIER_MODEL),
+    costByModel: resolveCostOverrides(args["cost-overrides"] ?? env2.PI_REVIEW_COST_OVERRIDES),
+    // "" is meaningful here (disable the fallback chain) — NOT normalized.
+    fallbackModels: args["fallback-models"] ?? env2.PI_REVIEW_FALLBACK_MODELS ?? "mimo-v2.5",
+    cwd: args.cwd?.trim() ? args.cwd : process.cwd(),
+    timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], env2),
+    maxAttempts: intEnv(args["max-attempts"], env2.PI_REVIEW_MAX_ATTEMPTS, 3),
+    retryBackoffMs: intEnv(args["retry-backoff-ms"], env2.PI_REVIEW_RETRY_BACKOFF_MS, 1e3),
+    diffExclude: (optionalString(args["diff-exclude"], env2.PI_REVIEW_DIFF_EXCLUDE) ?? "").split(",").map((s2) => s2.trim()).filter(Boolean),
+    diffMaxSizeKb: intEnv(args["diff-max-size-kb"], env2.PI_REVIEW_DIFF_MAX_SIZE_KB, 200),
+    // Negated-regex booleans MUST go through optionalString: GH's ""-injection
+    // is not nullish, and "" matches neither the falsy pattern nor anything
+    // else — without normalization an unset input inverts the documented
+    // default ("" → !falsy-match → true). Found by dogfood review on this PR.
+    diffIncludeBuildArtifacts: !/^(0|false|no|off)$/i.test(
+      optionalString(args["diff-include-build-artifacts"], env2.PI_REVIEW_DIFF_INCLUDE_BUILD_ARTIFACTS) ?? "false"
+    ),
+    failOnSeverity: parseFailMode(
+      optionalString(args["fail-on-severity"], env2.PI_REVIEW_FAIL_ON_SEVERITY) ?? "none"
+    ),
+    includePrContext: !/^(0|false|no|off)$/i.test(
+      optionalString(args["include-pr-context"], env2.PI_REVIEW_INCLUDE_PR_CONTEXT) ?? "true"
+    ),
+    prContext: "",
+    // Related context is on by default; flip via --skip-related-context or env.
+    // Uses the "1"/"true" truthiness convention (like skip-coordinator) so a
+    // literal "false" string from action.yml doesn't accidentally disable it.
+    includeRelatedContext: !isTruthyFlag(
+      args["skip-related-context"],
+      env2.PI_REVIEW_SKIP_RELATED_CONTEXT
+    ),
+    relatedContext: "",
+    platform: optionalString(args.platform, env2.PI_REVIEW_PLATFORM),
+    styleGuide: optionalString(args["style-guide"], env2.PI_REVIEW_STYLE_GUIDE),
+    skipVerify: isTruthyFlag(args["skip-verify"], env2.PI_REVIEW_SKIP_VERIFY),
+    skipLlmVerify: isTruthyFlag(args["skip-llm-verify"], env2.PI_REVIEW_SKIP_LLM_VERIFY)
+  };
+}
+function isTruthyFlag(argVal, envVal) {
+  const raw = argVal ?? envVal;
+  return raw === "1" || raw?.toLowerCase() === "true";
+}
+function intEnv(argVal, envVal, fallback) {
+  const raw = argVal || envVal;
+  if (raw === void 0 || raw === "") return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+function resolveTimeoutMs(secArg, msArg, env2) {
+  const secRaw = secArg || env2.PI_REVIEW_TIMEOUT_SECONDS;
+  if (secRaw !== void 0 && secRaw !== "") {
+    const sec = Number(secRaw);
+    if (Number.isFinite(sec) && sec >= 0) return Math.round(sec * 1e3);
+  }
+  const msRaw = msArg || env2.PI_REVIEW_TIMEOUT_MS;
+  if (msRaw !== void 0 && msRaw !== "") {
+    const ms = Number(msRaw);
+    if (Number.isFinite(ms) && ms >= 0) return ms;
+  }
+  return 6e5;
+}
+function parseFailMode(raw) {
+  return raw === "blocking" || raw === "warning" ? raw : "none";
+}
+
 // src/review.ts
 var import_node_fs2 = require("fs");
 var import_node_path4 = __toESM(require("path"), 1);
@@ -181560,111 +181674,6 @@ async function buildRelatedContext(changedFiles, cwd, opts) {
 }
 
 // src/index.ts
-function resolveCostOverrides(raw) {
-  const parsed = parseCostOverrides(raw);
-  if (parsed.ok) return parsed.costs;
-  process.stderr.write(`cost-overrides ignored: ${parsed.error}
-`);
-  return {};
-}
-function parseArgs(argv) {
-  const args = {};
-  for (let i2 = 2; i2 < argv.length; i2 += 2) {
-    const k = argv[i2]?.replace(/^--/, "");
-    args[k ?? ""] = argv[i2 + 1] ?? "";
-  }
-  const pr = Number(args.pr || process.env.PI_REVIEW_PR || 0);
-  if (!Number.isFinite(pr) || pr <= 0) {
-    throw new Error(`--pr <number> (or PI_REVIEW_PR) required`);
-  }
-  const persona = args.persona || process.env.PI_REVIEW_PERSONA;
-  const team = args.team || process.env.PI_REVIEW_TEAM;
-  const skipEnv = process.env.PI_REVIEW_SKIP_COORDINATOR;
-  if (!persona && !team) {
-    throw new Error("--persona <name> or --team <spec> required");
-  }
-  return {
-    pr,
-    diffFile: args["diff-file"] || process.env.PI_REVIEW_DIFF_FILE,
-    diffInline: process.env.PI_REVIEW_DIFF,
-    persona,
-    team,
-    skipCoordinator: skipEnv === "1" || skipEnv?.toLowerCase() === "true" || args["skip-coordinator"] === "true",
-    baseURL: args["base-url"] || process.env.LITELLM_BASE_URL || "https://llm.sun-praise.com",
-    sessionsRoot: args["sessions-root"] || process.env.PI_REVIEW_SESSIONS_ROOT || "./sessions",
-    language: args.language || process.env.PI_REVIEW_LANGUAGE || "zh",
-    modelId: args.model || process.env.PI_REVIEW_MODEL,
-    // `|| undefined`: GitHub Actions always injects env vars as strings, so an
-    // unset input arrives as "" — which is NOT nullish and would otherwise
-    // slip past the `??` fallbacks in runTeam as a blank model id.
-    coordinatorModelId: args["coordinator-model"] || process.env.PI_REVIEW_COORDINATOR_MODEL || void 0,
-    verifierModelId: args["verifier-model"] || process.env.PI_REVIEW_VERIFIER_MODEL || void 0,
-    costByModel: resolveCostOverrides(args["cost-overrides"] ?? process.env.PI_REVIEW_COST_OVERRIDES),
-    fallbackModels: args["fallback-models"] ?? process.env.PI_REVIEW_FALLBACK_MODELS ?? "mimo-v2.5",
-    cwd: args.cwd || process.cwd(),
-    timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], process.env),
-    maxAttempts: intEnv(args["max-attempts"], process.env.PI_REVIEW_MAX_ATTEMPTS, 3),
-    retryBackoffMs: intEnv(
-      args["retry-backoff-ms"],
-      process.env.PI_REVIEW_RETRY_BACKOFF_MS,
-      1e3
-    ),
-    diffExclude: (args["diff-exclude"] || process.env.PI_REVIEW_DIFF_EXCLUDE || "").split(",").map((s2) => s2.trim()).filter(Boolean),
-    diffMaxSizeKb: intEnv(
-      args["diff-max-size-kb"],
-      process.env.PI_REVIEW_DIFF_MAX_SIZE_KB,
-      200
-    ),
-    diffIncludeBuildArtifacts: !/^(0|false|no|off)$/i.test(
-      args["diff-include-build-artifacts"] ?? process.env.PI_REVIEW_DIFF_INCLUDE_BUILD_ARTIFACTS ?? "false"
-    ),
-    failOnSeverity: parseFailMode(
-      args["fail-on-severity"] || process.env.PI_REVIEW_FAIL_ON_SEVERITY || "none"
-    ),
-    includePrContext: !/^(0|false|no|off)$/i.test(
-      args["include-pr-context"] ?? process.env.PI_REVIEW_INCLUDE_PR_CONTEXT ?? "true"
-    ),
-    prContext: "",
-    // Related context is on by default; flip via --skip-related-context or env.
-    // Uses the "1"/"true" truthiness convention (like skip-coordinator) so a
-    // literal "false" string from action.yml doesn't accidentally disable it.
-    includeRelatedContext: !isTruthyFlag(
-      args["skip-related-context"],
-      process.env.PI_REVIEW_SKIP_RELATED_CONTEXT
-    ),
-    relatedContext: "",
-    platform: args.platform || process.env.PI_REVIEW_PLATFORM,
-    styleGuide: args["style-guide"] || process.env.PI_REVIEW_STYLE_GUIDE,
-    skipVerify: isTruthyFlag(args["skip-verify"], process.env.PI_REVIEW_SKIP_VERIFY),
-    skipLlmVerify: isTruthyFlag(args["skip-llm-verify"], process.env.PI_REVIEW_SKIP_LLM_VERIFY)
-  };
-}
-function isTruthyFlag(argVal, envVal) {
-  const raw = argVal ?? envVal;
-  return raw === "1" || raw?.toLowerCase() === "true";
-}
-function intEnv(argVal, envVal, fallback) {
-  const raw = argVal || envVal;
-  if (raw === void 0 || raw === "") return fallback;
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 ? n : fallback;
-}
-function resolveTimeoutMs(secArg, msArg, env2) {
-  const secRaw = secArg || env2.PI_REVIEW_TIMEOUT_SECONDS;
-  if (secRaw !== void 0 && secRaw !== "") {
-    const sec = Number(secRaw);
-    if (Number.isFinite(sec) && sec >= 0) return Math.round(sec * 1e3);
-  }
-  const msRaw = msArg || env2.PI_REVIEW_TIMEOUT_MS;
-  if (msRaw !== void 0 && msRaw !== "") {
-    const ms = Number(msRaw);
-    if (Number.isFinite(ms) && ms >= 0) return ms;
-  }
-  return 6e5;
-}
-function parseFailMode(raw) {
-  return raw === "blocking" || raw === "warning" ? raw : "none";
-}
 function loadDiff(opts) {
   if (opts.diffInline) return opts.diffInline;
   if (opts.diffFile) return (0, import_node_fs7.readFileSync)(opts.diffFile, "utf8");
