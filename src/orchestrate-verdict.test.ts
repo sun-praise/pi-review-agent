@@ -30,6 +30,8 @@ mock.module("./review.js", {
   },
 });
 
+
+
 async function runTeamVerdict(): Promise<string> {
   const { runTeamReview } = await import("./orchestrate.js");
   const result = await runTeamReview({
@@ -42,6 +44,41 @@ async function runTeamVerdict(): Promise<string> {
   });
   return result.verdict;
 }
+
+describe("resolveVerdict <verdict> tag (authoritative)", () => {
+  it("tag wins over keyword noise anywhere in prose — incl. quoted code at later offsets", async () => {
+    // Repro from PR #54's own dogfood run: the coordinator's inline-comments
+    // JSON quoted a code comment containing all three keywords, and the LAST
+    // occurrence (inside that quote, offset 1864) beat the verdict itself
+    // (offset 1836). The tag ends the ambiguity.
+    coordinatorContent = [
+      "I have all the information I need to synthesize the verdict.",
+      "",
+      "CAN MERGE",
+      "",
+      "<inline_comments>",
+      "```json",
+      "[]",
+      "```",
+      "</inline_comments>",
+      "",
+      'Note: the comment "CAN MERGE is not a substring of CONDITIONAL MERGE / CANNOT MERGE" explains the scans.',
+      "",
+      "<verdict>CAN MERGE</verdict>",
+    ].join("\n");
+    assert.equal(await runTeamVerdict(), "CAN MERGE");
+  });
+
+  it("tag is matched case-insensitively and tolerates surrounding whitespace", async () => {
+    coordinatorContent = "Prose opening without keywords.\n\n<verdict>  cannot merge  </verdict>";
+    assert.equal(await runTeamVerdict(), "CANNOT MERGE");
+  });
+
+  it("tag overrides even the first-line keyword when they disagree", async () => {
+    coordinatorContent = "CONDITIONAL MERGE\n\n<verdict>CAN MERGE</verdict>";
+    assert.equal(await runTeamVerdict(), "CAN MERGE");
+  });
+});
 
 describe("resolveVerdict full-text fallback (last occurrence wins)", () => {
   it("a persona verdict quoted mid-body does not outrank the coordinator's concluding verdict", async () => {

@@ -181124,6 +181124,16 @@ var COORDINATOR_PROMPT = [
   "- Then 'Warnings' (merged + deduped)",
   "- Then 'Suggestions' (merged + deduped)",
   "",
+  "Finally, end the report with a machine-readable verdict tag on its own",
+  "line \u2014 this tag is parsed by automation and is the AUTHORITATIVE",
+  "verdict; the prose first line is for humans. The tag must be exactly",
+  "one of (uppercase, English, never translated):",
+  "",
+  "<verdict>CAN MERGE</verdict>",
+  "",
+  "This matters because your prose may legitimately quote or discuss the",
+  "verdict keywords (reviewer quotes, code under review, explanations);",
+  "the tag disambiguates which one is your actual decision.",
   "Then append an optional <inline_comments> block with structured,",
   "line-pinned findings for the GitHub Reviews API. Format:",
   "",
@@ -181163,6 +181173,13 @@ function extractVerdict(text) {
 }
 function resolveVerdict(coordinator, personas) {
   if (coordinator) {
+    const tag = coordinator.content.match(
+      /<verdict>\s*(CAN MERGE|CONDITIONAL MERGE|CANNOT MERGE)\s*<\/verdict>/i
+    );
+    const tagged = tag?.[1]?.toUpperCase();
+    if (tagged === "CANNOT MERGE" || tagged === "CONDITIONAL MERGE" || tagged === "CAN MERGE") {
+      return tagged;
+    }
     const fromFirst = extractVerdict(coordinator.content);
     if (fromFirst !== "UNKNOWN") return fromFirst;
     const upper = coordinator.content.toUpperCase();
