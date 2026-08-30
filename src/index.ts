@@ -21,6 +21,7 @@
 import { readFileSync, appendFileSync } from "node:fs";
 import { createLiteLLMDeepSeekProvider } from "./provider.js";
 import { resolveModelIds, DEFAULT_MODEL_ID } from "./model-ids.js";
+import { parseCostOverrides, type ModelCostTable } from "./model-cost.js";
 import { runReview, type ReviewResult } from "./review.js";
 import { runTeamReview, renderTeamComment, buildSystemPrompt, type TeamReviewResult } from "./orchestrate.js";
 import { loadPersonas } from "./personas.js";
@@ -48,6 +49,10 @@ interface CliOptions {
   verifierModelId: string | undefined;
   /** Comma-separated fallback model ids. Example: "gpt-4o,mimo-v2.5". */
   fallbackModels: string | undefined;
+  /** Parsed per-id cost tables from --cost-overrides / PI_REVIEW_COST_OVERRIDES.
+   *  Empty map = all ids billed at the DeepSeek default estimate. Invalid
+   *  input warns on stderr and degrades to the default (never fails a run). */
+  costByModel: Record<string, ModelCostTable>;
   cwd: string;
   /** Output language for review prose. Default "zh" (中文). */
   language: string;
@@ -89,6 +94,16 @@ interface CliOptions {
   skipLlmVerify: boolean;
 }
 
+/** Parse --cost-overrides JSON into per-id cost tables; warn and degrade to
+ *  an empty map on invalid input so a bad cost config never fails a run —
+ *  summaries just fall back to the DeepSeek default estimate. */
+function resolveCostOverrides(raw: string | undefined): Record<string, ModelCostTable> {
+  const parsed = parseCostOverrides(raw);
+  if (parsed.ok) return parsed.costs;
+  process.stderr.write(`cost-overrides ignored: ${parsed.error}\n`);
+  return {};
+}
+
 function parseArgs(argv: string[]): CliOptions {
   const args: Record<string, string> = {};
   for (let i = 2; i < argv.length; i += 2) {
@@ -126,6 +141,7 @@ function parseArgs(argv: string[]): CliOptions {
     coordinatorModelId:
       args["coordinator-model"] || process.env.PI_REVIEW_COORDINATOR_MODEL || undefined,
     verifierModelId: args["verifier-model"] || process.env.PI_REVIEW_VERIFIER_MODEL || undefined,
+    costByModel: resolveCostOverrides(args["cost-overrides"] ?? process.env.PI_REVIEW_COST_OVERRIDES),
     fallbackModels: args["fallback-models"] ?? process.env.PI_REVIEW_FALLBACK_MODELS ?? "mimo-v2.5",
     cwd: args.cwd || process.cwd(),
     timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], process.env),
@@ -311,6 +327,7 @@ async function runSingle(opts: CliOptions): Promise<number> {
       opts.modelId ?? DEFAULT_MODEL_ID,
       ...parseFallbackModels(opts.fallbackModels),
     ]),
+    costByModel: opts.costByModel,
   });
   const personaName = opts.persona as string;
   const available = loadPersonas(opts.cwd);
@@ -374,6 +391,7 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
       verifierModelId,
       ...parseFallbackModels(opts.fallbackModels),
     ]),
+    costByModel: opts.costByModel,
   });
   const result = await runTeamReview({
     provider,

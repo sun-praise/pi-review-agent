@@ -177789,6 +177789,58 @@ function resolveModelIds(ids) {
   return unique.length > 0 ? unique : [DEFAULT_MODEL_ID];
 }
 
+// src/model-cost.ts
+var DEFAULT_DEEPSEEK_COST = {
+  input: 0.14,
+  output: 0.28,
+  cacheRead: 28e-4,
+  cacheWrite: 0
+};
+function isValidPrice(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+function parseCostOverrides(raw) {
+  if (!raw || !raw.trim()) return { ok: true, costs: {} };
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err2) {
+    return { ok: false, error: `invalid JSON (${err2 instanceof Error ? err2.message : String(err2)})` };
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return { ok: false, error: "top-level value must be a JSON object keyed by model id" };
+  }
+  const costs = {};
+  for (const [id, value] of Object.entries(parsed)) {
+    if (id === "__proto__" || id === "constructor" || id === "prototype") {
+      return { ok: false, error: `key "${id}" is not a valid model id` };
+    }
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return { ok: false, error: `entry "${id}" must be an object` };
+    }
+    const entry = value;
+    if (!isValidPrice(entry.input) || !isValidPrice(entry.output)) {
+      return {
+        ok: false,
+        error: `entry "${id}" requires finite non-negative "input" and "output"`
+      };
+    }
+    if (entry.cacheRead !== void 0 && !isValidPrice(entry.cacheRead) || entry.cacheWrite !== void 0 && !isValidPrice(entry.cacheWrite)) {
+      return {
+        ok: false,
+        error: `entry "${id}": "cacheRead"/"cacheWrite" must be finite non-negative numbers`
+      };
+    }
+    costs[id] = {
+      input: entry.input,
+      output: entry.output,
+      cacheRead: typeof entry.cacheRead === "number" ? entry.cacheRead : 0,
+      cacheWrite: typeof entry.cacheWrite === "number" ? entry.cacheWrite : 0
+    };
+  }
+  return { ok: true, costs };
+}
+
 // src/provider.ts
 function createLiteLLMDeepSeekProvider(opts) {
   const id = opts.id ?? "litellm-deepseek";
@@ -177821,14 +177873,9 @@ function createLiteLLMDeepSeekProvider(opts) {
         xhigh: "max"
       },
       input: ["text"],
-      // DeepSeek public pricing (USD per 1M tokens).
-      // cacheRead is the discounted rate for cache-hit input.
-      cost: {
-        input: 0.14,
-        output: 0.28,
-        cacheRead: 28e-4,
-        cacheWrite: 0
-      },
+      // Cost: per-id override if provided, else the DeepSeek-flash estimate
+      // (model-cost.ts is the single source for the default table).
+      cost: opts.costByModel?.[mid] ?? DEFAULT_DEEPSEEK_COST,
       contextWindow: 1e6,
       maxTokens: 384e3
     })),
@@ -181513,6 +181560,13 @@ async function buildRelatedContext(changedFiles, cwd, opts) {
 }
 
 // src/index.ts
+function resolveCostOverrides(raw) {
+  const parsed = parseCostOverrides(raw);
+  if (parsed.ok) return parsed.costs;
+  process.stderr.write(`cost-overrides ignored: ${parsed.error}
+`);
+  return {};
+}
 function parseArgs(argv) {
   const args = {};
   for (let i2 = 2; i2 < argv.length; i2 += 2) {
@@ -181545,6 +181599,7 @@ function parseArgs(argv) {
     // slip past the `??` fallbacks in runTeam as a blank model id.
     coordinatorModelId: args["coordinator-model"] || process.env.PI_REVIEW_COORDINATOR_MODEL || void 0,
     verifierModelId: args["verifier-model"] || process.env.PI_REVIEW_VERIFIER_MODEL || void 0,
+    costByModel: resolveCostOverrides(args["cost-overrides"] ?? process.env.PI_REVIEW_COST_OVERRIDES),
     fallbackModels: args["fallback-models"] ?? process.env.PI_REVIEW_FALLBACK_MODELS ?? "mimo-v2.5",
     cwd: args.cwd || process.cwd(),
     timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], process.env),
@@ -181702,7 +181757,8 @@ async function runSingle(opts) {
     modelIds: resolveModelIds([
       opts.modelId ?? DEFAULT_MODEL_ID,
       ...parseFallbackModels(opts.fallbackModels)
-    ])
+    ]),
+    costByModel: opts.costByModel
   });
   const personaName = opts.persona;
   const available = loadPersonas(opts.cwd);
@@ -181762,7 +181818,8 @@ async function runTeam(opts, adapter) {
       coordinatorModelId,
       verifierModelId,
       ...parseFallbackModels(opts.fallbackModels)
-    ])
+    ]),
+    costByModel: opts.costByModel
   });
   const result = await runTeamReview({
     provider,

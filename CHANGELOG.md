@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reviewers stay on the cheap `model`. Both default to the `model` input —
   existing configurations are unchanged. Setting `coordinator-model` while
   `skip-coordinator: true` logs a warning.
+- **Per-model cost tables** (#47): new `cost-overrides` input (CLI
+  `--cost-overrides`, env `PI_REVIEW_COST_OVERRIDES`) takes a JSON object
+  mapping model ids to real prices (USD per 1M tokens). Without overrides
+  every model id is billed in summaries at DeepSeek-flash rates; with
+  per-role models (#44) that estimate is now explicitly configurable.
+  Example: `{"glm-5.3": {"input": 0.6, "output": 2.2, "cacheRead": 0.1}}`.
+  Invalid JSON is ignored with a stderr warning, never failing a run.
 
 ### Fixed
 
