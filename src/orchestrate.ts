@@ -48,6 +48,18 @@ export interface TeamReviewOptions {
   /** Model id registered in the provider. Default "deepseek-v4-flash". */
   modelId?: string;
   /**
+   * Model id for the coordinator synthesis step. Default: fall back to
+   * `modelId` (the pre-per-role behavior — one model for every role).
+   * Lets the coordinator run on a stronger model while reviewers stay cheap.
+   */
+  coordinatorModelId?: string;
+  /**
+   * Model id for the LLM verifier layer. Default: fall back to `modelId`.
+   * The verifier's quality drives hallucination suppression, so it can be
+   * upgraded independently of both reviewers and coordinator.
+   */
+  verifierModelId?: string;
+  /**
    * Fallback model ids to try when the primary model fails permanently.
    * Passed through to every reviewer + coordinator. Example: ["gpt-4o", "mimo-v2.5"].
    */
@@ -276,7 +288,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
         provider: opts.provider,
         pr: opts.pr,
         persona: coord.name,
-        modelId: opts.modelId,
+        modelId: opts.coordinatorModelId ?? opts.modelId,
         fallbackModels: opts.fallbackModels,
         diff: input,
         sessionsRoot: opts.sessionsRoot,
@@ -358,7 +370,10 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
     const { buildVerifierAgent } = await import("./verifier-agent.js");
     const llmVerify = opts.skipLlmVerify
       ? undefined
-      : buildVerifierAgent(opts.provider, { cwd: opts.cwd, modelId: opts.modelId });
+      : buildVerifierAgent(opts.provider, {
+          cwd: opts.cwd,
+          modelId: opts.verifierModelId ?? opts.modelId,
+        });
     try {
       const v = await verifyInlineComments(rawComments, {
         cwd: opts.cwd,

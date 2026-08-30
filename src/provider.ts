@@ -1,5 +1,6 @@
 import { createProvider, envApiKeyAuth, type Provider } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
+import { resolveModelIds } from "./model-ids.js";
 
 /**
  * Provider config for LiteLLM proxying a DeepSeek-shaped model.
@@ -31,11 +32,17 @@ export interface LiteLLMProviderOptions {
   /** Provider id used as the Models-layer lookup key. */
   id?: string;
   /**
-   * Model id to request from the endpoint. Default "deepseek-v4-flash".
-   * Cost/compat stay DeepSeek-shaped; only the id changes (works for any
-   * deepseek-* model behind the same litellm proxy).
+   * Every model id to register under this provider, deduped in order. The
+   * first entry is the primary reviewer model; later entries cover per-role
+   * overrides (coordinator/verifier) and the fallback chain. Every id that
+   * runReview/runModelAttempt may request MUST be listed here — pi-ai's
+   * Models.getModel() is a strict find over this list and returns undefined
+   * for unregistered ids. Default ["deepseek-v4-flash"].
+   *
+   * Cost/compat stay DeepSeek-shaped for all entries; only the ids change
+   * (works for any deepseek-* model behind the same litellm proxy).
    */
-  modelId?: string;
+  modelIds?: string[];
 }
 
 export function createLiteLLMDeepSeekProvider(
@@ -43,7 +50,7 @@ export function createLiteLLMDeepSeekProvider(
 ): Provider<"openai-completions"> {
   const id = opts.id ?? "litellm-deepseek";
   const envVar = opts.envVar ?? "LITELLM_API_KEY";
-  const modelId = opts.modelId ?? "deepseek-v4-flash";
+  const modelIds = resolveModelIds(opts.modelIds ?? []);
   // Accept baseURL with or without trailing /v1. The OpenAI SDK appends
   // /chat/completions, so litellm expects the /v1 prefix here. Normalize once.
   const baseURL = opts.baseURL.endsWith("/v1")
@@ -55,40 +62,38 @@ export function createLiteLLMDeepSeekProvider(
     name: `LiteLLM DeepSeek (${id})`,
     baseUrl: baseURL,
     auth: { apiKey: envApiKeyAuth("LiteLLM API key", [envVar]) },
-    models: [
-      {
-        id: modelId,
-        name: modelId,
-        api: "openai-completions",
-        provider: id,
-        baseUrl: baseURL,
-        compat: {
-          supportsStore: false,
-          supportsDeveloperRole: false,
-          requiresReasoningContentOnAssistantMessages: true,
-          thinkingFormat: "deepseek",
-        },
-        reasoning: true,
-        thinkingLevelMap: {
-          minimal: null,
-          low: null,
-          medium: null,
-          high: "high",
-          xhigh: "max",
-        },
-        input: ["text"],
-        // DeepSeek public pricing (USD per 1M tokens).
-        // cacheRead is the discounted rate for cache-hit input.
-        cost: {
-          input: 0.14,
-          output: 0.28,
-          cacheRead: 0.0028,
-          cacheWrite: 0,
-        },
-        contextWindow: 1_000_000,
-        maxTokens: 384_000,
+    models: modelIds.map((mid) => ({
+      id: mid,
+      name: mid,
+      api: "openai-completions",
+      provider: id,
+      baseUrl: baseURL,
+      compat: {
+        supportsStore: false,
+        supportsDeveloperRole: false,
+        requiresReasoningContentOnAssistantMessages: true,
+        thinkingFormat: "deepseek",
       },
-    ],
+      reasoning: true,
+      thinkingLevelMap: {
+        minimal: null,
+        low: null,
+        medium: null,
+        high: "high",
+        xhigh: "max",
+      },
+      input: ["text"],
+      // DeepSeek public pricing (USD per 1M tokens).
+      // cacheRead is the discounted rate for cache-hit input.
+      cost: {
+        input: 0.14,
+        output: 0.28,
+        cacheRead: 0.0028,
+        cacheWrite: 0,
+      },
+      contextWindow: 1_000_000,
+      maxTokens: 384_000,
+    })),
     api: openAICompletionsApi(),
   });
 }
