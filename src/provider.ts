@@ -1,6 +1,7 @@
 import { createProvider, envApiKeyAuth, type Provider } from "@earendil-works/pi-ai";
 import { openAICompletionsApi } from "@earendil-works/pi-ai/api/openai-completions.lazy";
 import { resolveModelIds } from "./model-ids.js";
+import { DEFAULT_DEEPSEEK_COST, type ModelCostTable } from "./model-cost.js";
 
 /**
  * Provider config for LiteLLM proxying a DeepSeek-shaped model.
@@ -43,6 +44,13 @@ export interface LiteLLMProviderOptions {
    * (works for any deepseek-* model behind the same litellm proxy).
    */
   modelIds?: string[];
+  /**
+   * Real price tables for non-DeepSeek ids (USD per 1M tokens), keyed by
+   * model id — without them every id is billed in summaries at DeepSeek-flash
+   * rates (#47). Overrides replace the default table wholesale; ids without
+   * an entry keep the DeepSeek estimate. See model-cost.ts for parsing.
+   */
+  costByModel?: Record<string, ModelCostTable>;
 }
 
 export function createLiteLLMDeepSeekProvider(
@@ -83,14 +91,9 @@ export function createLiteLLMDeepSeekProvider(
         xhigh: "max",
       },
       input: ["text"],
-      // DeepSeek public pricing (USD per 1M tokens).
-      // cacheRead is the discounted rate for cache-hit input.
-      cost: {
-        input: 0.14,
-        output: 0.28,
-        cacheRead: 0.0028,
-        cacheWrite: 0,
-      },
+      // Cost: per-id override if provided, else the DeepSeek-flash estimate
+      // (model-cost.ts is the single source for the default table).
+      cost: opts.costByModel?.[mid] ?? DEFAULT_DEEPSEEK_COST,
       contextWindow: 1_000_000,
       maxTokens: 384_000,
     })),
