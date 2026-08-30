@@ -183,12 +183,19 @@ function extractVerdict(text: string): TeamReviewResult["verdict"] {
 /**
  * Verdict resolution with fallback chain:
  *   1. coordinator first line (canonical)
- *   2. coordinator full text (model sometimes puts verdict mid-body)
+ *   2. coordinator full text — the LAST keyword occurrence wins (models open
+ *      with prose, quote persona verdicts mid-body, and conclude at the end)
  *   3. persona majority vote, broken by severity (CANNOT > CONDITIONAL > CAN)
  *   4. UNKNOWN
  *
- * Severity-precedence tiebreak: if reviewers split, we trust the most cautious
- * real finding rather than reporting we couldn't tell.
+ * Severity-precedence tiebreak for PERSONA votes: if reviewers split, we trust
+ * the most cautious real finding rather than reporting we couldn't tell.
+ *
+ * The fallback used to scan by severity order (CANNOT before CONDITIONAL
+ * before CAN), so a persona verdict QUOTED early in the coordinator's prose
+ * outranked its own concluding verdict — a coordinator that wrote
+ * `quality: CONDITIONAL MERGE ... Synthesis: CAN MERGE` rendered as
+ * CONDITIONAL MERGE (seen on the dogfood run of sun-praise PR #52).
  */
 function resolveVerdict(
   coordinator: ReviewResult | null,
@@ -198,9 +205,21 @@ function resolveVerdict(
     const fromFirst = extractVerdict(coordinator.content);
     if (fromFirst !== "UNKNOWN") return fromFirst;
     const upper = coordinator.content.toUpperCase();
-    if (upper.includes("CANNOT MERGE")) return "CANNOT MERGE";
-    if (upper.includes("CONDITIONAL MERGE")) return "CONDITIONAL MERGE";
-    if (upper.includes("CAN MERGE")) return "CAN MERGE";
+    // "CAN MERGE" is not a substring of "CANNOT MERGE"/"CONDITIONAL MERGE",
+    // so the three scans don't interfere.
+    const idxCannot = upper.lastIndexOf("CANNOT MERGE");
+    const idxConditional = upper.lastIndexOf("CONDITIONAL MERGE");
+    const idxCan = upper.lastIndexOf("CAN MERGE");
+    const last = Math.max(idxCannot, idxConditional, idxCan);
+    if (last < 0) {
+      // No keyword anywhere — fall through to the persona vote.
+    } else if (last === idxCannot) {
+      return "CANNOT MERGE";
+    } else if (last === idxConditional) {
+      return "CONDITIONAL MERGE";
+    } else {
+      return "CAN MERGE";
+    }
   }
   const severity: Record<TeamReviewResult["verdict"], number> = {
     "CANNOT MERGE": 3,
