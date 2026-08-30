@@ -176832,7 +176832,7 @@ var init_tools = __esm({
   "src/tools.ts"() {
     "use strict";
     import_promises3 = require("fs/promises");
-    import_node_path2 = __toESM(require("path"));
+    import_node_path2 = __toESM(require("path"), 1);
     init_build();
     readFileSchema = typebox_exports.Object({
       path: typebox_exports.String({ description: "Repository-relative path to read. Must stay inside the repo." }),
@@ -176923,7 +176923,7 @@ var init_walk_grep = __esm({
   "src/walk-grep.ts"() {
     "use strict";
     import_promises4 = require("fs/promises");
-    import_node_path3 = __toESM(require("path"));
+    import_node_path3 = __toESM(require("path"), 1);
     IGNORE = {
       node_modules: true,
       ".git": true,
@@ -177838,7 +177838,7 @@ function createLiteLLMDeepSeekProvider(opts) {
 
 // src/review.ts
 var import_node_fs2 = require("fs");
-var import_node_path4 = __toESM(require("path"));
+var import_node_path4 = __toESM(require("path"), 1);
 init_dist3();
 init_dist();
 init_tools();
@@ -178066,7 +178066,7 @@ ${errors.join("\n")}`);
 
 // src/orchestrate.ts
 var import_node_fs6 = require("fs");
-var import_node_path8 = __toESM(require("path"));
+var import_node_path8 = __toESM(require("path"), 1);
 
 // ../../node_modules/js-yaml/dist/js-yaml.mjs
 var NOT_RESOLVED = /* @__PURE__ */ Symbol("NOT_RESOLVED");
@@ -180283,7 +180283,7 @@ var DEFAULT_DUMP_OPTIONS = {
 
 // src/personas.ts
 var import_node_fs3 = require("fs");
-var import_node_path5 = __toESM(require("path"));
+var import_node_path5 = __toESM(require("path"), 1);
 var DECISION_RULES = [
   "Decision rules:",
   "- Use 'CAN MERGE' only when there are no blocking issues.",
@@ -180448,7 +180448,7 @@ function resolveTeam(spec, available) {
 
 // src/style-guide.ts
 var import_node_fs4 = require("fs");
-var import_node_path6 = __toESM(require("path"));
+var import_node_path6 = __toESM(require("path"), 1);
 var DEFAULT_STYLE_GUIDE_PATHS = [
   "STYLE_GUIDE.md",
   ".github/STYLE_GUIDE.md",
@@ -180803,7 +180803,7 @@ function ensureEntry(map2, path12) {
 
 // src/verifier.ts
 var import_node_fs5 = require("fs");
-var import_node_path7 = __toESM(require("path"));
+var import_node_path7 = __toESM(require("path"), 1);
 async function verifyInlineComments(comments, opts) {
   const existsCache = /* @__PURE__ */ new Map();
   const afterRules = await Promise.all(
@@ -181326,7 +181326,7 @@ function parseFallbackModels(raw) {
 
 // src/related-context.ts
 var import_promises5 = require("fs/promises");
-var import_node_path9 = __toESM(require("path"));
+var import_node_path9 = __toESM(require("path"), 1);
 var IGNORE2 = {
   node_modules: true,
   ".git": true,
