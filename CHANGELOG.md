@@ -39,6 +39,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `model` fails loudly instead of silently dropping the configured primary
   model onto the fallback chain. `fallback-models: ""` keeps its documented
   meaning (disable the chain).
+- **Verdict rendering for prose-style coordinators** (#53): when the
+  coordinator opens with prose (no first-line keyword), the full-text
+  fallback used to scan by severity order, so a persona verdict QUOTED
+  mid-body outranked the coordinator's own concluding verdict — rendering
+  CONDITIONAL MERGE over a "Synthesis: CAN MERGE" conclusion (dogfood
+  PR #52). The fallback now takes the LAST keyword occurrence; the
+  first-line keyword and the persona majority vote are unchanged.
 
 ## [1.5.0] - 2026-07-16
 

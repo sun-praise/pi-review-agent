@@ -140,6 +140,16 @@ const COORDINATOR_PROMPT = [
   "- Then 'Warnings' (merged + deduped)",
   "- Then 'Suggestions' (merged + deduped)",
   "",
+  "Finally, end the report with a machine-readable verdict tag on its own",
+  "line — this tag is parsed by automation and is the AUTHORITATIVE",
+  "verdict; the prose first line is for humans. The tag must be exactly",
+  "one of (uppercase, English, never translated):",
+  "",
+  "<verdict>CAN MERGE</verdict>",
+  "",
+  "This matters because your prose may legitimately quote or discuss the",
+  "verdict keywords (reviewer quotes, code under review, explanations);",
+  "the tag disambiguates which one is your actual decision.",
   "Then append an optional <inline_comments> block with structured,",
   "line-pinned findings for the GitHub Reviews API. Format:",
   "",
@@ -182,25 +192,54 @@ function extractVerdict(text: string): TeamReviewResult["verdict"] {
 
 /**
  * Verdict resolution with fallback chain:
- *   1. coordinator first line (canonical)
- *   2. coordinator full text (model sometimes puts verdict mid-body)
- *   3. persona majority vote, broken by severity (CANNOT > CONDITIONAL > CAN)
- *   4. UNKNOWN
+ *   1. <verdict> tag (authoritative machine contract, see COORDINATOR_PROMPT)
+ *   2. coordinator first line (canonical prose form)
+ *   3. coordinator full text — the LAST keyword occurrence wins (models open
+ *      with prose, quote persona verdicts mid-body, and conclude at the end)
+ *   4. persona majority vote, broken by severity (CANNOT > CONDITIONAL > CAN)
+ *   5. UNKNOWN
  *
- * Severity-precedence tiebreak: if reviewers split, we trust the most cautious
- * real finding rather than reporting we couldn't tell.
+ * Severity-precedence tiebreak for PERSONA votes: if reviewers split, we trust
+ * the most cautious real finding rather than reporting we couldn't tell.
+ *
+ * History: the full-text fallback used to scan by severity order (CANNOT
+ * before CONDITIONAL before CAN), so a persona verdict QUOTED early in the
+ * coordinator's prose outranked its own concluding verdict (dogfood PR #52,
+ * issue #53). Last-occurrence fixed that — and PR #54's own dogfood run then
+ * lost to a keyword-mentioning code comment quoted in an inline-comment body
+ * at a later offset than the verdict. Hence the <verdict> tag: any prose
+ * scan is fragile when the output legitimately discusses the keywords.
  */
 function resolveVerdict(
   coordinator: ReviewResult | null,
   personas: PersonaReview[],
 ): TeamReviewResult["verdict"] {
   if (coordinator) {
+    const tag = coordinator.content.match(
+      /<verdict>\s*(CAN MERGE|CONDITIONAL MERGE|CANNOT MERGE)\s*<\/verdict>/i,
+    );
+    const tagged = tag?.[1]?.toUpperCase();
+    if (tagged === "CANNOT MERGE" || tagged === "CONDITIONAL MERGE" || tagged === "CAN MERGE") {
+      return tagged;
+    }
     const fromFirst = extractVerdict(coordinator.content);
     if (fromFirst !== "UNKNOWN") return fromFirst;
     const upper = coordinator.content.toUpperCase();
-    if (upper.includes("CANNOT MERGE")) return "CANNOT MERGE";
-    if (upper.includes("CONDITIONAL MERGE")) return "CONDITIONAL MERGE";
-    if (upper.includes("CAN MERGE")) return "CAN MERGE";
+    // "CAN MERGE" is not a substring of "CANNOT MERGE"/"CONDITIONAL MERGE",
+    // so the three scans don't interfere.
+    const idxCannot = upper.lastIndexOf("CANNOT MERGE");
+    const idxConditional = upper.lastIndexOf("CONDITIONAL MERGE");
+    const idxCan = upper.lastIndexOf("CAN MERGE");
+    const last = Math.max(idxCannot, idxConditional, idxCan);
+    if (last < 0) {
+      // No keyword anywhere — fall through to the persona vote.
+    } else if (last === idxCannot) {
+      return "CANNOT MERGE";
+    } else if (last === idxConditional) {
+      return "CONDITIONAL MERGE";
+    } else {
+      return "CAN MERGE";
+    }
   }
   const severity: Record<TeamReviewResult["verdict"], number> = {
     "CANNOT MERGE": 3,
