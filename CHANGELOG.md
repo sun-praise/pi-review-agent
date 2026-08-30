@@ -31,6 +31,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Previously fallback attempts failed instantly with "model not found in
   provider" because pi-ai's `Models.getModel()` is a strict lookup over the
   registered list.
+- **Empty-string option normalization** (#48): GitHub Actions injects every
+  env var as a string, so an unset optional input used to arrive as `""` —
+  not nullish — and could slip past `??` fallbacks as a blank value. All
+  optional string options now collapse unset/blank/whitespace to undefined
+  (extracted into the testable `src/parse-args.ts`), and an explicitly empty
+  `model` fails loudly instead of silently dropping the configured primary
+  model onto the fallback chain. `fallback-models: ""` keeps its documented
+  meaning (disable the chain).
 
 ## [1.5.0] - 2026-07-16
 
