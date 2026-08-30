@@ -5,7 +5,7 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "pi-review-agent": "dist/index.js"
+    "pi-review-agent": "dist/index.cjs"
   },
   "scripts": {
     "build": "tsup",
