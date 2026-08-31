@@ -101,6 +101,30 @@ describe("parseArgs empty-string normalization (#48)", () => {
   });
 });
 
+describe("parseArgs display currency (#57)", () => {
+  it("unset / empty env → usd with the default rate (GitHub's \"\" behaves as unset)", () => {
+    for (const env of [undefined, { PI_REVIEW_CURRENCY: "", PI_REVIEW_EXCHANGE_RATE: "" }]) {
+      const opts = parse(MIN, env ?? {});
+      assert.deepEqual(opts.displayCurrency, { currency: "usd", rate: 7.2 });
+    }
+  });
+
+  it("cny + explicit rate", () => {
+    const opts = parse(MIN, { PI_REVIEW_CURRENCY: "cny", PI_REVIEW_EXCHANGE_RATE: "7.31" });
+    assert.deepEqual(opts.displayCurrency, { currency: "cny", rate: 7.31 });
+  });
+
+  it("CLI flags take precedence over env", () => {
+    const opts = parse([...MIN, "--currency", "cny"], { PI_REVIEW_CURRENCY: "usd" });
+    assert.equal(opts.displayCurrency.currency, "cny");
+  });
+
+  it("invalid currency or rate falls back with the parsed default (fail-open)", () => {
+    const bad = parse(MIN, { PI_REVIEW_CURRENCY: "eur", PI_REVIEW_EXCHANGE_RATE: "abc" });
+    assert.deepEqual(bad.displayCurrency, { currency: "usd", rate: 7.2 });
+  });
+});
+
 describe("parseArgs flags and numbers", () => {
   it("GitHub's literal 'false' string never enables a skip flag", () => {
     const opts = parse(MIN, { PI_REVIEW_SKIP_COORDINATOR: "false" });

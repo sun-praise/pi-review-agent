@@ -5,6 +5,18 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [Unreleased]
+
+### Added
+
+- **Display-currency for cost figures** (#57): new `currency` ("usd" default
+  / "cny") and `exchange-rate` (USD→CNY, default 7.2) inputs convert the cost
+  lines in the PR comment, step summary, and logs to the chosen currency.
+  Internal accounting, `cost-overrides`, and the `totalCost` output stay USD —
+  conversion is display-layer only. Invalid values warn on stderr and fall
+  back to usd/7.2; no live-rate fetching.
+
 ## [1.6.0] - 2026-08-31
 
 ### Added

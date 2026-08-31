@@ -14,6 +14,7 @@
  * action.yml) and `cost-overrides` ("" = no overrides).
  */
 import { parseCostOverrides, type ModelCostTable } from "./model-cost.js";
+import { resolveCurrencyOptions, type CurrencyOptions } from "./currency.js";
 
 export interface CliOptions {
   pr: number;
@@ -74,6 +75,10 @@ export interface CliOptions {
   skipVerify: boolean;
   /** Skip only the LLM verifier layer; the rule layer still runs. Default false. */
   skipLlmVerify: boolean;
+  /** Display-currency for cost rendering (PR comment / step summary / stdout).
+   *  Internal accounting and GITHUB_OUTPUT stay USD (#57). Invalid input
+   *  warns and falls back to usd + default rate. */
+  displayCurrency: CurrencyOptions;
 }
 
 /**
@@ -97,6 +102,19 @@ function resolveCostOverrides(raw: string | undefined): Record<string, ModelCost
   if (parsed.ok) return parsed.costs;
   process.stderr.write(`cost-overrides ignored: ${parsed.error}\n`);
   return {};
+}
+
+/** Resolve display-currency options; surface parse warnings on stderr so a
+ *  bad currency config never fails a run (fail-open, same as cost-overrides). */
+function resolveCurrencyOptionsWithWarnings(
+  rawCurrency: string | undefined,
+  rawRate: string | undefined,
+): CurrencyOptions {
+  const resolved = resolveCurrencyOptions(rawCurrency, rawRate);
+  for (const warning of resolved.warnings) {
+    process.stderr.write(`currency config: ${warning}\n`);
+  }
+  return { currency: resolved.currency, rate: resolved.rate };
 }
 
 export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env): CliOptions {
@@ -143,6 +161,10 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     ),
     verifierModelId: optionalString(args["verifier-model"], env.PI_REVIEW_VERIFIER_MODEL),
     costByModel: resolveCostOverrides(args["cost-overrides"] ?? env.PI_REVIEW_COST_OVERRIDES),
+    displayCurrency: resolveCurrencyOptionsWithWarnings(
+      optionalString(args.currency, env.PI_REVIEW_CURRENCY),
+      optionalString(args["exchange-rate"], env.PI_REVIEW_EXCHANGE_RATE),
+    ),
     // "" is meaningful here (disable the fallback chain) — NOT normalized.
     fallbackModels: args["fallback-models"] ?? env.PI_REVIEW_FALLBACK_MODELS ?? "mimo-v2.5",
     cwd: args.cwd?.trim() ? args.cwd : process.cwd(),
