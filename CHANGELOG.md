@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.6.0] - 2026-08-31
 
 ### Added
 
@@ -44,8 +44,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fallback used to scan by severity order, so a persona verdict QUOTED
   mid-body outranked the coordinator's own concluding verdict — rendering
   CONDITIONAL MERGE over a "Synthesis: CAN MERGE" conclusion (dogfood
-  PR #52). The fallback now takes the LAST keyword occurrence; the
-  first-line keyword and the persona majority vote are unchanged.
+  PR #52). The fallback now takes the LAST keyword occurrence, and the
+  coordinator prompt requires a machine-readable `<verdict>` tag at the
+  end of the report which the parser treats as authoritative over any
+  prose scan; the first-line keyword and the persona majority vote remain
+  as fallbacks. Also fixed: `package.json` bin pointed at a nonexistent
+  `dist/index.js`, and CI now enforces that `dist/` is committed in sync
+  with `src/` (#52).
 
 ## [1.5.0] - 2026-07-16
 
