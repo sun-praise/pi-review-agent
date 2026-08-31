@@ -22,6 +22,7 @@ import { readFileSync, appendFileSync } from "node:fs";
 import { createLiteLLMDeepSeekProvider } from "./provider.js";
 import { resolveModelIds, DEFAULT_MODEL_ID } from "./model-ids.js";
 import { parseArgs, type CliOptions } from "./parse-args.js";
+import { formatCost, type CurrencyOptions } from "./currency.js";
 import { runReview, type ReviewResult } from "./review.js";
 import { runTeamReview, renderTeamComment, buildSystemPrompt, type TeamReviewResult } from "./orchestrate.js";
 import { loadPersonas } from "./personas.js";
@@ -77,7 +78,8 @@ function appendOutputs(lines: string[]): void {
   appendFileSync(path, lines.join("\n") + "\n");
 }
 
-function writeSingleSummary(result: ReviewResult, persona: string): void {
+function writeSingleSummary(result: ReviewResult, persona: string, currency: CurrencyOptions): void {
+  const label = currency.currency.toUpperCase();
   const md =
     `### pi-review-agent — ${persona} (resumed=${result.resumed})\n\n` +
     `| metric | value |\n|---|---|\n` +
@@ -85,38 +87,44 @@ function writeSingleSummary(result: ReviewResult, persona: string): void {
     `| output tokens | ${result.usage.output} |\n` +
     `| **cacheRead** | **${result.usage.cacheRead}** (hit → discounted) |\n` +
     `| cacheWrite | ${result.usage.cacheWrite} |\n` +
-    `| cost (USD) | $${result.usage.costTotal.toFixed(6)} |\n\n` +
+    `| cost (${label}) | ${formatCost(result.usage.costTotal, currency)} |\n\n` +
     `<details><summary>review</summary>\n\n${result.content}\n\n</details>\n`;
   appendStepSummary(md);
 }
 
-function writeTeamSummary(result: TeamReviewResult): void {
+function writeTeamSummary(result: TeamReviewResult, currency: CurrencyOptions): void {
+  const label = currency.currency.toUpperCase();
   const lines: string[] = [];
   lines.push(`### pi-review-agent — team review (${result.personas.length} reviewers)`);
   lines.push("");
-  lines.push("| persona | resumed | input | output | cacheRead | cost (USD) |");
+  lines.push(`| persona | resumed | input | output | cacheRead | cost (${label}) |`);
   lines.push("|---|---|---|---|---|---|");
   for (const r of result.personas) {
     lines.push(
-      `| ${r.persona} | ${r.result.resumed} | ${r.result.usage.input} | ${r.result.usage.output} | ${r.result.usage.cacheRead} | $${r.result.usage.costTotal.toFixed(6)} |`,
+      `| ${r.persona} | ${r.result.resumed} | ${r.result.usage.input} | ${r.result.usage.output} | ${r.result.usage.cacheRead} | ${formatCost(r.result.usage.costTotal, currency)} |`,
     );
   }
   if (result.coordinator) {
     lines.push(
-      `| coordinator | ${result.coordinator.resumed} | ${result.coordinator.usage.input} | ${result.coordinator.usage.output} | ${result.coordinator.usage.cacheRead} | $${result.coordinator.usage.costTotal.toFixed(6)} |`,
+      `| coordinator | ${result.coordinator.resumed} | ${result.coordinator.usage.input} | ${result.coordinator.usage.output} | ${result.coordinator.usage.cacheRead} | ${formatCost(result.coordinator.usage.costTotal, currency)} |`,
     );
   }
   lines.push("");
   lines.push(`**Verdict: ${result.verdict}**`);
-  lines.push(`**Total cost: $${result.totalCost.toFixed(6)} · cacheRead ${result.totalCacheRead}**`);
+  lines.push(
+    `**Total cost: ${formatCost(result.totalCost, currency)} · cacheRead ${result.totalCacheRead}**`,
+  );
   lines.push("");
   appendStepSummary(lines.join("\n"));
+  // Machine outputs stay USD regardless of the display currency (#57): the
+  // existing consumers parse costTotal as dollars.
   appendOutputs([
     `verdict=${result.verdict}`,
     `totalCost=${result.totalCost.toFixed(6)}`,
     `totalCacheRead=${result.totalCacheRead}`,
   ]);
 }
+
 
 async function runSingle(opts: CliOptions): Promise<number> {
   const provider = createLiteLLMDeepSeekProvider({
@@ -156,9 +164,9 @@ async function runSingle(opts: CliOptions): Promise<number> {
   });
   process.stdout.write(`\n=== review (${personaName}, resumed=${result.resumed}) ===\n${result.content}\n`);
   process.stdout.write(
-    `cacheRead: ${result.usage.cacheRead}  cost: $${result.usage.costTotal.toFixed(6)}\n`,
+    `cacheRead: ${result.usage.cacheRead}  cost: ${formatCost(result.usage.costTotal, opts.displayCurrency)}\n`,
   );
-  writeSingleSummary(result, personaName);
+  writeSingleSummary(result, personaName, opts.displayCurrency);
   appendOutputs([
     `cacheRead=${result.usage.cacheRead}`,
     `costTotal=${result.usage.costTotal.toFixed(6)}`,
@@ -220,7 +228,7 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
   process.stdout.write(`\n=== team review (${result.personas.length} personas) ===\n`);
   process.stdout.write(`verdict: ${result.verdict}\n`);
   process.stdout.write(
-    `total cost: $${result.totalCost.toFixed(6)} · cacheRead ${result.totalCacheRead}\n`,
+    `total cost: ${formatCost(result.totalCost, opts.displayCurrency)} · cacheRead ${result.totalCacheRead}\n`,
   );
   if (result.coordinator) {
     process.stdout.write(`\n--- coordinator ---\n${result.coordinator.content}\n`);
@@ -228,12 +236,12 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
   for (const r of result.personas) {
     process.stdout.write(`\n--- ${r.persona} ---\n${r.result.content}\n`);
   }
-  writeTeamSummary(result);
+  writeTeamSummary(result, opts.displayCurrency);
 
   // Post PR comment using platform adapter
   const prInfo = adapter.resolvePrFromEnv(process.env);
   if (prInfo) {
-    const body = renderTeamComment(result);
+    const body = renderTeamComment(result, { currency: opts.displayCurrency });
     const commentContext = {
       apiBase: prInfo.apiBase,
       repository: prInfo.repository,

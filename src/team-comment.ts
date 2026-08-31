@@ -8,6 +8,7 @@
  */
 import type { ReviewResult } from "./review.js";
 import type { VerifySummary } from "./verifier.js";
+import { formatCost, type CurrencyOptions, DEFAULT_USD_CNY_RATE } from "./currency.js";
 
 export type Verdict = "CAN MERGE" | "CONDITIONAL MERGE" | "CANNOT MERGE" | "UNKNOWN";
 
@@ -27,8 +28,19 @@ export interface CommentTeamView {
   verification?: VerifySummary;
 }
 
+/** Options for rendering the cost figures. Defaults keep the historical USD
+ *  rendering; `currency: "cny"` converts at the given rate (#57). Internal
+ *  accounting stays USD — this is display-layer only. */
+export interface CommentRenderOptions {
+  currency?: CurrencyOptions;
+}
+
 /** Render a team result as a markdown comment body for PR posting. */
-export function renderTeamComment(result: CommentTeamView): string {
+export function renderTeamComment(
+  result: CommentTeamView,
+  opts: CommentRenderOptions = {},
+): string {
+  const currency = opts.currency ?? { currency: "usd", rate: DEFAULT_USD_CNY_RATE };
   const lines: string[] = [];
   const icon =
     result.verdict === "CAN MERGE"
@@ -91,7 +103,7 @@ export function renderTeamComment(result: CommentTeamView): string {
   for (const r of result.personas) {
     const cacheNote = r.result.usage.cacheRead > 0 ? ` · cacheRead ${r.result.usage.cacheRead}` : "";
     lines.push(
-      `<details><summary><b>${r.persona}</b> · $${r.result.usage.costTotal.toFixed(6)}${cacheNote}</summary>`,
+      `<details><summary><b>${r.persona}</b> · ${formatCost(r.result.usage.costTotal, currency)}${cacheNote}</summary>`,
     );
     lines.push("");
     lines.push(r.error ? `_(review failed: ${r.error})_` : r.result.content);
@@ -101,7 +113,7 @@ export function renderTeamComment(result: CommentTeamView): string {
   }
   lines.push("---");
   lines.push(
-    `<sub>pi-review-agent · total cost $${result.totalCost.toFixed(6)} · cacheRead ${result.totalCacheRead}</sub>`,
+    `<sub>pi-review-agent · total cost ${formatCost(result.totalCost, currency)} · cacheRead ${result.totalCacheRead}</sub>`,
   );
   return lines.join("\n");
 }

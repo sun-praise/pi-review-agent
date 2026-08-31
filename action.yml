@@ -110,6 +110,21 @@ inputs:
       Invalid JSON is ignored with a stderr warning.
     required: false
     default: ""
+  currency:
+    description: >
+      Display currency for cost figures in the PR comment, step summary, and
+      logs: "usd" (default, unchanged) or "cny" (converts at `exchange-rate`).
+      Internal accounting and the totalCost output stay USD. Invalid values
+      warn and fall back to usd.
+    required: false
+    default: "usd"
+  exchange-rate:
+    description: >
+      USD→CNY multiplier used when currency is "cny". Default 7.2 (mid-range
+      recent rate; stale by definition — set it explicitly for precision).
+      Only affects display, never the USD totals. No live-rate fetching.
+    required: false
+    default: "7.2"
   sessions-root:
     description: >
       Directory used to persist per-PR review sessions across runs (the
@@ -295,6 +310,8 @@ runs:
         PI_REVIEW_COORDINATOR_MODEL: ${{ inputs.coordinator-model }}
         PI_REVIEW_VERIFIER_MODEL: ${{ inputs.verifier-model }}
         PI_REVIEW_COST_OVERRIDES: ${{ inputs.cost-overrides }}
+        PI_REVIEW_CURRENCY: ${{ inputs.currency }}
+        PI_REVIEW_EXCHANGE_RATE: ${{ inputs.exchange-rate }}
         PI_REVIEW_LANGUAGE: ${{ inputs.language }}
         PI_REVIEW_INCLUDE_PR_CONTEXT: ${{ inputs.include-pr-context }}
         PI_REVIEW_SESSIONS_ROOT: ${{ inputs.sessions-root != '' && inputs.sessions-root || format('{0}/.pi-review-sessions', runner.temp) }}

@@ -177883,6 +177883,33 @@ function createLiteLLMDeepSeekProvider(opts) {
   });
 }
 
+// src/currency.ts
+var DEFAULT_USD_CNY_RATE = 7.2;
+function resolveCurrencyOptions(rawCurrency, rawRate) {
+  const warnings = [];
+  let currency = "usd";
+  const currencyRaw = rawCurrency?.trim().toLowerCase();
+  if (currencyRaw === void 0 || currencyRaw === "") {
+  } else if (currencyRaw === "usd" || currencyRaw === "cny") {
+    currency = currencyRaw;
+  } else {
+    warnings.push(`currency "${rawCurrency}" not recognized (usd|cny); defaulting to usd`);
+  }
+  let rate = DEFAULT_USD_CNY_RATE;
+  if (rawRate !== void 0 && rawRate.trim() !== "") {
+    const parsed = Number(rawRate);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      rate = parsed;
+    } else {
+      warnings.push(`exchange-rate "${rawRate}" must be a positive number; defaulting to ${rate}`);
+    }
+  }
+  return { currency, rate, warnings };
+}
+function formatCost(usd, opts) {
+  return opts.currency === "cny" ? `\xA5${(usd * opts.rate).toFixed(6)}` : `$${usd.toFixed(6)}`;
+}
+
 // src/parse-args.ts
 function optionalString(argVal, envVal) {
   for (const val of [argVal, envVal]) {
@@ -177896,6 +177923,14 @@ function resolveCostOverrides(raw) {
   process.stderr.write(`cost-overrides ignored: ${parsed.error}
 `);
   return {};
+}
+function resolveCurrencyOptionsWithWarnings(rawCurrency, rawRate) {
+  const resolved = resolveCurrencyOptions(rawCurrency, rawRate);
+  for (const warning of resolved.warnings) {
+    process.stderr.write(`currency config: ${warning}
+`);
+  }
+  return { currency: resolved.currency, rate: resolved.rate };
 }
 function parseArgs(argv, env2 = process.env) {
   const args = {};
@@ -177934,6 +177969,10 @@ function parseArgs(argv, env2 = process.env) {
     ),
     verifierModelId: optionalString(args["verifier-model"], env2.PI_REVIEW_VERIFIER_MODEL),
     costByModel: resolveCostOverrides(args["cost-overrides"] ?? env2.PI_REVIEW_COST_OVERRIDES),
+    displayCurrency: resolveCurrencyOptionsWithWarnings(
+      optionalString(args.currency, env2.PI_REVIEW_CURRENCY),
+      optionalString(args["exchange-rate"], env2.PI_REVIEW_EXCHANGE_RATE)
+    ),
     // "" is meaningful here (disable the fallback chain) — NOT normalized.
     fallbackModels: args["fallback-models"] ?? env2.PI_REVIEW_FALLBACK_MODELS ?? "mimo-v2.5",
     cwd: args.cwd?.trim() ? args.cwd : process.cwd(),
@@ -181039,7 +181078,8 @@ async function applyRuleLayer(comment, cwd, changedLines, existsCache) {
 }
 
 // src/team-comment.ts
-function renderTeamComment(result) {
+function renderTeamComment(result, opts = {}) {
+  const currency = opts.currency ?? { currency: "usd", rate: DEFAULT_USD_CNY_RATE };
   const lines = [];
   const icon = result.verdict === "CAN MERGE" ? "\u2705" : result.verdict === "CONDITIONAL MERGE" ? "\u26A0\uFE0F" : result.verdict === "CANNOT MERGE" ? "\u{1F6AB}" : "\u2753";
   lines.push(`${icon} ${result.verdict}`);
@@ -181085,7 +181125,7 @@ function renderTeamComment(result) {
   for (const r2 of result.personas) {
     const cacheNote = r2.result.usage.cacheRead > 0 ? ` \xB7 cacheRead ${r2.result.usage.cacheRead}` : "";
     lines.push(
-      `<details><summary><b>${r2.persona}</b> \xB7 $${r2.result.usage.costTotal.toFixed(6)}${cacheNote}</summary>`
+      `<details><summary><b>${r2.persona}</b> \xB7 ${formatCost(r2.result.usage.costTotal, currency)}${cacheNote}</summary>`
     );
     lines.push("");
     lines.push(r2.error ? `_(review failed: ${r2.error})_` : r2.result.content);
@@ -181095,7 +181135,7 @@ function renderTeamComment(result) {
   }
   lines.push("---");
   lines.push(
-    `<sub>pi-review-agent \xB7 total cost $${result.totalCost.toFixed(6)} \xB7 cacheRead ${result.totalCacheRead}</sub>`
+    `<sub>pi-review-agent \xB7 total cost ${formatCost(result.totalCost, currency)} \xB7 cacheRead ${result.totalCacheRead}</sub>`
   );
   return lines.join("\n");
 }
@@ -181736,7 +181776,8 @@ function appendOutputs(lines) {
   if (!path12) return;
   (0, import_node_fs7.appendFileSync)(path12, lines.join("\n") + "\n");
 }
-function writeSingleSummary(result, persona) {
+function writeSingleSummary(result, persona, currency) {
+  const label = currency.currency.toUpperCase();
   const md = `### pi-review-agent \u2014 ${persona} (resumed=${result.resumed})
 
 | metric | value |
@@ -181745,7 +181786,7 @@ function writeSingleSummary(result, persona) {
 | output tokens | ${result.usage.output} |
 | **cacheRead** | **${result.usage.cacheRead}** (hit \u2192 discounted) |
 | cacheWrite | ${result.usage.cacheWrite} |
-| cost (USD) | $${result.usage.costTotal.toFixed(6)} |
+| cost (${label}) | ${formatCost(result.usage.costTotal, currency)} |
 
 <details><summary>review</summary>
 
@@ -181755,25 +181796,28 @@ ${result.content}
 `;
   appendStepSummary(md);
 }
-function writeTeamSummary(result) {
+function writeTeamSummary(result, currency) {
+  const label = currency.currency.toUpperCase();
   const lines = [];
   lines.push(`### pi-review-agent \u2014 team review (${result.personas.length} reviewers)`);
   lines.push("");
-  lines.push("| persona | resumed | input | output | cacheRead | cost (USD) |");
+  lines.push(`| persona | resumed | input | output | cacheRead | cost (${label}) |`);
   lines.push("|---|---|---|---|---|---|");
   for (const r2 of result.personas) {
     lines.push(
-      `| ${r2.persona} | ${r2.result.resumed} | ${r2.result.usage.input} | ${r2.result.usage.output} | ${r2.result.usage.cacheRead} | $${r2.result.usage.costTotal.toFixed(6)} |`
+      `| ${r2.persona} | ${r2.result.resumed} | ${r2.result.usage.input} | ${r2.result.usage.output} | ${r2.result.usage.cacheRead} | ${formatCost(r2.result.usage.costTotal, currency)} |`
     );
   }
   if (result.coordinator) {
     lines.push(
-      `| coordinator | ${result.coordinator.resumed} | ${result.coordinator.usage.input} | ${result.coordinator.usage.output} | ${result.coordinator.usage.cacheRead} | $${result.coordinator.usage.costTotal.toFixed(6)} |`
+      `| coordinator | ${result.coordinator.resumed} | ${result.coordinator.usage.input} | ${result.coordinator.usage.output} | ${result.coordinator.usage.cacheRead} | ${formatCost(result.coordinator.usage.costTotal, currency)} |`
     );
   }
   lines.push("");
   lines.push(`**Verdict: ${result.verdict}**`);
-  lines.push(`**Total cost: $${result.totalCost.toFixed(6)} \xB7 cacheRead ${result.totalCacheRead}**`);
+  lines.push(
+    `**Total cost: ${formatCost(result.totalCost, currency)} \xB7 cacheRead ${result.totalCacheRead}**`
+  );
   lines.push("");
   appendStepSummary(lines.join("\n"));
   appendOutputs([
@@ -181823,10 +181867,10 @@ async function runSingle(opts) {
 ${result.content}
 `);
   process.stdout.write(
-    `cacheRead: ${result.usage.cacheRead}  cost: $${result.usage.costTotal.toFixed(6)}
+    `cacheRead: ${result.usage.cacheRead}  cost: ${formatCost(result.usage.costTotal, opts.displayCurrency)}
 `
   );
-  writeSingleSummary(result, personaName);
+  writeSingleSummary(result, personaName, opts.displayCurrency);
   appendOutputs([
     `cacheRead=${result.usage.cacheRead}`,
     `costTotal=${result.usage.costTotal.toFixed(6)}`,
@@ -181884,7 +181928,7 @@ async function runTeam(opts, adapter) {
   process.stdout.write(`verdict: ${result.verdict}
 `);
   process.stdout.write(
-    `total cost: $${result.totalCost.toFixed(6)} \xB7 cacheRead ${result.totalCacheRead}
+    `total cost: ${formatCost(result.totalCost, opts.displayCurrency)} \xB7 cacheRead ${result.totalCacheRead}
 `
   );
   if (result.coordinator) {
@@ -181899,10 +181943,10 @@ ${result.coordinator.content}
 ${r2.result.content}
 `);
   }
-  writeTeamSummary(result);
+  writeTeamSummary(result, opts.displayCurrency);
   const prInfo = adapter.resolvePrFromEnv(process.env);
   if (prInfo) {
-    const body = renderTeamComment(result);
+    const body = renderTeamComment(result, { currency: opts.displayCurrency });
     const commentContext = {
       apiBase: prInfo.apiBase,
       repository: prInfo.repository,
