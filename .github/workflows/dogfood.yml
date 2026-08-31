@@ -44,5 +44,17 @@ jobs:
           # every src change inflates the diff ~13 MB. Exclude it from the
           # self-review payload to stay under the LLM proxy body limit (#28).
           diff-exclude: "dist/**"
+          # --- v1.6.0 feature smoke (this PR is a test vehicle; close after) ---
+          # Per-role routing: reviewers stay on `model` (default
+          # deepseek-v4-flash); coordinator + verifier switch to mimo-v2.5.
+          # Expected in the job log: "[coordinator] trying model: mimo-v2.5"
+          # while every persona logs deepseek-v4-flash, and no
+          # "model not found in provider" (the fallback-registration fix).
+          coordinator-model: "mimo-v2.5"
+          verifier-model: "mimo-v2.5"
+          # Per-model cost tables: mimo-v2.5 usage bills at these demo rates
+          # instead of the DeepSeek-flash estimate. The review comment's cost
+          # line should reflect them for the coordinator's share.
+          cost-overrides: '{"mimo-v2.5":{"input":0.1,"output":0.3,"cacheRead":0.01}}'
           litellm-url: ${{ secrets.LITELLM_URL }}
           litellm-api-key: ${{ secrets.LITELLM_API_KEY }}
