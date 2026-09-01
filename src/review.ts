@@ -188,7 +188,6 @@ function sleep(ms: number): Promise<void> {
   return promise;
 }
 
-
 /**
  * Run a single model attempt with retry loop. Returns the result or throws
  * on permanent failure (after exhausting retries for transient errors).
