@@ -119,6 +119,40 @@ test("postPrReview", async (t) => {
     );
   });
 
+  await t.test("does not re-POST when a lost response actually persisted the review", async () => {
+    // Reviews API creates a new thread per POST (no commit_id dedup), so a
+    // blind retry after a lost response would duplicate the review. On a
+    // transient failure the code reconciles against the server first: the
+    // GET finds a matching review (same commit + body) → success, no re-POST.
+    const listed = JSON.stringify([{ commit_id: "abc123", body: "summary" }]);
+    await withFetchStub(
+      [{ throw: "fetch failed" }, { status: 200, ok: true, json: listed }],
+      async (calls) => {
+        const outcome = await postPrReview(CTX, "summary", COMMENTS);
+        assert.equal(outcome, "review");
+        assert.equal(calls.length, 2);
+        assert.match(calls[1].url, /\/pulls\/42\/reviews\?per_page=100$/);
+        assert.equal(calls[1].method, "GET");
+      },
+    );
+  });
+
+  await t.test("re-POSTs after a transient failure when no matching review exists", async () => {
+    await withFetchStub(
+      [
+        { throw: "fetch failed" },
+        { status: 200, ok: true, json: "[]" },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        const outcome = await postPrReview(CTX, "summary", COMMENTS);
+        assert.equal(outcome, "review");
+        assert.equal(calls.length, 3);
+        assert.equal(calls[2].method, "POST");
+      },
+    );
+  });
+
   await t.test("returns skipped when token missing", async () => {
     await withFetchStub([{ status: 200, ok: true }], async (calls) => {
       const outcome = await postPrReview({ ...CTX, token: "" }, "summary", COMMENTS);

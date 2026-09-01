@@ -53,6 +53,13 @@ export async function postTeamResults(
   // summary comment, so do it explicitly: a new head SHA gets a fresh
   // comment, a same-SHA re-run replaces the prior comment in place — e.g.
   // repairing an earlier garbage comment (#59). "skipped" (nothing landed)
-  // also falls through: one more attempt costs nothing.
+  // also falls through: one more attempt costs nothing — but the review
+  // layer's inline findings were lost with it, so say so instead of letting
+  // a plain summary imply they were posted.
+  if (review === "skipped") {
+    process.stderr.write(
+      `postTeamResults: review layer skipped posting; ${inlineComments.length} inline finding(s) did not reach the PR\n`,
+    );
+  }
   return { review, comment: await adapter.postComment(ctx, body) };
 }

@@ -9,6 +9,7 @@
  */
 import type { InlineComment, InlineSeverity } from "./inline-comments.js";
 import { withTransientRetry } from "./retry.js";
+import { isTransientReviewerError } from "./transient-error.js";
 
 /**
  * Hard timeout for every GitHub API call in this module. Without it a slow
@@ -267,15 +268,49 @@ export async function postPrReview(
       comments: reviewComments,
     });
 
+  // The Reviews API creates a NEW review thread per POST — it does not
+  // deduplicate by commit_id. A blind retry after a lost response would
+  // double-post, so before each retry we reconcile against the server: if a
+  // review with this exact body is already anchored to this commit, the
+  // first POST persisted and only its response was lost — treat as success.
+  // (Best-effort: a failing reconciliation just falls back to retrying.)
+  const reviewAlreadyPosted = async (): Promise<boolean> => {
+    try {
+      const data = (await fetchJson(`${url}?per_page=100`, {
+        headers: { Authorization: headers.Authorization, Accept: headers.Accept, "X-GitHub-Api-Version": headers["X-GitHub-Api-Version"] },
+      })) as Array<{ commit_id?: string; body?: string | null }>;
+      return Array.isArray(data) && data.some((r) => r.commit_id === ctx.headSha && r.body === summary);
+    } catch {
+      return false;
+    }
+  };
+  const postReviewWithReconcile = async (label: string, body: string): Promise<void> => {
+    const attempts = 3;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await fetchJson(url, { method: "POST", headers, body });
+        return;
+      } catch (err: unknown) {
+        if (attempt >= attempts || !isTransientReviewerError(err)) throw err;
+        if (await reviewAlreadyPosted()) {
+          process.stderr.write(`${label}: response lost, but the review is already on the server; not re-posting\n`);
+          return;
+        }
+        const backoff = 1000 * 2 ** (attempt - 1) + Math.floor(Math.random() * 1000);
+        process.stderr.write(`${label}: attempt ${attempt}/${attempts} failed (${err instanceof Error ? err.message : String(err)}); retrying in ${backoff}ms\n`);
+        const { promise, resolve } = Promise.withResolvers<void>();
+        setTimeout(resolve, backoff);
+        await promise;
+      }
+    }
+  };
+
   // Attempt 1: review carrying the inline comments. fetchJson throws on any
-  // non-ok response (status + body in the message); withTransientRetry then
+  // non-ok response (status + body in the message); the reconcile loop above
   // retries transient causes (network, 5xx, 429) and lets permanent 4xx
   // fall straight through to the summary attempt below.
   try {
-    await withTransientRetry(
-      () => fetchJson(url, { method: "POST", headers, body: reviewPayload(inlinePayload) }),
-      { label: "postPrReview: inline review" },
-    );
+    await postReviewWithReconcile("postPrReview: inline review", reviewPayload(inlinePayload));
     process.stdout.write(
       `postPrReview: posted review with ${inlinePayload.length} inline comment(s)\n`,
     );
@@ -290,10 +325,7 @@ export async function postPrReview(
   // anchored to this commit. Cheaper than an issue comment for users who
   // filter on review state, and still a single PR artifact per run.
   try {
-    await withTransientRetry(
-      () => fetchJson(url, { method: "POST", headers, body: reviewPayload([]) }),
-      { label: "postPrReview: summary review" },
-    );
+    await postReviewWithReconcile("postPrReview: summary review", reviewPayload([]));
     process.stderr.write("postPrReview: posted summary-only review\n");
     return "summary-review";
   } catch (err: unknown) {

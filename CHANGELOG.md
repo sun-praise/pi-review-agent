@@ -33,8 +33,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Transient-retry for comment posting** (#59): one `fetch failed` on a
   self-hosted runner used to discard a finished review (`PR comment:
   skipped`). GitHub/Gitea comment create/update and review POSTs now retry
-  transient errors (network, 429, 5xx) with backoff; permanent 4xx still
-  fall through immediately.
+  transient errors (network, 429, 5xx) with jittered backoff; permanent 4xx
+  still fall through immediately. Review POST retries reconcile against the
+  server first (list reviews for the commit) so a lost response can't
+  double-post a review thread.
 - **Session transcripts no longer duplicate assistant messages**: the
   collector handled both `message_end` and `turn_end` (which re-carries the
   same message), writing every assistant turn twice into the JSONL resume

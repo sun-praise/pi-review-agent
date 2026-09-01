@@ -177352,7 +177352,7 @@ async function withTransientRetry(fn, opts) {
     } catch (err2) {
       lastError = err2;
       if (attempt >= attempts || !isTransientReviewerError(err2)) throw err2;
-      const backoff = baseMs * 2 ** (attempt - 1);
+      const backoff = baseMs * 2 ** (attempt - 1) + Math.random() * baseMs;
       process.stderr.write(
         `${opts.label}: attempt ${attempt}/${attempts} failed (${err2 instanceof Error ? err2.message : String(err2)}); retrying in ${backoff}ms
 `
@@ -177491,11 +177491,40 @@ async function postPrReview(ctx, summary, comments) {
     event: "COMMENT",
     comments: reviewComments
   });
+  const reviewAlreadyPosted = async () => {
+    try {
+      const data = await fetchJson(`${url2}?per_page=100`, {
+        headers: { Authorization: headers.Authorization, Accept: headers.Accept, "X-GitHub-Api-Version": headers["X-GitHub-Api-Version"] }
+      });
+      return Array.isArray(data) && data.some((r2) => r2.commit_id === ctx.headSha && r2.body === summary);
+    } catch {
+      return false;
+    }
+  };
+  const postReviewWithReconcile = async (label, body) => {
+    const attempts = 3;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await fetchJson(url2, { method: "POST", headers, body });
+        return;
+      } catch (err2) {
+        if (attempt >= attempts || !isTransientReviewerError(err2)) throw err2;
+        if (await reviewAlreadyPosted()) {
+          process.stderr.write(`${label}: response lost, but the review is already on the server; not re-posting
+`);
+          return;
+        }
+        const backoff = 1e3 * 2 ** (attempt - 1) + Math.floor(Math.random() * 1e3);
+        process.stderr.write(`${label}: attempt ${attempt}/${attempts} failed (${err2 instanceof Error ? err2.message : String(err2)}); retrying in ${backoff}ms
+`);
+        const { promise: promise2, resolve } = Promise.withResolvers();
+        setTimeout(resolve, backoff);
+        await promise2;
+      }
+    }
+  };
   try {
-    await withTransientRetry(
-      () => fetchJson(url2, { method: "POST", headers, body: reviewPayload(inlinePayload) }),
-      { label: "postPrReview: inline review" }
-    );
+    await postReviewWithReconcile("postPrReview: inline review", reviewPayload(inlinePayload));
     process.stdout.write(
       `postPrReview: posted review with ${inlinePayload.length} inline comment(s)
 `
@@ -177508,10 +177537,7 @@ async function postPrReview(ctx, summary, comments) {
     );
   }
   try {
-    await withTransientRetry(
-      () => fetchJson(url2, { method: "POST", headers, body: reviewPayload([]) }),
-      { label: "postPrReview: summary review" }
-    );
+    await postReviewWithReconcile("postPrReview: summary review", reviewPayload([]));
     process.stderr.write("postPrReview: posted summary-only review\n");
     return "summary-review";
   } catch (err2) {
@@ -177527,6 +177553,7 @@ var init_pr_comment = __esm({
   "src/pr-comment.ts"() {
     "use strict";
     init_retry();
+    init_transient_error();
     FETCH_TIMEOUT_MS = 3e4;
     SEVERITY_EMOJI = {
       blocking: "\u{1F534}",
@@ -181498,6 +181525,12 @@ async function postTeamResults(adapter, ctx, body, inlineComments) {
   const review = await adapter.postReview(ctx, body, inlineComments);
   if (review === "created" || review === "updated") {
     return { review, comment: review };
+  }
+  if (review === "skipped") {
+    process.stderr.write(
+      `postTeamResults: review layer skipped posting; ${inlineComments.length} inline finding(s) did not reach the PR
+`
+    );
   }
   return { review, comment: await adapter.postComment(ctx, body) };
 }

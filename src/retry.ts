@@ -14,7 +14,7 @@ export interface RetryOptions {
   label: string;
   /** Total attempts including the first. Default 3. */
   attempts?: number;
-  /** Base backoff in ms; grows ×2 per retry plus no jitter. Default 1000. */
+  /** Base backoff in ms; grows ×2 per retry plus random jitter. Default 1000. */
   baseMs?: number;
 }
 
@@ -31,7 +31,10 @@ export async function withTransientRetry<T>(
     } catch (err: unknown) {
       lastError = err;
       if (attempt >= attempts || !isTransientReviewerError(err)) throw err;
-      const backoff = baseMs * 2 ** (attempt - 1);
+      // Jitter (matching runModelAttempt's convention): several personas
+      // finish together and can fail together; without jitter their retry
+      // sequences align and re-burst in lockstep.
+      const backoff = baseMs * 2 ** (attempt - 1) + Math.random() * baseMs;
       process.stderr.write(
         `${opts.label}: attempt ${attempt}/${attempts} failed ` +
           `(${err instanceof Error ? err.message : String(err)}); retrying in ${backoff}ms\n`,
