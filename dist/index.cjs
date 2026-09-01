@@ -176938,6 +176938,22 @@ var init_walk_grep = __esm({
   }
 });
 
+// src/transient-error.ts
+function isTransientReviewerError(err2) {
+  const msg = err2 instanceof Error ? err2.message : String(err2);
+  if (/\btimed out after \d+ms\b/.test(msg)) return false;
+  if (/\brate limit\b|\b429\b/i.test(msg)) return true;
+  if (/\b4[0-8]\d\b/.test(msg)) return false;
+  return /fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|EHOSTUNREACH|ENETUNREACH|UND_ERR|socket hang up|other side closed|request timeout|stream timeout|stream terminated|connection terminated|\b5\d\d\b/i.test(
+    msg
+  );
+}
+var init_transient_error = __esm({
+  "src/transient-error.ts"() {
+    "use strict";
+  }
+});
+
 // src/verifier-agent.ts
 var verifier_agent_exports = {};
 __export(verifier_agent_exports, {
@@ -177325,6 +177341,36 @@ var init_github_context = __esm({
   }
 });
 
+// src/retry.ts
+async function withTransientRetry(fn, opts) {
+  const attempts = opts.attempts ?? 3;
+  const baseMs = opts.baseMs ?? 1e3;
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err2) {
+      lastError = err2;
+      if (attempt >= attempts || !isTransientReviewerError(err2)) throw err2;
+      const backoff = baseMs * 2 ** (attempt - 1) + Math.random() * baseMs;
+      process.stderr.write(
+        `${opts.label}: attempt ${attempt}/${attempts} failed (${err2 instanceof Error ? err2.message : String(err2)}); retrying in ${backoff}ms
+`
+      );
+      const { promise: promise2, resolve } = Promise.withResolvers();
+      setTimeout(resolve, backoff);
+      await promise2;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error(`${opts.label}: failed without a captured error`);
+}
+var init_retry = __esm({
+  "src/retry.ts"() {
+    "use strict";
+    init_transient_error();
+  }
+});
+
 // src/pr-comment.ts
 function fetchWithTimeout(url2, init) {
   return fetch(url2, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
@@ -177393,16 +177439,18 @@ ${SHA_LINE_PREFIX}${ctx.headSha}${SHA_LINE_SUFFIX}` : MARKER;
   const payload = `${head}
 ${body}`;
   try {
-    if (ctx.headSha) {
-      const existing = await listComments(ctx);
-      const id = findUpdatable(existing, ctx.headSha);
-      if (id !== void 0) {
-        await updateComment(ctx, id, payload);
-        return "updated";
+    return await withTransientRetry(async () => {
+      if (ctx.headSha) {
+        const existing = await listComments(ctx);
+        const id = findUpdatable(existing, ctx.headSha);
+        if (id !== void 0) {
+          await updateComment(ctx, id, payload);
+          return "updated";
+        }
       }
-    }
-    await createComment(ctx, payload);
-    return "created";
+      await createComment(ctx, payload);
+      return "created";
+    }, { label: "postPrComment" });
   } catch (err2) {
     process.stderr.write(
       `postPrComment: failed (${err2 instanceof Error ? err2.message : String(err2)}); skipping
@@ -177437,58 +177485,64 @@ async function postPrReview(ctx, summary, comments) {
     // Absent status (skip-verify path) omits the marker entirely.
     body: `${c.status ? `${VERIFY_EMOJI[c.status]} ` : ""}${SEVERITY_EMOJI[c.severity]} ${c.body}`
   }));
-  try {
-    const res = await fetchWithTimeout(url2, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        commit_id: ctx.headSha,
-        body: summary,
-        event: "COMMENT",
-        comments: inlinePayload
-      })
-    });
-    if (res.ok) {
-      process.stdout.write(
-        `postPrReview: posted review with ${inlinePayload.length} inline comment(s)
-`
-      );
-      return "review";
+  const reviewPayload = (reviewComments) => JSON.stringify({
+    commit_id: ctx.headSha,
+    body: summary,
+    event: "COMMENT",
+    comments: reviewComments
+  });
+  const reviewAlreadyPosted = async () => {
+    try {
+      const data = await fetchJson(`${url2}?per_page=100`, {
+        headers: { Authorization: headers.Authorization, Accept: headers.Accept, "X-GitHub-Api-Version": headers["X-GitHub-Api-Version"] }
+      });
+      return Array.isArray(data) && data.some((r2) => r2.commit_id === ctx.headSha && r2.body === summary);
+    } catch {
+      return false;
     }
-    const errBody = await res.text().catch(() => "");
-    process.stderr.write(
-      `postPrReview: inline review rejected (${res.status}); retrying as summary review. ${errBody.slice(0, 500)}
+  };
+  const postReviewWithReconcile = async (label, body) => {
+    const attempts = 3;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await fetchJson(url2, { method: "POST", headers, body });
+        return;
+      } catch (err2) {
+        if (attempt >= attempts || !isTransientReviewerError(err2)) throw err2;
+        if (await reviewAlreadyPosted()) {
+          process.stderr.write(`${label}: response lost, but the review is already on the server; not re-posting
+`);
+          return;
+        }
+        const backoff = 1e3 * 2 ** (attempt - 1) + Math.floor(Math.random() * 1e3);
+        process.stderr.write(`${label}: attempt ${attempt}/${attempts} failed (${err2 instanceof Error ? err2.message : String(err2)}); retrying in ${backoff}ms
+`);
+        const { promise: promise2, resolve } = Promise.withResolvers();
+        setTimeout(resolve, backoff);
+        await promise2;
+      }
+    }
+  };
+  try {
+    await postReviewWithReconcile("postPrReview: inline review", reviewPayload(inlinePayload));
+    process.stdout.write(
+      `postPrReview: posted review with ${inlinePayload.length} inline comment(s)
 `
     );
+    return "review";
   } catch (err2) {
     process.stderr.write(
-      `postPrReview: inline review threw (${err2 instanceof Error ? err2.message : String(err2)}); retrying as summary review
+      `postPrReview: inline review failed (${err2 instanceof Error ? err2.message : String(err2)}); retrying as summary review
 `
     );
   }
   try {
-    const res = await fetchWithTimeout(url2, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        commit_id: ctx.headSha,
-        body: summary,
-        event: "COMMENT",
-        comments: []
-      })
-    });
-    if (res.ok) {
-      process.stderr.write("postPrReview: posted summary-only review\n");
-      return "summary-review";
-    }
-    const errBody = await res.text().catch(() => "");
-    process.stderr.write(
-      `postPrReview: summary review rejected (${res.status}); falling back to issue comment. ${errBody.slice(0, 500)}
-`
-    );
+    await postReviewWithReconcile("postPrReview: summary review", reviewPayload([]));
+    process.stderr.write("postPrReview: posted summary-only review\n");
+    return "summary-review";
   } catch (err2) {
     process.stderr.write(
-      `postPrReview: summary review threw (${err2 instanceof Error ? err2.message : String(err2)}); falling back to issue comment
+      `postPrReview: summary review failed (${err2 instanceof Error ? err2.message : String(err2)}); falling back to issue comment
 `
     );
   }
@@ -177498,6 +177552,8 @@ var FETCH_TIMEOUT_MS, SEVERITY_EMOJI, VERIFY_EMOJI, MARKER, SHA_LINE_PREFIX, SHA
 var init_pr_comment = __esm({
   "src/pr-comment.ts"() {
     "use strict";
+    init_retry();
+    init_transient_error();
     FETCH_TIMEOUT_MS = 3e4;
     SEVERITY_EMOJI = {
       blocking: "\u{1F534}",
@@ -177587,6 +177643,7 @@ var SELF_MARKER2, SHA_LINE_PREFIX2, SHA_LINE_SUFFIX2, FETCH_TIMEOUT_MS2, GiteaAd
 var init_adapter2 = __esm({
   "src/platforms/gitea/adapter.ts"() {
     "use strict";
+    init_retry();
     SELF_MARKER2 = "<!-- pi-review-agent -->";
     SHA_LINE_PREFIX2 = "<!-- pi-review-agent-sha:";
     SHA_LINE_SUFFIX2 = " -->";
@@ -177622,19 +177679,21 @@ ${SHA_LINE_PREFIX2}${context2.headSha}${SHA_LINE_SUFFIX2}` : SELF_MARKER2;
         const payload = `${head}
 ${body}`;
         try {
-          if (context2.headSha) {
-            const comments = await giteaFetch(
-              `${base}/issues/${context2.pr}/comments`,
-              context2.token
-            );
-            const existing = this.findUpdatable(comments, context2.headSha);
-            if (existing !== void 0) {
-              await this.updateComment(base, existing, payload, context2.token);
-              return "updated";
+          return await withTransientRetry(async () => {
+            if (context2.headSha) {
+              const comments = await giteaFetch(
+                `${base}/issues/${context2.pr}/comments`,
+                context2.token
+              );
+              const existing = this.findUpdatable(comments, context2.headSha);
+              if (existing !== void 0) {
+                await this.updateComment(base, existing, payload, context2.token);
+                return "updated";
+              }
             }
-          }
-          await this.createComment(base, context2.pr, payload, context2.token);
-          return "created";
+            await this.createComment(base, context2.pr, payload, context2.token);
+            return "created";
+          }, { label: "Gitea postComment" });
         } catch (err2) {
           process.stderr.write(
             `Gitea postComment: failed (${err2 instanceof Error ? err2.message : String(err2)}); skipping
@@ -178041,21 +178100,54 @@ var import_node_fs2 = require("fs");
 var import_node_path4 = __toESM(require("path"), 1);
 init_dist3();
 init_dist();
-init_tools();
-init_walk_grep();
 
-// src/transient-error.ts
-function isTransientReviewerError(err2) {
-  const msg = err2 instanceof Error ? err2.message : String(err2);
-  if (/\btimed out after \d+ms\b/.test(msg)) return false;
-  if (/\brate limit\b|\b429\b/i.test(msg)) return true;
-  if (/\b4[0-8]\d\b/.test(msg)) return false;
-  return /fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|EHOSTUNREACH|ENETUNREACH|UND_ERR|socket hang up|other side closed|request timeout|stream timeout|stream terminated|connection terminated|\b5\d\d\b/i.test(
-    msg
-  );
+// src/collect-review.ts
+function isTextBlock(c) {
+  return typeof c === "object" && c !== null && "type" in c && c.type === "text";
+}
+function collectFromAgent(agent, newMessages) {
+  const { promise: promise2, resolve } = Promise.withResolvers();
+  let lastAssistantText = "";
+  let lastUsage = null;
+  let lastErrorMessage;
+  agent.subscribe((ev) => {
+    if (ev.type === "agent_end") {
+      resolve({
+        content: lastAssistantText,
+        usage: lastUsage ? {
+          input: lastUsage.input,
+          output: lastUsage.output,
+          cacheRead: lastUsage.cacheRead,
+          cacheWrite: lastUsage.cacheWrite,
+          costTotal: lastUsage.cost.total
+        } : null,
+        errorMessage: lastErrorMessage
+      });
+      return;
+    }
+    if (ev.type !== "message_end") return;
+    const msg = ev.message;
+    if (!msg) return;
+    newMessages.push(ev.message);
+    if (msg.role !== "assistant") return;
+    const text = msg.content.filter(isTextBlock).map((c) => c.text).join("");
+    if (text) lastAssistantText = text;
+    if (msg.usage && (msg.usage.input || msg.usage.output || msg.usage.cacheRead)) {
+      lastUsage = msg.usage;
+    }
+    if ("errorMessage" in msg && typeof msg.errorMessage === "string" && msg.errorMessage) {
+      lastErrorMessage = msg.errorMessage;
+    } else if (msg.stopReason === "error" || msg.stopReason === "aborted") {
+      lastErrorMessage = `stream ${msg.stopReason}`;
+    }
+  });
+  return promise2;
 }
 
 // src/review.ts
+init_tools();
+init_walk_grep();
+init_transient_error();
 function defaultSystemPrompt(persona) {
   const padded = "You are a senior code reviewer. Cite file:line for each finding, classify as blocker / warning / suggestion, and prefer specific concrete remedies over generic advice. Do not invent issues if the diff is fine. " + "Focus on correctness, then security, then clarity, in that order. ".repeat(40);
   return padded + `
@@ -178112,45 +178204,6 @@ async function appendTranscript(file2, messages) {
   const block = messages.map((m2) => JSON.stringify(m2)).join("\n") + "\n";
   await import_node_fs2.promises.appendFile(file2, block);
 }
-function isTextBlock(c) {
-  return typeof c === "object" && c !== null && "type" in c && c.type === "text";
-}
-function collectFromAgent(agent, newMessages) {
-  const { promise: promise2, resolve } = Promise.withResolvers();
-  let lastAssistantText = "";
-  let lastUsage = null;
-  let lastErrorMessage;
-  agent.subscribe((ev) => {
-    if (ev.type === "agent_end") {
-      resolve({
-        content: lastAssistantText,
-        usage: lastUsage ? {
-          input: lastUsage.input,
-          output: lastUsage.output,
-          cacheRead: lastUsage.cacheRead,
-          cacheWrite: lastUsage.cacheWrite,
-          costTotal: lastUsage.cost.total
-        } : null,
-        errorMessage: lastErrorMessage
-      });
-      return;
-    }
-    if (ev.type !== "message_end" && ev.type !== "turn_end") return;
-    const msg = ev.message;
-    if (!msg) return;
-    newMessages.push(ev.message);
-    if (msg.role !== "assistant") return;
-    const text = msg.content.filter(isTextBlock).map((c) => c.text).join("");
-    if (text) lastAssistantText = text;
-    if (msg.usage && (msg.usage.input || msg.usage.output || msg.usage.cacheRead)) {
-      lastUsage = msg.usage;
-    }
-    if ("errorMessage" in msg && typeof msg.errorMessage === "string") {
-      lastErrorMessage = msg.errorMessage;
-    }
-  });
-  return promise2;
-}
 function withTimeout(promise2, ms, label) {
   const { promise: timeout, reject } = Promise.withResolvers();
   const timer = setTimeout(
@@ -178203,9 +178256,11 @@ ${opts.diff}`;
       const promptP = agent.prompt(userMessage);
       await (timeoutMs > 0 ? withTimeout(promptP, timeoutMs, opts.persona) : promptP);
       const collected = await done;
+      if (collected.errorMessage) {
+        throw new Error(`review stream failed \u2014 ${collected.errorMessage}`);
+      }
       if (!collected.usage) {
-        const cause = collected.errorMessage ?? "no usage returned";
-        throw new Error(`review completed with no usage \u2014 ${cause}`);
+        throw new Error("review completed with no usage");
       }
       await appendTranscript(file2, newMessages);
       return {
@@ -181462,6 +181517,24 @@ async function createAdapterFromEnv(env2, explicitPlatform) {
   return { adapter, platform };
 }
 
+// src/post-results.ts
+async function postTeamResults(adapter, ctx, body, inlineComments) {
+  if (inlineComments.length === 0) {
+    return { comment: await adapter.postComment(ctx, body) };
+  }
+  const review = await adapter.postReview(ctx, body, inlineComments);
+  if (review === "created" || review === "updated") {
+    return { review, comment: review };
+  }
+  if (review === "skipped") {
+    process.stderr.write(
+      `postTeamResults: review layer skipped posting; ${inlineComments.length} inline finding(s) did not reach the PR
+`
+    );
+  }
+  return { review, comment: await adapter.postComment(ctx, body) };
+}
+
 // src/diff-filter.ts
 var LOCK_PATTERNS = [
   /\.lockb?$/,
@@ -181954,9 +182027,10 @@ ${r2.result.content}
       token: prInfo.token,
       headSha: prInfo.headSha
     };
-    const outcome = result.inlineComments.length > 0 ? await adapter.postReview(commentContext, body, result.inlineComments) : await adapter.postComment(commentContext, body);
+    const outcome = await postTeamResults(adapter, commentContext, body, result.inlineComments);
     process.stdout.write(`
-PR comment: ${outcome}
+PR review: ${outcome.review ?? "none"}
+PR comment: ${outcome.comment}
 `);
   }
   return shouldFail(result.severity, opts.failOnSeverity) ? 1 : 0;

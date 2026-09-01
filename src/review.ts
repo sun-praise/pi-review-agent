@@ -17,15 +17,14 @@
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { Agent, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
+import { Agent, type AgentMessage } from "@earendil-works/pi-agent-core";
 import {
   createModels,
   type Api,
-  type AssistantMessage,
   type Model,
   type Provider,
-  type Usage,
 } from "@earendil-works/pi-ai";
+import { collectFromAgent, type ReviewUsage } from "./collect-review.js";
 import { createReadFileTool, createGrepTool, type GrepWalker } from "./tools.js";
 import { walkGrep } from "./walk-grep.js";
 import { isTransientReviewerError } from "./transient-error.js";
@@ -85,13 +84,9 @@ export interface RunReviewOptions {
   grepWalker?: GrepWalker;
 }
 
-export interface ReviewUsage {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
-  costTotal: number;
-}
+// ReviewUsage moved to ./collect-review.ts (pure collection semantics);
+// re-exported so the module's public surface is unchanged.
+export type { ReviewUsage } from "./collect-review.js";
 
 export interface ReviewResult {
   content: string;
@@ -178,72 +173,6 @@ async function appendTranscript(file: string, messages: AgentMessage[]): Promise
   await fs.appendFile(file, block);
 }
 
-interface CollectedReview {
-  content: string;
-  usage: ReviewUsage | null;
-  /**
-   * Upstream error captured from pi-agent-core's failureMessage. When the
-   * stream errors, the loop emits a synthetic assistant message with empty
-   * usage and stopReason="error" + errorMessage=<real cause>. Without
-   * capturing this the real error is swallowed and the caller only sees
-   * "no usage" — useless for diagnosing transient vs permanent failures.
-   */
-  errorMessage?: string;
-}
-
-interface TextBlock {
-  type: "text";
-  text: string;
-}
-
-function isTextBlock(c: unknown): c is TextBlock {
-  return typeof c === "object" && c !== null && "type" in c && c.type === "text";
-}
-
-/** Wire an Agent's event stream to a promise that resolves on agent_end. */
-function collectFromAgent(agent: Agent, newMessages: AgentMessage[]): Promise<CollectedReview> {
-  const { promise, resolve } = Promise.withResolvers<CollectedReview>();
-  let lastAssistantText = "";
-  let lastUsage: Usage | null = null;
-  let lastErrorMessage: string | undefined;
-
-  agent.subscribe((ev: AgentEvent) => {
-    if (ev.type === "agent_end") {
-      resolve({
-        content: lastAssistantText,
-        usage: lastUsage
-          ? {
-              input: lastUsage.input,
-              output: lastUsage.output,
-              cacheRead: lastUsage.cacheRead,
-              cacheWrite: lastUsage.cacheWrite,
-              costTotal: lastUsage.cost.total,
-            }
-          : null,
-        errorMessage: lastErrorMessage,
-      });
-      return;
-    }
-    if (ev.type !== "message_end" && ev.type !== "turn_end") return;
-    const msg = ev.message as AssistantMessage | undefined;
-    if (!msg) return;
-    newMessages.push(ev.message);
-    if (msg.role !== "assistant") return;
-    const text = msg.content.filter(isTextBlock).map((c) => c.text).join("");
-    if (text) lastAssistantText = text;
-    if (msg.usage && (msg.usage.input || msg.usage.output || msg.usage.cacheRead)) {
-      lastUsage = msg.usage;
-    }
-    // pi-agent-core's handleRunFailure emits a synthetic assistant message
-    // with empty usage, stopReason="error", and the real cause in errorMessage.
-    if ("errorMessage" in msg && typeof msg.errorMessage === "string") {
-      lastErrorMessage = msg.errorMessage;
-    }
-  });
-
-  return promise;
-}
-
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   const { promise: timeout, reject } = Promise.withResolvers<never>();
   const timer = setTimeout(
@@ -258,7 +187,6 @@ function sleep(ms: number): Promise<void> {
   setTimeout(resolve, ms);
   return promise;
 }
-
 
 /**
  * Run a single model attempt with retry loop. Returns the result or throws
@@ -312,9 +240,17 @@ async function runModelAttempt(
       const promptP = agent.prompt(userMessage);
       await (timeoutMs > 0 ? withTimeout(promptP, timeoutMs, opts.persona) : promptP);
       const collected = await done;
+      // A terminal stream error means the run never finished: `content` is
+      // then a stale pre-tool-call fragment ("Let me check ...") and `usage`
+      // is stale from an earlier turn — the synthetic failure message is
+      // empty on both. Reject the attempt so the transient-retry loop, the
+      // model fallback chain, and the fail-closed persona override run;
+      // otherwise a mid-run blip masquerades as a successful review (#59).
+      if (collected.errorMessage) {
+        throw new Error(`review stream failed — ${collected.errorMessage}`);
+      }
       if (!collected.usage) {
-        const cause = collected.errorMessage ?? "no usage returned";
-        throw new Error(`review completed with no usage — ${cause}`);
+        throw new Error("review completed with no usage");
       }
       await appendTranscript(file, newMessages);
       return {

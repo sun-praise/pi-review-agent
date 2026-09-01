@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { postPrReview, type PrCommentContext } from "./pr-comment.js";
+import { postPrComment, postPrReview, type PrCommentContext } from "./pr-comment.js";
 import type { InlineComment } from "./inline-comments.js";
 
 const CTX: PrCommentContext = {
@@ -24,12 +24,13 @@ interface RecordedCall {
 }
 
 /**
- * Stub globalThis.fetch with a fixed sequence of responses. Each call records
- * its url/method/body so assertions can inspect the Reviews API payload. The
- * stub is restored in t.afterEach so tests don't leak fetch state.
+ * Stub globalThis.fetch with a fixed sequence of outcomes. Each entry is
+ * either an HTTP response or `{ throw }` for a network-level failure. Each
+ * call records its url/method/body so assertions can inspect the payload.
+ * The stub is restored in t.afterEach so tests don't leak fetch state.
  */
 function withFetchStub(
-  responses: { status: number; ok: boolean }[],
+  responses: ({ status: number; ok: boolean; json?: string } | { throw: string })[],
   fn: (calls: RecordedCall[]) => Promise<void>,
 ): Promise<void> {
   const calls: RecordedCall[] = [];
@@ -51,8 +52,9 @@ function withFetchStub(
     }
     const r = responses[i];
     i += 1;
+    if ("throw" in r) return Promise.reject(new TypeError(r.throw));
     return Promise.resolve(
-      new Response("{}", { status: r.status, statusText: r.ok ? "OK" : "ERR" }),
+      new Response(r.json ?? "{}", { status: r.status, statusText: r.ok ? "OK" : "ERR" }),
     );
   }) as typeof fetch;
   return fn(calls).finally(() => {
@@ -117,6 +119,40 @@ test("postPrReview", async (t) => {
     );
   });
 
+  await t.test("does not re-POST when a lost response actually persisted the review", async () => {
+    // Reviews API creates a new thread per POST (no commit_id dedup), so a
+    // blind retry after a lost response would duplicate the review. On a
+    // transient failure the code reconciles against the server first: the
+    // GET finds a matching review (same commit + body) → success, no re-POST.
+    const listed = JSON.stringify([{ commit_id: "abc123", body: "summary" }]);
+    await withFetchStub(
+      [{ throw: "fetch failed" }, { status: 200, ok: true, json: listed }],
+      async (calls) => {
+        const outcome = await postPrReview(CTX, "summary", COMMENTS);
+        assert.equal(outcome, "review");
+        assert.equal(calls.length, 2);
+        assert.match(calls[1].url, /\/pulls\/42\/reviews\?per_page=100$/);
+        assert.equal(calls[1].method, "GET");
+      },
+    );
+  });
+
+  await t.test("re-POSTs after a transient failure when no matching review exists", async () => {
+    await withFetchStub(
+      [
+        { throw: "fetch failed" },
+        { status: 200, ok: true, json: "[]" },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        const outcome = await postPrReview(CTX, "summary", COMMENTS);
+        assert.equal(outcome, "review");
+        assert.equal(calls.length, 3);
+        assert.equal(calls[2].method, "POST");
+      },
+    );
+  });
+
   await t.test("returns skipped when token missing", async () => {
     await withFetchStub([{ status: 200, ok: true }], async (calls) => {
       const outcome = await postPrReview({ ...CTX, token: "" }, "summary", COMMENTS);
@@ -148,6 +184,72 @@ test("postPrReview", async (t) => {
         const outcome = await postPrReview(CTX, "summary", []);
         assert.match(outcome, /^(created|updated|skipped)$/);
         assert.match(calls[0].url, /\/issues\/42\/comments/);
+      },
+    );
+  });
+});
+
+test("postPrComment", async (t) => {
+  const existing = JSON.stringify([
+    { id: 777, body: "<!-- pi-review-agent -->\n<!-- pi-review-agent-sha:abc123 -->\n❓ UNKNOWN\nstale fragment" },
+  ]);
+
+  await t.test("updates the same-SHA comment in place instead of creating", async () => {
+    await withFetchStub(
+      [
+        { status: 200, ok: true, json: existing },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        const outcome = await postPrComment(CTX, "fresh summary");
+        assert.equal(outcome, "updated");
+        assert.equal(calls.length, 2);
+        assert.match(calls[0].url, /\/issues\/42\/comments$/);
+        assert.match(calls[1].url, /\/issues\/comments\/777$/);
+        assert.equal(calls[1].method, "PATCH");
+        const body = calls[1].body as { body: string };
+        assert.match(body.body, /<!-- pi-review-agent-sha:abc123 -->/);
+        assert.match(body.body, /fresh summary/);
+      },
+    );
+  });
+
+  await t.test("creates a fresh comment for a new SHA", async () => {
+    await withFetchStub(
+      [
+        { status: 200, ok: true, json: existing },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        const outcome = await postPrComment({ ...CTX, headSha: "def456" }, "new sha summary");
+        assert.equal(outcome, "created");
+        assert.equal(calls.length, 2);
+        assert.equal(calls[1].method, "POST");
+        assert.match(calls[1].url, /\/issues\/42\/comments$/);
+      },
+    );
+  });
+
+  await t.test("retries a transient fetch failure instead of discarding the result (#59)", async () => {
+    // The observed failure: one "fetch failed" on a self-hosted runner
+    // skipped posting entirely, losing a finished CAN MERGE review.
+    await withFetchStub(
+      [{ throw: "fetch failed" }, { status: 200, ok: true }, { status: 200, ok: true }],
+      async (calls) => {
+        const outcome = await postPrComment(CTX, "retry me");
+        assert.equal(outcome, "created");
+        assert.equal(calls.length, 3);
+      },
+    );
+  });
+
+  await t.test("still skips after exhausting transient retries", async () => {
+    await withFetchStub(
+      [{ throw: "fetch failed" }, { throw: "fetch failed" }, { throw: "fetch failed" }],
+      async (calls) => {
+        const outcome = await postPrComment(CTX, "doomed");
+        assert.equal(outcome, "skipped");
+        assert.equal(calls.length, 3);
       },
     );
   });
