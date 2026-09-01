@@ -111,3 +111,24 @@ dogfood-review 跑的是提交进 git 的 `dist/index.cjs`（编译产物），�
 - Tags: testing, windows, glob, path-separator, platform
 
 ---
+
+## [LRN-20260901-005] pitfall
+
+**Logged**: 2026-09-01T00:00:00Z
+**Priority**: high
+**Status**: resolved
+**Area**: ci
+
+### Summary
+pi-agent-core 流中断时，末端 synthetic assistant message 的 text/usage 都是**空**，不会覆盖采集器里上一轮的旧值——"内容非空 + usage 非空"的守卫双双失效，中间思考片段被当成最终评审结果静默返回成功。
+
+### Details
+issue #59 首跑：四个 persona 全部只产出 "Let me check ..." 这类 pre-tool-call 片段，verdict UNKNOWN，run 却 success。根因链：pi-agent-core 在 stream 出错时 emit 一条 `content:[{text:""}]` + `EMPTY_USAGE` + `stopReason:"error"` 的合成消息（agent-loop.js 对 error/aborted 直接 return；Agent.handleRunFailure 同构）。旧 `collectFromAgent` 只在 text 非空时更新 `lastAssistantText`、只在 usage 非空时更新 `lastUsage`——合成消息两个字段都空，于是 fragment（上一条 assistant 消息）和上一轮 usage 原封不动保留；`!collected.usage` 守卫不触发，error run 被当成功。同 issue 还暴露两个伴随缺陷：(1) `message_end` 和 `turn_end` 都带 `.message`，两个事件都 push 导致 JSONL transcript 里每条 assistant 消息重复两份；(2) 发评论的 fetch 无重试，self-hosted runner 一次 "fetch failed" 就把跑完的评审整体丢弃（run d35a811d 日志 `postPrComment: failed (fetch failed); skipping`）。
+
+### Suggested Action
+判断 agent run 是否成功，**永远看终态消息的 stopReason/errorMessage，不要用 content/usage 非空当成功信号**——合成失败消息恰好把它们留空。发 PR 评论的路径用 `withTransientRetry`（src/retry.ts）包住 find-or-create 序列。排查这类"成功但有鬼"的 run：看 run log 里有没有 `trying next fallback` / `coordinator failed`（error run 的旁证），再对照 PR 评论里 persona section 是否是思考片段开头（"Let me ..."）。
+
+### Metadata
+- Source: session_analysis
+- Related Files: src/collect-review.ts, src/review.ts, src/retry.ts, src/pr-comment.ts
+- Tags: pi-agent-core, stream-error, silent-failure, github-api, retry, issue-59

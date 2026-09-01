@@ -28,6 +28,7 @@ import { runTeamReview, renderTeamComment, buildSystemPrompt, type TeamReviewRes
 import { loadPersonas } from "./personas.js";
 import { loadStyleGuide } from "./style-guide.js";
 import { createAdapterFromEnv, type PlatformAdapter } from "./platforms/index.js";
+import { postTeamResults } from "./post-results.js";
 import { filterDiff } from "./diff-filter.js";
 import { parseSeverity, shouldFail } from "./severity.js";
 import { parseFallbackModels } from "./fallback.js";
@@ -238,7 +239,7 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
   }
   writeTeamSummary(result, opts.displayCurrency);
 
-  // Post PR comment using platform adapter
+  // Post PR results using platform adapter
   const prInfo = adapter.resolvePrFromEnv(process.env);
   if (prInfo) {
     const body = renderTeamComment(result, { currency: opts.displayCurrency });
@@ -249,14 +250,10 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
       token: prInfo.token,
       headSha: prInfo.headSha,
     };
-    // When the coordinator surfaced line-pinned findings, post a review
-    // with inline comments (falls back to summary comment on Gitea).
-    // Otherwise keep the comment path with its edit-in-place behaviour.
-    const outcome =
-      result.inlineComments.length > 0
-        ? await adapter.postReview(commentContext, body, result.inlineComments)
-        : await adapter.postComment(commentContext, body);
-    process.stdout.write(`\nPR comment: ${outcome}\n`);
+    // Inline findings go out as a PR review; the top-level summary comment
+    // is ALWAYS refreshed afterwards (post-results.ts explains the policy).
+    const outcome = await postTeamResults(adapter, commentContext, body, result.inlineComments);
+    process.stdout.write(`\nPR review: ${outcome.review ?? "none"}\nPR comment: ${outcome.comment}\n`);
   }
   return shouldFail(result.severity, opts.failOnSeverity) ? 1 : 0;
 }

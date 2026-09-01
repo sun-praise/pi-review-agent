@@ -4,6 +4,7 @@
  */
 
 import type { PlatformAdapter, PrContextOptions, PrCommentContext, PrInfo, InlineComment, PostReviewResult } from "../types.js";
+import { withTransientRetry } from "../../retry.js";
 
 const SELF_MARKER = "<!-- pi-review-agent -->";
 const SHA_LINE_PREFIX = "<!-- pi-review-agent-sha:";
@@ -113,22 +114,26 @@ export class GiteaAdapter implements PlatformAdapter {
     const payload = `${head}\n${body}`;
 
     try {
-      // Try to find existing comment to update
-      if (context.headSha) {
-        const comments = await giteaFetch<GiteaComment[]>(
-          `${base}/issues/${context.pr}/comments`,
-          context.token,
-        );
-        const existing = this.findUpdatable(comments, context.headSha);
-        if (existing !== undefined) {
-          await this.updateComment(base, existing, payload, context.token);
-          return "updated";
+      // Find-or-create with transient retry (#59): one network blip must
+      // not discard a finished review. Permanent API errors skip retries.
+      return await withTransientRetry(async () => {
+        // Try to find existing comment to update
+        if (context.headSha) {
+          const comments = await giteaFetch<GiteaComment[]>(
+            `${base}/issues/${context.pr}/comments`,
+            context.token,
+          );
+          const existing = this.findUpdatable(comments, context.headSha);
+          if (existing !== undefined) {
+            await this.updateComment(base, existing, payload, context.token);
+            return "updated" as const;
+          }
         }
-      }
 
-      // Create new comment
-      await this.createComment(base, context.pr, payload, context.token);
-      return "created";
+        // Create new comment
+        await this.createComment(base, context.pr, payload, context.token);
+        return "created" as const;
+      }, { label: "Gitea postComment" });
     } catch (err: unknown) {
       process.stderr.write(
         `Gitea postComment: failed (${err instanceof Error ? err.message : String(err)}); skipping\n`,
