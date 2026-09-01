@@ -17,6 +17,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   conversion is display-layer only. Invalid values warn on stderr and fall
   back to usd/7.2; no live-rate fetching.
 
+### Fixed
+
+- **Stream-error runs no longer pass as reviews** (#59): a mid-stream failure
+  used to leave the collector holding the previous turn's pre-tool-call
+  fragment plus stale usage, so all four personas could "succeed" with
+  thinking snippets and an UNKNOWN verdict while the check stayed green.
+  Terminal `stopReason: error|aborted` now fails the attempt, engaging the
+  transient retry, model-fallback, and fail-closed (CANNOT MERGE) paths.
+- **Top-level summary comment always refreshes** (#59): runs with inline
+  findings posted only a PR review (append-only) and never updated the
+  standing comment, so a broken first comment stayed forever across re-runs
+  and new SHAs. The review is posted AND the summary comment is refreshed
+  every run (new SHA → new comment, same-SHA re-run → replaces in place).
+- **Transient-retry for comment posting** (#59): one `fetch failed` on a
+  self-hosted runner used to discard a finished review (`PR comment:
+  skipped`). GitHub/Gitea comment create/update and review POSTs now retry
+  transient errors (network, 429, 5xx) with backoff; permanent 4xx still
+  fall through immediately.
+- **Session transcripts no longer duplicate assistant messages**: the
+  collector handled both `message_end` and `turn_end` (which re-carries the
+  same message), writing every assistant turn twice into the JSONL resume
+  file.
+
 ## [1.6.0] - 2026-08-31
 
 ### Added
