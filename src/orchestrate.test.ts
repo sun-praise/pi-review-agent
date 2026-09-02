@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { renderTeamComment, type CommentTeamView } from "./team-comment.js";
+import { renderTeamComment, renderTeamReviewBody, type CommentTeamView } from "./team-comment.js";
 import type { ReviewResult } from "./review.js";
 
 interface Usage {
@@ -111,5 +111,42 @@ describe("renderTeamComment verification", () => {
     assert.ok(body.includes("`src/auth.ts:99`"));
     assert.ok(body.includes("line 99 not changed"));
     assert.ok(body.includes("unvalidated call"));
+  });
+});
+
+describe("renderTeamReviewBody (slim review surface, #62)", () => {
+  it("keeps verdict, verification digest and pointer; drops the long sections", () => {
+    const result: CommentTeamView = {
+      personas: [{ persona: "quality", result: review("CAN MERGE\n\nfine", OK_USAGE, "quality") }],
+      coordinator: { content: "CAN MERGE\n\nfine — long synthesis text" },
+      verdict: "CAN MERGE",
+      totalCost: 0.0001,
+      totalCacheRead: 0,
+      verification: { total: 3, verified: 2, demoted: 1, demotedList: [] },
+    };
+    const body = renderTeamReviewBody(result);
+    assert.ok(body.includes("✅ CAN MERGE"));
+    assert.ok(body.includes("🔍 **Verification:** 2/3"));
+    assert.ok(body.includes("top-level"));
+    // The full synthesis and per-reviewer sections stay on the comment surface.
+    assert.ok(!body.includes("Coordinator synthesis"));
+    assert.ok(!body.includes("long synthesis text"));
+    assert.ok(!body.includes("quality"));
+  });
+
+  it("duplicates the fail-closed banner — safety notes must be readable from the review timeline too", () => {
+    const result: CommentTeamView = {
+      personas: [
+        { persona: "quality", result: review("", EMPTY_USAGE, "quality"), error: "no usage" },
+      ],
+      coordinator: { content: "CAN MERGE" },
+      verdict: "CANNOT MERGE",
+      totalCost: 0,
+      totalCacheRead: 0,
+    };
+    const body = renderTeamReviewBody(result);
+    assert.ok(body.includes("🚫 CANNOT MERGE"));
+    assert.ok(body.includes("Fail-closed"));
+    assert.ok(body.includes("quality"));
   });
 });

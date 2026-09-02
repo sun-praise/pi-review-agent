@@ -177459,12 +177459,12 @@ ${body}`;
     return "skipped";
   }
 }
-async function postPrReview(ctx, summary, comments) {
+async function postPrReview(ctx, summary, comments, commentFallback) {
   if (comments.length === 0) {
-    return postPrComment(ctx, summary);
+    return postPrComment(ctx, commentFallback ?? summary);
   }
   if (!ctx.headSha) {
-    return postPrComment(ctx, summary);
+    return postPrComment(ctx, commentFallback ?? summary);
   }
   if (!ctx.token) {
     process.stderr.write("postPrReview: no GITHUB_TOKEN; skipping\n");
@@ -177546,7 +177546,7 @@ async function postPrReview(ctx, summary, comments) {
 `
     );
   }
-  return postPrComment(ctx, summary);
+  return postPrComment(ctx, commentFallback ?? summary);
 }
 var FETCH_TIMEOUT_MS, SEVERITY_EMOJI, VERIFY_EMOJI, MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX;
 var init_pr_comment = __esm({
@@ -177588,8 +177588,8 @@ var init_adapter = __esm({
       async postComment(context2, body) {
         return postPrComment(context2, body);
       }
-      async postReview(context2, summary, comments) {
-        return postPrReview(context2, summary, comments);
+      async postReview(context2, summary, comments, commentFallback) {
+        return postPrReview(context2, summary, comments, commentFallback);
       }
       resolvePrFromEnv(env2) {
         const auth = githubAuthFromEnv(env2);
@@ -177702,12 +177702,13 @@ ${body}`;
           return "skipped";
         }
       }
-      async postReview(context2, summary, comments) {
+      async postReview(context2, summary, comments, commentFallback) {
+        const body = commentFallback ?? summary;
         if (comments.length > 0) {
           const inlineSummary = comments.map(
             (c) => `**${c.file}:${c.line}** (${c.severity}${c.status ? `, ${c.status}` : ""}): ${c.body}`
           ).join("\n\n");
-          const fullSummary = `${summary}
+          const fullSummary = `${body}
 
 ---
 
@@ -177716,7 +177717,7 @@ ${body}`;
 ${inlineSummary}`;
           return this.postComment(context2, fullSummary);
         }
-        return this.postComment(context2, summary);
+        return this.postComment(context2, body);
       }
       resolvePrFromEnv(env2) {
         const token = env2.GITEA_TOKEN ?? "";
@@ -181133,11 +181134,13 @@ async function applyRuleLayer(comment, cwd, changedLines, existsCache) {
 }
 
 // src/team-comment.ts
+function verdictIcon(verdict) {
+  return verdict === "CAN MERGE" ? "\u2705" : verdict === "CONDITIONAL MERGE" ? "\u26A0\uFE0F" : verdict === "CANNOT MERGE" ? "\u{1F6AB}" : "\u2753";
+}
 function renderTeamComment(result, opts = {}) {
   const currency = opts.currency ?? { currency: "usd", rate: DEFAULT_USD_CNY_RATE };
   const lines = [];
-  const icon = result.verdict === "CAN MERGE" ? "\u2705" : result.verdict === "CONDITIONAL MERGE" ? "\u26A0\uFE0F" : result.verdict === "CANNOT MERGE" ? "\u{1F6AB}" : "\u2753";
-  lines.push(`${icon} ${result.verdict}`);
+  lines.push(`${verdictIcon(result.verdict)} ${result.verdict}`);
   lines.push("");
   if (result.verification && result.verification.total > 0) {
     const v = result.verification;
@@ -181189,6 +181192,34 @@ function renderTeamComment(result, opts = {}) {
     lines.push("");
   }
   lines.push("---");
+  lines.push(
+    `<sub>pi-review-agent \xB7 total cost ${formatCost(result.totalCost, currency)} \xB7 cacheRead ${result.totalCacheRead}</sub>`
+  );
+  return lines.join("\n");
+}
+function renderTeamReviewBody(result, opts = {}) {
+  const currency = opts.currency ?? { currency: "usd", rate: DEFAULT_USD_CNY_RATE };
+  const lines = [];
+  lines.push(`${verdictIcon(result.verdict)} ${result.verdict}`);
+  lines.push("");
+  if (result.verification && result.verification.total > 0) {
+    const v = result.verification;
+    lines.push(
+      `> \u{1F50D} **Verification:** ${v.verified}/${v.total} inline findings independently verified` + (v.demoted > 0 ? ` \xB7 ${v.demoted} demoted` : "")
+    );
+    lines.push("");
+  }
+  const failedNames = result.personas.filter((r2) => Boolean(r2.error) || r2.result.content.trim() === "").map((r2) => r2.persona);
+  if (failedNames.length > 0) {
+    lines.push(
+      `> \u26A0\uFE0F **Fail-closed:** ${failedNames.length} reviewer(s) produced no output (${failedNames.join(", ")}). Verdict forced to CANNOT MERGE \u2014 do not trust the synthesis in the top-level summary comment.`
+    );
+    lines.push("");
+  }
+  lines.push(
+    "Inline findings are attached to this review. Full synthesis and per-reviewer details: the top-level `pi-review-agent` summary comment on this PR."
+  );
+  lines.push("");
   lines.push(
     `<sub>pi-review-agent \xB7 total cost ${formatCost(result.totalCost, currency)} \xB7 cacheRead ${result.totalCacheRead}</sub>`
   );
@@ -181518,11 +181549,11 @@ async function createAdapterFromEnv(env2, explicitPlatform) {
 }
 
 // src/post-results.ts
-async function postTeamResults(adapter, ctx, body, inlineComments) {
+async function postTeamResults(adapter, ctx, commentBody, reviewBody, inlineComments) {
   if (inlineComments.length === 0) {
-    return { comment: await adapter.postComment(ctx, body) };
+    return { comment: await adapter.postComment(ctx, commentBody) };
   }
-  const review = await adapter.postReview(ctx, body, inlineComments);
+  const review = await adapter.postReview(ctx, reviewBody, inlineComments, commentBody);
   if (review === "created" || review === "updated") {
     return { review, comment: review };
   }
@@ -181532,7 +181563,7 @@ async function postTeamResults(adapter, ctx, body, inlineComments) {
 `
     );
   }
-  return { review, comment: await adapter.postComment(ctx, body) };
+  return { review, comment: await adapter.postComment(ctx, commentBody) };
 }
 
 // src/diff-filter.ts
@@ -181869,7 +181900,7 @@ ${result.content}
 `;
   appendStepSummary(md);
 }
-function writeTeamSummary(result, currency) {
+function writeTeamSummary(result, currency, commentBody) {
   const label = currency.currency.toUpperCase();
   const lines = [];
   lines.push(`### pi-review-agent \u2014 team review (${result.personas.length} reviewers)`);
@@ -181892,6 +181923,14 @@ function writeTeamSummary(result, currency) {
     `**Total cost: ${formatCost(result.totalCost, currency)} \xB7 cacheRead ${result.totalCacheRead}**`
   );
   lines.push("");
+  if (commentBody) {
+    lines.push(`<details><summary>Full summary posted to the PR</summary>`);
+    lines.push("");
+    lines.push(commentBody);
+    lines.push("");
+    lines.push("</details>");
+    lines.push("");
+  }
   appendStepSummary(lines.join("\n"));
   appendOutputs([
     `verdict=${result.verdict}`,
@@ -182016,10 +182055,11 @@ ${result.coordinator.content}
 ${r2.result.content}
 `);
   }
-  writeTeamSummary(result, opts.displayCurrency);
+  const commentBody = renderTeamComment(result, { currency: opts.displayCurrency });
+  writeTeamSummary(result, opts.displayCurrency, commentBody);
   const prInfo = adapter.resolvePrFromEnv(process.env);
   if (prInfo) {
-    const body = renderTeamComment(result, { currency: opts.displayCurrency });
+    const reviewBody = renderTeamReviewBody(result, { currency: opts.displayCurrency });
     const commentContext = {
       apiBase: prInfo.apiBase,
       repository: prInfo.repository,
@@ -182027,7 +182067,7 @@ ${r2.result.content}
       token: prInfo.token,
       headSha: prInfo.headSha
     };
-    const outcome = await postTeamResults(adapter, commentContext, body, result.inlineComments);
+    const outcome = await postTeamResults(adapter, commentContext, commentBody, reviewBody, result.inlineComments);
     process.stdout.write(`
 PR review: ${outcome.review ?? "none"}
 PR comment: ${outcome.comment}

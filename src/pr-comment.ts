@@ -223,21 +223,27 @@ export function prCommentContextFromEnv(env: NodeJS.ProcessEnv): PrCommentContex
  *
  * Never throws: a network or API failure falls through to postPrComment,
  * which itself degrades to "skipped" on error.
+ *
+ * `commentFallback` (#62): the body for stage 3 when it differs from the
+ * review body. The review surface now carries a slim verdict digest while
+ * the standing comment carries the full synthesis — but once the run
+ * degrades to a single issue comment, that one surface must be full.
  */
 export async function postPrReview(
   ctx: PrCommentContext,
   summary: string,
   comments: InlineComment[],
+  commentFallback?: string,
 ): Promise<"review" | "summary-review" | "created" | "updated" | "skipped"> {
   // Caller guards comments.length > 0, but defend anyway: with no inline
   // data there's nothing the Reviews API offers over an issue comment.
   if (comments.length === 0) {
-    return postPrComment(ctx, summary);
+    return postPrComment(ctx, commentFallback ?? summary);
   }
   // Reviews API needs commit_id to anchor inline comments to a specific
   // patch. Without headSha we can't post inline comments at all.
   if (!ctx.headSha) {
-    return postPrComment(ctx, summary);
+    return postPrComment(ctx, commentFallback ?? summary);
   }
   if (!ctx.token) {
     process.stderr.write("postPrReview: no GITHUB_TOKEN; skipping\n");
@@ -336,5 +342,5 @@ export async function postPrReview(
 
   // Attempt 3: issue comment with edit-in-place. postPrComment maps its own
   // failures to "skipped", so we just pass the outcome through.
-  return postPrComment(ctx, summary);
+  return postPrComment(ctx, commentFallback ?? summary);
 }

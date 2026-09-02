@@ -20,8 +20,9 @@ export class GitHubAdapter implements PlatformAdapter {
     context: PrCommentContext,
     summary: string,
     comments: InlineComment[],
+    commentFallback?: string,
   ): Promise<PostReviewResult> {
-    return postPrReview(context, summary, comments);
+    return postPrReview(context, summary, comments, commentFallback);
   }
 
   resolvePrFromEnv(env: NodeJS.ProcessEnv): PrInfo | null {

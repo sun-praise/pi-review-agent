@@ -24,7 +24,7 @@ import { resolveModelIds, DEFAULT_MODEL_ID } from "./model-ids.js";
 import { parseArgs, type CliOptions } from "./parse-args.js";
 import { formatCost, type CurrencyOptions } from "./currency.js";
 import { runReview, type ReviewResult } from "./review.js";
-import { runTeamReview, renderTeamComment, buildSystemPrompt, type TeamReviewResult } from "./orchestrate.js";
+import { runTeamReview, renderTeamComment, renderTeamReviewBody, buildSystemPrompt, type TeamReviewResult } from "./orchestrate.js";
 import { loadPersonas } from "./personas.js";
 import { loadStyleGuide } from "./style-guide.js";
 import { createAdapterFromEnv, type PlatformAdapter } from "./platforms/index.js";
@@ -93,7 +93,11 @@ function writeSingleSummary(result: ReviewResult, persona: string, currency: Cur
   appendStepSummary(md);
 }
 
-function writeTeamSummary(result: TeamReviewResult, currency: CurrencyOptions): void {
+function writeTeamSummary(
+  result: TeamReviewResult,
+  currency: CurrencyOptions,
+  commentBody?: string,
+): void {
   const label = currency.currency.toUpperCase();
   const lines: string[] = [];
   lines.push(`### pi-review-agent — team review (${result.personas.length} reviewers)`);
@@ -116,6 +120,17 @@ function writeTeamSummary(result: TeamReviewResult, currency: CurrencyOptions): 
     `**Total cost: ${formatCost(result.totalCost, currency)} · cacheRead ${result.totalCacheRead}**`,
   );
   lines.push("");
+  // Archive the full PR comment body (#62): the review surface now carries
+  // only a slim digest, so the run log is where the full synthesis for a
+  // given SHA remains retrievable long after the PR comment moved on.
+  if (commentBody) {
+    lines.push(`<details><summary>Full summary posted to the PR</summary>`);
+    lines.push("");
+    lines.push(commentBody);
+    lines.push("");
+    lines.push("</details>");
+    lines.push("");
+  }
   appendStepSummary(lines.join("\n"));
   // Machine outputs stay USD regardless of the display currency (#57): the
   // existing consumers parse costTotal as dollars.
@@ -237,12 +252,13 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
   for (const r of result.personas) {
     process.stdout.write(`\n--- ${r.persona} ---\n${r.result.content}\n`);
   }
-  writeTeamSummary(result, opts.displayCurrency);
+  const commentBody = renderTeamComment(result, { currency: opts.displayCurrency });
+  writeTeamSummary(result, opts.displayCurrency, commentBody);
 
   // Post PR results using platform adapter
   const prInfo = adapter.resolvePrFromEnv(process.env);
   if (prInfo) {
-    const body = renderTeamComment(result, { currency: opts.displayCurrency });
+    const reviewBody = renderTeamReviewBody(result, { currency: opts.displayCurrency });
     const commentContext = {
       apiBase: prInfo.apiBase,
       repository: prInfo.repository,
@@ -250,9 +266,10 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
       token: prInfo.token,
       headSha: prInfo.headSha,
     };
-    // Inline findings go out as a PR review; the top-level summary comment
-    // is ALWAYS refreshed afterwards (post-results.ts explains the policy).
-    const outcome = await postTeamResults(adapter, commentContext, body, result.inlineComments);
+    // Inline findings + slim digest go out as a PR review; the full summary
+    // comment is ALWAYS refreshed afterwards (post-results.ts explains the
+    // policy and the two bodies).
+    const outcome = await postTeamResults(adapter, commentContext, commentBody, reviewBody, result.inlineComments);
     process.stdout.write(`\nPR review: ${outcome.review ?? "none"}\nPR comment: ${outcome.comment}\n`);
   }
   return shouldFail(result.severity, opts.failOnSeverity) ? 1 : 0;
