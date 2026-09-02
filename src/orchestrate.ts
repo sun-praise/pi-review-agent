@@ -461,7 +461,7 @@ function emptyReview(pr: number, persona: string): ReviewResult {
 // renderTeamComment lives in ./team-comment.ts (pure presentation, unit-tested
 // without dragging in the pi-agent-core runtime). Re-export for the existing
 // index.ts import site.
-export { renderTeamComment } from "./team-comment.js";
+export { renderTeamComment, renderTeamReviewBody } from "./team-comment.js";
 
 // ensure dir helper kept here so callers that build paths don't need to repeat it.
 export async function ensureSessionsRoot(root: string): Promise<string> {

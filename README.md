@@ -138,7 +138,8 @@ The action:
 - restores the per-PR session via `actions/cache` so re-pushes continue the session
 - writes a cost table to `$GITHUB_STEP_SUMMARY` (per-persona, with cacheRead surfaced)
 - emits `verdict`, `cacheRead`, `totalCost` as step outputs
-- posts a single PR comment (edited in place across re-pushes via a hidden marker)
+- posts a single PR comment per head SHA carrying the full summary (edited in place on same-SHA re-runs via a hidden marker)
+- posts inline findings as a PR review with a slim verdict digest (#62) — full synthesis lives on the comment, and is archived in `$GITHUB_STEP_SUMMARY`
 
 `pull-requests: write` permission is required for comment posting.
 

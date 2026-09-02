@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Fixed
+
+- **Review and top-level comment no longer duplicate the same body** (#62):
+  since 1.7.0 both surfaces received the identical full summary, so every run
+  with inline findings put two verbatim copies at the top of the PR. The
+  review now carries only a slim verdict digest (verdict, verification
+  roll-up, fail-closed banner, pointer to the standing comment); the
+  top-level comment keeps the full synthesis. Degraded runs (Reviews API
+  rejected the batch, Gitea's single-comment flow) still land the full body —
+  slim is only safe when the standing comment is guaranteed to follow. The
+  full body is also archived in the step summary per run.
+
 ## [1.7.0] - 2026-09-01
 
 ### Added

@@ -146,9 +146,13 @@ export class GiteaAdapter implements PlatformAdapter {
     context: PrCommentContext,
     summary: string,
     comments: InlineComment[],
+    commentFallback?: string,
   ): Promise<PostReviewResult> {
     // Gitea's Reviews API doesn't support inline comments in the same way as GitHub.
     // Fall back to posting a summary comment with inline findings formatted as text.
+    // Gitea has a single comment surface, so it carries the full summary
+    // (commentFallback, #62), never the slim review body.
+    const body = commentFallback ?? summary;
     if (comments.length > 0) {
       const inlineSummary = comments
         .map(
@@ -156,10 +160,10 @@ export class GiteaAdapter implements PlatformAdapter {
             `**${c.file}:${c.line}** (${c.severity}${c.status ? `, ${c.status}` : ""}): ${c.body}`,
         )
         .join("\n\n");
-      const fullSummary = `${summary}\n\n---\n\n### Inline Comments\n\n${inlineSummary}`;
+      const fullSummary = `${body}\n\n---\n\n### Inline Comments\n\n${inlineSummary}`;
       return this.postComment(context, fullSummary);
     }
-    return this.postComment(context, summary);
+    return this.postComment(context, body);
   }
 
   resolvePrFromEnv(env: NodeJS.ProcessEnv): PrInfo | null {

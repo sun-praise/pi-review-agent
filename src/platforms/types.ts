@@ -77,12 +77,16 @@ export interface PlatformAdapter {
   /**
    * Post a PR review with optional inline comments.
    * Falls back to summary review or issue comment if inline comments fail.
+   * `commentFallback` overrides the body used when the review layer degrades
+   * to an issue comment (#62: the review body is slim, but a degraded run has
+   * only the one comment surface, so it must carry the full summary).
    * Returns the action taken, or "skipped" on failure.
    */
   postReview(
     context: PrCommentContext,
     summary: string,
     comments: InlineComment[],
+    commentFallback?: string,
   ): Promise<PostReviewResult>;
 
   /**

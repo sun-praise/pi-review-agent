@@ -35,6 +35,16 @@ export interface CommentRenderOptions {
   currency?: CurrencyOptions;
 }
 
+function verdictIcon(verdict: Verdict): string {
+  return verdict === "CAN MERGE"
+    ? "✅"
+    : verdict === "CONDITIONAL MERGE"
+      ? "⚠️"
+      : verdict === "CANNOT MERGE"
+        ? "🚫"
+        : "❓";
+}
+
 /** Render a team result as a markdown comment body for PR posting. */
 export function renderTeamComment(
   result: CommentTeamView,
@@ -42,15 +52,7 @@ export function renderTeamComment(
 ): string {
   const currency = opts.currency ?? { currency: "usd", rate: DEFAULT_USD_CNY_RATE };
   const lines: string[] = [];
-  const icon =
-    result.verdict === "CAN MERGE"
-      ? "✅"
-      : result.verdict === "CONDITIONAL MERGE"
-        ? "⚠️"
-        : result.verdict === "CANNOT MERGE"
-          ? "🚫"
-          : "❓";
-  lines.push(`${icon} ${result.verdict}`);
+  lines.push(`${verdictIcon(result.verdict)} ${result.verdict}`);
   lines.push("");
 
   if (result.verification && result.verification.total > 0) {
@@ -112,6 +114,58 @@ export function renderTeamComment(
     lines.push("");
   }
   lines.push("---");
+  lines.push(
+    `<sub>pi-review-agent · total cost ${formatCost(result.totalCost, currency)} · cacheRead ${result.totalCacheRead}</sub>`,
+  );
+  return lines.join("\n");
+}
+
+/**
+ * Render the SLIM body carried by the PR review surface (#62).
+ *
+ * Two surfaces, two jobs: the review anchors inline findings to one commit
+ * and is append-only (a re-run adds another review), so a full synthesis
+ * there would stack duplicate long bodies per push. The standing top-level
+ * comment keeps the full renderTeamComment body; the review body stays a
+ * verdict + verification digest + pointer. Safety-critical notes (fail-closed
+ * warning) are duplicated here on purpose — they must not be missable just
+ * because someone reads the review timeline instead of the top comment.
+ */
+export function renderTeamReviewBody(
+  result: CommentTeamView,
+  opts: CommentRenderOptions = {},
+): string {
+  const currency = opts.currency ?? { currency: "usd", rate: DEFAULT_USD_CNY_RATE };
+  const lines: string[] = [];
+  lines.push(`${verdictIcon(result.verdict)} ${result.verdict}`);
+  lines.push("");
+
+  if (result.verification && result.verification.total > 0) {
+    const v = result.verification;
+    lines.push(
+      `> 🔍 **Verification:** ${v.verified}/${v.total} inline findings independently verified` +
+        (v.demoted > 0 ? ` · ${v.demoted} demoted` : ""),
+    );
+    lines.push("");
+  }
+
+  const failedNames = result.personas
+    .filter((r) => Boolean(r.error) || r.result.content.trim() === "")
+    .map((r) => r.persona);
+  if (failedNames.length > 0) {
+    lines.push(
+      `> ⚠️ **Fail-closed:** ${failedNames.length} reviewer(s) produced no output ` +
+        `(${failedNames.join(", ")}). Verdict forced to CANNOT MERGE — do not trust ` +
+        `the synthesis in the top-level summary comment.`,
+    );
+    lines.push("");
+  }
+
+  lines.push(
+    "Inline findings are attached to this review. Full synthesis and per-reviewer " +
+      "details: the top-level `pi-review-agent` summary comment on this PR.",
+  );
+  lines.push("");
   lines.push(
     `<sub>pi-review-agent · total cost ${formatCost(result.totalCost, currency)} · cacheRead ${result.totalCacheRead}</sub>`,
   );

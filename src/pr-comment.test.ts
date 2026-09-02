@@ -119,6 +119,29 @@ test("postPrReview", async (t) => {
     );
   });
 
+  await t.test("comment fallback after review failure posts the FULL body (#62)", async () => {
+    // Both review attempts rejected → issue comment. The review surface is
+    // slim, but once the run degrades to a single comment surface the body
+    // must be the full summary (commentFallback), never the slim digest.
+    await withFetchStub(
+      [
+        { status: 422, ok: false },
+        { status: 422, ok: false },
+        { status: 200, ok: true, json: "[]" },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        const outcome = await postPrReview(CTX, "slim", COMMENTS, "full body");
+        assert.equal(outcome, "created");
+        // Stage 3 lands on the issues endpoint with the fallback body.
+        assert.match(calls[3].url, /\/issues\/42\/comments$/);
+        const created = calls[3].body as { body: string };
+        assert.match(created.body, /full body/);
+        assert.doesNotMatch(created.body, /slim/);
+      },
+    );
+  });
+
   await t.test("does not re-POST when a lost response actually persisted the review", async () => {
     // Reviews API creates a new thread per POST (no commit_id dedup), so a
     // blind retry after a lost response would duplicate the review. On a
