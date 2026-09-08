@@ -65,9 +65,12 @@ describe("parseArgs empty-string normalization (#48)", () => {
     const opts = parse(MIN, {
       PI_REVIEW_DIFF_INCLUDE_BUILD_ARTIFACTS: "",
       PI_REVIEW_INCLUDE_PR_CONTEXT: "",
+      PI_REVIEW_STATS_ENABLED: "",
     });
     assert.equal(opts.diffIncludeBuildArtifacts, false);
     assert.equal(opts.includePrContext, true);
+    // GH's ""-injection must not flip the opt-in default to on.
+    assert.equal(opts.statsEnabled, false);
   });
 
   it("explicit opt-in values still work through the normalization", () => {
@@ -80,6 +83,17 @@ describe("parseArgs empty-string normalization (#48)", () => {
       false,
     );
     assert.equal(parse(MIN, { PI_REVIEW_INCLUDE_PR_CONTEXT: "false" }).includePrContext, false);
+  });
+
+  it("stats: opt-in — off by default, on only via 1/true (env or flag)", () => {
+    assert.equal(parse(MIN).statsEnabled, false);
+    for (const truthy of ["1", "true", "TRUE"]) {
+      assert.equal(parse(MIN, { PI_REVIEW_STATS_ENABLED: truthy }).statsEnabled, true);
+    }
+    assert.equal(parse([...MIN, "--stats-enabled", "true"]).statsEnabled, true);
+    for (const off of ["", "0", "false", "no"]) {
+      assert.equal(parse(MIN, { PI_REVIEW_STATS_ENABLED: off }).statsEnabled, false);
+    }
   });
 
   it("defaulted strings: empty env falls back to the default", () => {

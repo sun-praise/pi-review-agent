@@ -219,6 +219,31 @@ inputs:
       to disable and review the diff only.
     required: false
     default: "false"
+  stats-url:
+    description: >
+      Ingest endpoint of a pi-review dashboard (e.g.
+      `http://dash.internal:8787/api/events`). Every completed run POSTs one
+      stats event (tokens, cost, verdict) for cross-repo aggregation. Push is
+      fail-open: an unreachable dashboard never fails the review. Empty
+      (default) disables shipping; the event is always appended to
+      `<sessions-root>/stats.jsonl` locally.
+    required: false
+    default: ""
+  stats-token:
+    description: >
+      Bearer token sent as `Authorization` to the stats dashboard ingest
+      endpoint (`stats-url`). Match the dashboard's STATS_TOKEN. Only needed
+      when the dashboard requires authentication.
+    required: false
+    default: ""
+  stats-enabled:
+    description: >
+      Master switch for run statistics — opt-in, default "false": nothing is
+      recorded and nothing is sent. Set "true" to append every run's stats
+      event (tokens, cost, verdict) to `<sessions-root>/stats.jsonl` and,
+      when `stats-url` is set, also push it to the dashboard.
+    required: false
+    default: "false"
 
 outputs:
   verdict:
@@ -327,6 +352,9 @@ runs:
         PI_REVIEW_FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
         PI_REVIEW_STYLE_GUIDE: ${{ inputs.style-guide }}
         PI_REVIEW_SKIP_RELATED_CONTEXT: ${{ inputs.skip-related-context }}
+        PI_REVIEW_STATS_URL: ${{ inputs.stats-url }}
+        PI_REVIEW_STATS_TOKEN: ${{ inputs.stats-token }}
+        PI_REVIEW_STATS_ENABLED: ${{ inputs.stats-enabled }}
         # PR comment posting reads these:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GITHUB_REF: ${{ github.ref }}
