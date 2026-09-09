@@ -79,6 +79,19 @@ export interface CliOptions {
    *  Internal accounting and GITHUB_OUTPUT stay USD (#57). Invalid input
    *  warns and falls back to usd + default rate. */
   displayCurrency: CurrencyOptions;
+  /** Stats dashboard ingest URL (--stats-url / PI_REVIEW_STATS_URL). Every
+   *  completed run POSTs one stats event here (fail-open: a push failure
+   *  never fails the review). Undefined disables shipping — the event is
+   *  still appended to <sessions-root>/stats.jsonl. */
+  statsUrl: string | undefined;
+  /** Bearer token for the stats dashboard ingest endpoint. */
+  statsToken: string | undefined;
+  /** Master switch for stats emission (--stats-enabled / PI_REVIEW_STATS_
+   *  ENABLED). Opt-in: OFF by default — a runner that configures nothing
+   *  records nothing. "1"/"true" (same truthiness convention as the skip-*
+   *  flags) enables the local <sessions-root>/stats.jsonl record; a set
+   *  stats-url then additionally ships each event to the dashboard. */
+  statsEnabled: boolean;
 }
 
 /**
@@ -203,6 +216,9 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     styleGuide: optionalString(args["style-guide"], env.PI_REVIEW_STYLE_GUIDE),
     skipVerify: isTruthyFlag(args["skip-verify"], env.PI_REVIEW_SKIP_VERIFY),
     skipLlmVerify: isTruthyFlag(args["skip-llm-verify"], env.PI_REVIEW_SKIP_LLM_VERIFY),
+    statsUrl: optionalString(args["stats-url"], env.PI_REVIEW_STATS_URL),
+    statsToken: optionalString(args["stats-token"], env.PI_REVIEW_STATS_TOKEN),
+    statsEnabled: isTruthyFlag(args["stats-enabled"], env.PI_REVIEW_STATS_ENABLED),
   };
 }
 

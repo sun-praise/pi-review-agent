@@ -143,6 +143,23 @@ The action:
 
 `pull-requests: write` permission is required for comment posting.
 
+### Run statistics
+
+Every completed review (single or team) emits one stats event: review count, per-persona and total token usage (`input` / `output` / `cacheRead` / `cacheWrite`), cost, verdict, and duration. The event is always appended locally to `<sessions-root>/stats.jsonl`, and — when `stats-url` is set — POSTed to a central dashboard for cross-repo aggregation. Emission is fail-open: an unreachable dashboard never fails a review.
+
+```yaml
+- uses: sun-praise/pi-review-agent@v1
+  with:
+    team: "quality:1,security:1"
+    stats-enabled: true                                  # opt-in; default false = off
+    stats-url: http://dash.internal:8787/api/events   # pi-review-dashboard; omit for local-only
+    stats-token: ${{ secrets.STATS_TOKEN }}           # only if the dashboard sets one
+```
+
+Env equivalents for direct CLI use: `PI_REVIEW_STATS_URL` / `PI_REVIEW_STATS_TOKEN` (or `--stats-url` / `--stats-token`). The dashboard itself is a separate single-binary project (Go + SQLite + embedded frontend) — see the `pi-review-dashboard` repo. Events are deduplicated by `(platform, repository, runId, attempt)`, so CI re-runs and HTTP retries count once. The key assumes **one review per workflow run** (one action step, team mode recommended): `GITHUB_RUN_ID` is shared by every job of a run, so a matrix / multi-job setup reviewing the same PR collapses into one dashboard row.
+
+Statistics is **opt-in** and off by default: a runner that sets nothing records nothing. `stats-enabled: true` turns on the local JSONL record; adding `stats-url` also ships each event to the dashboard (fail-open — an unreachable dashboard never fails a review, and a set `stats-url` without the switch warns on stderr). In CI the local `stats.jsonl` is best-effort: it lives under the runner's `sessions-root` and only survives through `actions/cache` — treat the dashboard as the source of truth for aggregation. Stats events carry repo names, PR numbers, verdicts and reviewer error messages: point `stats-url` only at a dashboard you control (prefer `https://` even on an intranet when using `stats-token`).
+
 ## Install via agent skill
 
 This repo ships an installer skill ([`skills/setup-pi-review/`](./skills/setup-pi-review/)) discoverable by [`npx skills`](https://github.com/vercel-labs/skills). An agent loaded with the skill (Claude Code, Cursor, etc.) can set pi-review-agent up for any repository via natural language — it generates the workflow YAML, points you to the secrets, and reminds you of the required permissions.

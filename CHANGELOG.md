@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [Unreleased]
+
+### Added
+
+- **Per-run statistics events** for cross-repo dashboards: every completed
+  review now records one stats event — review count, per-persona and total
+  token usage (`input`/`output`/`cacheRead`/`cacheWrite`), cost, verdict,
+  severity, and duration. The event is appended to
+  `<sessions-root>/stats.jsonl` and, when the new `stats-url` input
+  (`PI_REVIEW_STATS_URL` / `--stats-url`) is set, POSTed to a central
+  dashboard (`pi-review-dashboard`, separate project) with optional
+  `stats-token` bearer auth. Emission is fail-open — a stats problem never
+  fails a review — and events are deduplicated downstream by
+  `(platform, repository, runId, attempt)` so CI re-runs count once.
+  Statistics is opt-in: OFF by default — `stats-enabled: true`
+  (`PI_REVIEW_STATS_ENABLED=1`) enables the local record, and a set
+  `stats-url` additionally ships each event; a `stats-url` without the
+  switch warns on stderr instead of silently doing nothing.
+
 ## [1.7.1] - 2026-09-07
 
 ### Fixed

@@ -43056,7 +43056,7 @@ var require_gaxios = __commonJS({
     var retry_js_1 = require_retry3();
     var stream_1 = require("stream");
     var interceptor_js_1 = require_interceptor();
-    var randomUUID = async () => globalThis.crypto?.randomUUID() || (await import("crypto")).randomUUID();
+    var randomUUID2 = async () => globalThis.crypto?.randomUUID() || (await import("crypto")).randomUUID();
     var HTTP_STATUS_NO_CONTENT = 204;
     var Gaxios = class {
       agentCache = /* @__PURE__ */ new Map();
@@ -43329,7 +43329,7 @@ var require_gaxios = __commonJS({
          */
         ["Blob", "File", "FormData"].includes(opts.data?.constructor?.name || "");
         if (opts.multipart?.length) {
-          const boundary = await randomUUID();
+          const boundary = await randomUUID2();
           preparedHeaders.set("content-type", `multipart/related; boundary=${boundary}`);
           opts.body = stream_1.Readable.from(this.getMultipartRequest(opts.multipart, boundary));
         } else if (shouldDirectlyPassData) {
@@ -177836,7 +177836,8 @@ ${inlineSummary}`;
 });
 
 // src/index.ts
-var import_node_fs7 = require("fs");
+var import_node_fs8 = require("fs");
+var import_node_path11 = require("path");
 
 // src/provider.ts
 init_dist();
@@ -178066,7 +178067,10 @@ function parseArgs(argv, env2 = process.env) {
     platform: optionalString(args.platform, env2.PI_REVIEW_PLATFORM),
     styleGuide: optionalString(args["style-guide"], env2.PI_REVIEW_STYLE_GUIDE),
     skipVerify: isTruthyFlag(args["skip-verify"], env2.PI_REVIEW_SKIP_VERIFY),
-    skipLlmVerify: isTruthyFlag(args["skip-llm-verify"], env2.PI_REVIEW_SKIP_LLM_VERIFY)
+    skipLlmVerify: isTruthyFlag(args["skip-llm-verify"], env2.PI_REVIEW_SKIP_LLM_VERIFY),
+    statsUrl: optionalString(args["stats-url"], env2.PI_REVIEW_STATS_URL),
+    statsToken: optionalString(args["stats-token"], env2.PI_REVIEW_STATS_TOKEN),
+    statsEnabled: isTruthyFlag(args["stats-enabled"], env2.PI_REVIEW_STATS_ENABLED)
   };
 }
 function isTruthyFlag(argVal, envVal) {
@@ -181843,10 +181847,107 @@ async function buildRelatedContext(changedFiles, cwd, opts) {
   }
 }
 
+// src/stats.ts
+var import_node_fs7 = require("fs");
+var import_node_path10 = require("path");
+var import_node_crypto = require("crypto");
+function buildStatsEvent(input) {
+  const roles = input.coordinator ? input.personas.concat(input.coordinator) : input.personas;
+  const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+  let costTotal = 0;
+  const personas = roles.map((r2) => {
+    usage.input += r2.usage.input;
+    usage.output += r2.usage.output;
+    usage.cacheRead += r2.usage.cacheRead;
+    usage.cacheWrite += r2.usage.cacheWrite;
+    costTotal += r2.usage.costTotal;
+    return {
+      name: r2.name,
+      input: r2.usage.input,
+      output: r2.usage.output,
+      cacheRead: r2.usage.cacheRead,
+      cacheWrite: r2.usage.cacheWrite,
+      cost: r2.usage.costTotal,
+      resumed: r2.resumed,
+      error: r2.error
+    };
+  });
+  return {
+    schema: 1,
+    ts: (input.now ?? /* @__PURE__ */ new Date()).toISOString(),
+    platform: input.platform,
+    repository: input.repository,
+    pr: input.pr,
+    runId: input.runId,
+    attempt: input.attempt,
+    mode: input.mode,
+    personas,
+    verdict: input.verdict,
+    severity: input.severity,
+    usage,
+    costTotal,
+    durationMs: input.durationMs
+  };
+}
+function resolveRunIdentity(env2) {
+  const runId = env2.GITHUB_RUN_ID?.trim();
+  if (runId) {
+    const attempt = Number(env2.GITHUB_RUN_ATTEMPT);
+    return { runId, attempt: Number.isFinite(attempt) && attempt > 0 ? Math.floor(attempt) : 1 };
+  }
+  return { runId: `local-${(0, import_node_crypto.randomUUID)().slice(0, 8)}`, attempt: 1 };
+}
+function statsEventLine(event) {
+  return `${JSON.stringify(event).replace(/</g, "\\u003c")}
+`;
+}
+function appendStatsEvent(file2, event) {
+  (0, import_node_fs7.mkdirSync)((0, import_node_path10.dirname)(file2), { recursive: true });
+  (0, import_node_fs7.appendFileSync)(file2, statsEventLine(event), "utf8");
+}
+async function shipStatsEvents(url2, token, events) {
+  if (!url2 || events.length === 0) return false;
+  try {
+    const res = await fetch(url2, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...token ? { authorization: `Bearer ${token}` } : {}
+      },
+      // A dashboard sits one intranet hop away; 5s is generous, and the cap
+      // keeps a wedged endpoint from stalling the end of a CI run.
+      body: JSON.stringify(events.length === 1 ? events[0] : events),
+      signal: AbortSignal.timeout(5e3)
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+async function recordStats(opts) {
+  if (opts.file) {
+    try {
+      appendStatsEvent(opts.file, opts.event);
+    } catch (err2) {
+      process.stderr.write(
+        `stats: local append failed: ${err2 instanceof Error ? err2.message : String(err2)}
+`
+      );
+    }
+  }
+  if (opts.url) {
+    const shipped = await shipStatsEvents(opts.url, opts.token, [opts.event]);
+    if (!shipped) {
+      process.stderr.write(`stats: dashboard push failed (${opts.url})
+`);
+    }
+  }
+}
+
 // src/index.ts
 function loadDiff(opts) {
   if (opts.diffInline) return opts.diffInline;
-  if (opts.diffFile) return (0, import_node_fs7.readFileSync)(opts.diffFile, "utf8");
+  if (opts.diffFile) return (0, import_node_fs8.readFileSync)(opts.diffFile, "utf8");
   throw new Error("no diff source: set --diff-file, PI_REVIEW_DIFF_FILE, or PI_REVIEW_DIFF");
 }
 function prepareDiff(opts) {
@@ -181873,12 +181974,12 @@ function prepareDiff(opts) {
 function appendStepSummary(markdown) {
   const path12 = process.env.GITHUB_STEP_SUMMARY;
   if (!path12) return;
-  (0, import_node_fs7.appendFileSync)(path12, markdown);
+  (0, import_node_fs8.appendFileSync)(path12, markdown);
 }
 function appendOutputs(lines) {
   const path12 = process.env.GITHUB_OUTPUT;
   if (!path12) return;
-  (0, import_node_fs7.appendFileSync)(path12, lines.join("\n") + "\n");
+  (0, import_node_fs8.appendFileSync)(path12, lines.join("\n") + "\n");
 }
 function writeSingleSummary(result, persona, currency) {
   const label = currency.currency.toUpperCase();
@@ -181938,7 +182039,8 @@ function writeTeamSummary(result, currency, commentBody) {
     `totalCacheRead=${result.totalCacheRead}`
   ]);
 }
-async function runSingle(opts) {
+async function runSingle(opts, adapter, platform) {
+  const startedAt = Date.now();
   const provider = createLiteLLMDeepSeekProvider({
     baseURL: opts.baseURL,
     // The primary must be defaulted HERE, not only in runReview: when --model
@@ -181990,9 +182092,36 @@ ${result.content}
     `sessionId=${result.sessionId}`
   ]);
   const severity = parseSeverity(result.content);
+  if (opts.statsEnabled) {
+    const prInfo = adapter.resolvePrFromEnv(process.env);
+    const repository = prInfo?.repository ?? process.env.GITHUB_REPOSITORY?.trim() ?? "local";
+    await recordStats({
+      file: (0, import_node_path11.join)(opts.sessionsRoot, "stats.jsonl"),
+      url: opts.statsUrl,
+      token: opts.statsToken,
+      event: buildStatsEvent({
+        platform,
+        repository,
+        pr: opts.pr,
+        ...resolveRunIdentity(process.env),
+        mode: "single",
+        personas: [{ name: personaName, usage: result.usage, resumed: result.resumed }],
+        coordinator: null,
+        verdict: null,
+        severity: {
+          decision: severity.decision,
+          blocking: severity.blockingCount,
+          warning: severity.warningCount,
+          fallback: severity.fallback
+        },
+        durationMs: Date.now() - startedAt
+      })
+    });
+  }
   return shouldFail(severity, opts.failOnSeverity) ? 1 : 0;
 }
-async function runTeam(opts, adapter) {
+async function runTeam(opts, adapter, platform) {
+  const startedAt = Date.now();
   const diff = prepareDiff(opts);
   const reviewerModelId = opts.modelId ?? DEFAULT_MODEL_ID;
   const coordinatorModelId = opts.coordinatorModelId ?? reviewerModelId;
@@ -182058,6 +182187,36 @@ ${r2.result.content}
   const commentBody = renderTeamComment(result, { currency: opts.displayCurrency });
   writeTeamSummary(result, opts.displayCurrency, commentBody);
   const prInfo = adapter.resolvePrFromEnv(process.env);
+  if (opts.statsEnabled) {
+    const repository = prInfo?.repository ?? process.env.GITHUB_REPOSITORY?.trim() ?? "local";
+    await recordStats({
+      file: (0, import_node_path11.join)(opts.sessionsRoot, "stats.jsonl"),
+      url: opts.statsUrl,
+      token: opts.statsToken,
+      event: buildStatsEvent({
+        platform,
+        repository,
+        pr: opts.pr,
+        ...resolveRunIdentity(process.env),
+        mode: "team",
+        personas: result.personas.map((p) => ({
+          name: p.persona,
+          usage: p.result.usage,
+          resumed: p.result.resumed,
+          error: p.error
+        })),
+        coordinator: result.coordinator ? { name: "coordinator", usage: result.coordinator.usage, resumed: result.coordinator.resumed } : null,
+        verdict: result.verdict,
+        severity: {
+          decision: result.severity.decision,
+          blocking: result.severity.blockingCount,
+          warning: result.severity.warningCount,
+          fallback: result.severity.fallback
+        },
+        durationMs: Date.now() - startedAt
+      })
+    });
+  }
   if (prInfo) {
     const reviewBody = renderTeamReviewBody(result, { currency: opts.displayCurrency });
     const commentContext = {
@@ -182077,6 +182236,14 @@ PR comment: ${outcome.comment}
 }
 async function main() {
   const opts = parseArgs(process.argv);
+  if (opts.statsUrl && !opts.statsEnabled) {
+    process.stderr.write(
+      "stats-url is set but stats is disabled; set stats-enabled to true to record stats events\n"
+    );
+  }
+  if (opts.statsToken && !opts.statsUrl) {
+    process.stderr.write("stats-token is set but stats-url is not; the token is never used\n");
+  }
   const { adapter, platform } = await createAdapterFromEnv(process.env, opts.platform);
   process.stderr.write(`Using platform: ${platform}
 `);
@@ -182107,7 +182274,7 @@ async function main() {
       );
     }
   }
-  return opts.team ? runTeam(opts, adapter) : runSingle(opts);
+  return opts.team ? runTeam(opts, adapter, platform) : runSingle(opts, adapter, platform);
 }
 main().then((code) => process.exit(code)).catch((err2) => {
   console.error("pi-review-agent failed:", err2);

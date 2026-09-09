@@ -19,6 +19,7 @@
  *   GITHUB_OUTPUT=...                    (cacheRead, costTotal, verdict, ...)
  */
 import { readFileSync, appendFileSync } from "node:fs";
+import { join } from "node:path";
 import { createLiteLLMDeepSeekProvider } from "./provider.js";
 import { resolveModelIds, DEFAULT_MODEL_ID } from "./model-ids.js";
 import { parseArgs, type CliOptions } from "./parse-args.js";
@@ -34,6 +35,7 @@ import { parseSeverity, shouldFail } from "./severity.js";
 import { parseFallbackModels } from "./fallback.js";
 import { listDiffFiles } from "./changed-lines.js";
 import { buildRelatedContext } from "./related-context.js";
+import { buildStatsEvent, recordStats, resolveRunIdentity } from "./stats.js";
 
 
 function loadDiff(opts: CliOptions): string {
@@ -142,7 +144,8 @@ function writeTeamSummary(
 }
 
 
-async function runSingle(opts: CliOptions): Promise<number> {
+async function runSingle(opts: CliOptions, adapter: PlatformAdapter, platform: string): Promise<number> {
+  const startedAt = Date.now();
   const provider = createLiteLLMDeepSeekProvider({
     baseURL: opts.baseURL,
     // The primary must be defaulted HERE, not only in runReview: when --model
@@ -192,10 +195,39 @@ async function runSingle(opts: CliOptions): Promise<number> {
   // Single-persona mode has no coordinator: parse severity straight from
   // the reviewer's output. The gate is fail-closed (unparseable → fail).
   const severity = parseSeverity(result.content);
+  // Stats emission is opt-in (stats-enabled, default off) and strictly
+  // fail-open (see stats.ts) — a stats problem can never mask a review.
+  if (opts.statsEnabled) {
+    const prInfo = adapter.resolvePrFromEnv(process.env);
+    const repository = prInfo?.repository ?? process.env.GITHUB_REPOSITORY?.trim() ?? "local";
+    await recordStats({
+      file: join(opts.sessionsRoot, "stats.jsonl"),
+      url: opts.statsUrl,
+      token: opts.statsToken,
+      event: buildStatsEvent({
+        platform,
+        repository,
+        pr: opts.pr,
+        ...resolveRunIdentity(process.env),
+        mode: "single",
+        personas: [{ name: personaName, usage: result.usage, resumed: result.resumed }],
+        coordinator: null,
+        verdict: null,
+        severity: {
+          decision: severity.decision,
+          blocking: severity.blockingCount,
+          warning: severity.warningCount,
+          fallback: severity.fallback,
+        },
+        durationMs: Date.now() - startedAt,
+      }),
+    });
+  }
   return shouldFail(severity, opts.failOnSeverity) ? 1 : 0;
 }
 
-async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<number> {
+async function runTeam(opts: CliOptions, adapter: PlatformAdapter, platform: string): Promise<number> {
+  const startedAt = Date.now();
   const diff = prepareDiff(opts);
   // Per-role resolution: an unset override falls back to the reviewer model —
   // exactly the pre-per-role behavior (one model for every role).
@@ -255,8 +287,44 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
   const commentBody = renderTeamComment(result, { currency: opts.displayCurrency });
   writeTeamSummary(result, opts.displayCurrency, commentBody);
 
-  // Post PR results using platform adapter
+  // Stats emission (opt-in via stats-enabled) before PR posting (fail-open):
+  // a posting failure must not lose the run's token/cost record — the review
+  // itself already succeeded.
   const prInfo = adapter.resolvePrFromEnv(process.env);
+  if (opts.statsEnabled) {
+    const repository = prInfo?.repository ?? process.env.GITHUB_REPOSITORY?.trim() ?? "local";
+    await recordStats({
+      file: join(opts.sessionsRoot, "stats.jsonl"),
+      url: opts.statsUrl,
+      token: opts.statsToken,
+      event: buildStatsEvent({
+        platform,
+        repository,
+        pr: opts.pr,
+        ...resolveRunIdentity(process.env),
+        mode: "team",
+        personas: result.personas.map((p) => ({
+          name: p.persona,
+          usage: p.result.usage,
+          resumed: p.result.resumed,
+          error: p.error,
+        })),
+        coordinator: result.coordinator
+          ? { name: "coordinator", usage: result.coordinator.usage, resumed: result.coordinator.resumed }
+          : null,
+        verdict: result.verdict,
+        severity: {
+          decision: result.severity.decision,
+          blocking: result.severity.blockingCount,
+          warning: result.severity.warningCount,
+          fallback: result.severity.fallback,
+        },
+        durationMs: Date.now() - startedAt,
+      }),
+    });
+  }
+
+  // Post PR results using platform adapter
   if (prInfo) {
     const reviewBody = renderTeamReviewBody(result, { currency: opts.displayCurrency });
     const commentContext = {
@@ -277,6 +345,19 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter): Promise<numb
 
 async function main(): Promise<number> {
   const opts = parseArgs(process.argv);
+
+  // Misconfig warnings live HERE (not parseArgs) to keep the module pure —
+  // same pattern as the coordinator-model/skip-coordinator warning. A url
+  // that can never ship, or a token that can never be used, would otherwise
+  // fail silently.
+  if (opts.statsUrl && !opts.statsEnabled) {
+    process.stderr.write(
+      "stats-url is set but stats is disabled; set stats-enabled to true to record stats events\n",
+    );
+  }
+  if (opts.statsToken && !opts.statsUrl) {
+    process.stderr.write("stats-token is set but stats-url is not; the token is never used\n");
+  }
 
   // Create platform adapter with auto-detection
   const { adapter, platform } = await createAdapterFromEnv(process.env, opts.platform);
@@ -311,7 +392,7 @@ async function main(): Promise<number> {
       );
     }
   }
-  return opts.team ? runTeam(opts, adapter) : runSingle(opts);
+  return opts.team ? runTeam(opts, adapter, platform) : runSingle(opts, adapter, platform);
 }
 
 main()
