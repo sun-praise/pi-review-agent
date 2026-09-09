@@ -181153,6 +181153,12 @@ function renderTeamComment(result, opts = {}) {
     );
     lines.push("");
   }
+  if (result.blockingAllDemoted) {
+    lines.push(
+      `> \u26A0\uFE0F **Unverified verdict:** every blocking finding failed independent verification (see "Demoted findings" below). The verdict above was computed from them and may rest on wrong code facts \u2014 treat the synthesis's Blocking Issues as unverified and re-review before merging.`
+    );
+    lines.push("");
+  }
   const failedNames = result.personas.filter((r2) => Boolean(r2.error) || r2.result.content.trim() === "").map((r2) => r2.persona);
   if (failedNames.length > 0) {
     lines.push(
@@ -181210,6 +181216,12 @@ function renderTeamReviewBody(result, opts = {}) {
     const v = result.verification;
     lines.push(
       `> \u{1F50D} **Verification:** ${v.verified}/${v.total} inline findings independently verified` + (v.demoted > 0 ? ` \xB7 ${v.demoted} demoted` : "")
+    );
+    lines.push("");
+  }
+  if (result.blockingAllDemoted) {
+    lines.push(
+      "> \u26A0\uFE0F **Unverified verdict:** every blocking finding failed independent verification. The verdict may rest on wrong code facts \u2014 see the demoted list in the top-level summary comment and re-review before merging."
     );
     lines.push("");
   }
@@ -181339,6 +181351,16 @@ function resolveVerdict(coordinator, personas) {
   }
   return highest;
 }
+function blockingVerdictUnverified(verdict, comments) {
+  if (verdict !== "CONDITIONAL MERGE" && verdict !== "CANNOT MERGE") return false;
+  let anyBlockingDemoted = false;
+  for (const c of comments) {
+    if (c.severity !== "blocking") continue;
+    if (c.status === "verified") return false;
+    anyBlockingDemoted = true;
+  }
+  return anyBlockingDemoted;
+}
 function buildCoordinatorInput(reviews) {
   const parts = [];
   for (const r2 of reviews) {
@@ -181447,6 +181469,7 @@ async function runTeamReview(opts) {
   }
   let inlineComments = rawComments;
   let verification;
+  let blockingAllDemoted;
   if (rawComments.length > 0 && !opts.skipVerify) {
     const changedLines = parseChangedLines(opts.diff);
     const { buildVerifierAgent: buildVerifierAgent2 } = await Promise.resolve().then(() => (init_verifier_agent(), verifier_agent_exports));
@@ -181463,6 +181486,7 @@ async function runTeamReview(opts) {
       });
       inlineComments = v.comments.filter((c) => c.status === "verified");
       verification = v.summary;
+      blockingAllDemoted = failedReviewers.length === 0 && blockingVerdictUnverified(verdict, v.comments);
       if (v.summary.demoted > 0) {
         process.stderr.write(
           `verifier: demoted ${v.summary.demoted}/${v.summary.total} inline comment(s)
@@ -181484,7 +181508,8 @@ async function runTeamReview(opts) {
     totalCacheRead,
     severity,
     inlineComments,
-    verification
+    verification,
+    blockingAllDemoted
   };
 }
 function emptyReview(pr, persona) {

@@ -39,6 +39,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   too, so correct configurations are unaffected; diffs with no additions
   can't be checked this way and stay unguarded by design.
 
+- **Caution banner when the verdict rests entirely on demoted findings**
+  (#67, second half): the verifier runs after the coordinator, so a
+  CONDITIONAL/CANNOT MERGE could stand on blocking issues that ALL failed
+  independent verification (documented on review-server-neo PR #15 — 0/3
+  verified, verdict unchanged). When every blocking inline finding was
+  demoted and none verified, both posted bodies (standing comment + review
+  digest) now carry an "Unverified verdict" banner telling the reader the
+  Blocking Issues may rest on wrong code facts and to re-review before
+  merging. Verdict and `fail-on-severity` semantics are deliberately
+  unchanged: demotion proves a finding unverifiable, not the PR mergeable —
+  downgrading to CAN MERGE would be fail-open, and UNKNOWN would trip the
+  armed gate on evidence we don't have.
+
 ## [1.7.1] - 2026-09-07
 
 ### Fixed
