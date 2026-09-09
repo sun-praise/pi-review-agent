@@ -25,6 +25,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `stats-url` additionally ships each event; a `stats-url` without the
   switch warns on stderr instead of silently doing nothing.
 
+### Fixed
+
+- **Stale-tree guard: fail closed when the workspace provably isn't the PR
+  head** (#67, first half): if files the diff marks `new file mode` are
+  missing under the working directory, the run now aborts with actionable
+  guidance instead of silently reviewing a stale tree. Root cause of #67:
+  a self-hosted review workflow without `actions/checkout` reuses the
+  previous job's checkout, so reviewers grep an old tree, the coordinator
+  synthesizes a verdict from stale code facts, and the verifier demotes
+  the findings only after the verdict was already computed (documented on
+  review-server-neo PR #15). A merge-commit checkout contains added files
+  too, so correct configurations are unaffected; diffs with no additions
+  can't be checked this way and stay unguarded by design.
+
 ## [1.7.1] - 2026-09-07
 
 ### Fixed

@@ -36,6 +36,7 @@ import { parseFallbackModels } from "./fallback.js";
 import { listDiffFiles } from "./changed-lines.js";
 import { buildRelatedContext } from "./related-context.js";
 import { buildStatsEvent, recordStats, resolveRunIdentity } from "./stats.js";
+import { checkWorkspace } from "./workspace-check.js";
 
 
 function loadDiff(opts: CliOptions): string {
@@ -48,8 +49,18 @@ function loadDiff(opts: CliOptions): string {
  * Load + filter the diff. Lock files are always stripped; user globs add
  * to the exclusion. A byte budget keeps the payload inside the model's
  * context window. Logs what was dropped so the run summary reflects it.
+ *
+ * Memoized per opts object: one main() run calls this from the stale-tree
+ * guard, the related-context builder, and runSingle/runTeam — same input,
+ * same result, so re-parses and repeated stderr progress lines past the
+ * first call are pure waste (dogfood review of #68: up to 4 full
+ * re-parses, linear in diff size). CliOptions is immutable from here on.
  */
+const preparedDiffCache = new WeakMap<CliOptions, string>();
+
 function prepareDiff(opts: CliOptions): string {
+  const cached = preparedDiffCache.get(opts);
+  if (cached !== undefined) return cached;
   const raw = loadDiff(opts);
   const r = filterDiff(raw, {
     excludePatterns: opts.diffExclude.length > 0 ? opts.diffExclude : undefined,
@@ -66,6 +77,7 @@ function prepareDiff(opts: CliOptions): string {
       `diff-filter: truncated to ${Math.round(r.filteredBytes / 1024)} KB after filtering\n`,
     );
   }
+  preparedDiffCache.set(opts, r.filtered);
   return r.filtered;
 }
 
@@ -357,6 +369,40 @@ async function main(): Promise<number> {
   }
   if (opts.statsToken && !opts.statsUrl) {
     process.stderr.write("stats-token is set but stats-url is not; the token is never used\n");
+  }
+
+  // Stale-tree guard (#67): reviewers' read/grep, the related-context graph,
+  // and the verifier's disk checks all read `cwd` — the caller's checkout.
+  // If files the PR ADDS are missing there, cwd is provably not the PR head
+  // (typical: self-hosted runner whose workspace still holds the previous
+  // job's checkout because the review workflow has no checkout step), and
+  // every tree read would feed reviewers stale facts. Fail closed with
+  // actionable guidance instead of reviewing a stale tree. First thing in
+  // main() — before platform detection and any network or LLM work — so the
+  // failure is as cheap as it can be.
+  let guardDiff: string | undefined;
+  try {
+    guardDiff = prepareDiff(opts);
+  } catch {
+    // No diff source at all — swallow here and let runSingle/runTeam throw
+    // the same "no diff source" error in a moment; the guard has nothing
+    // to check. (Relying on that later re-raise is why this catch is
+    // silent rather than diagnostic.)
+  }
+  if (guardDiff !== undefined) {
+    const guard = await checkWorkspace(guardDiff, opts.cwd);
+    if (!guard.ok) {
+      throw new Error(
+        `workspace is not the PR head tree: ${guard.missing.length} file(s) added by the PR ` +
+          `are missing under ${opts.cwd}:\n` +
+          `${guard.missing.map((f) => `  - ${f}`).join("\n")}\n` +
+          `Reviewing anyway would feed reviewers and the verifier a stale tree ` +
+          `(issue #67). Fix: add an actions/checkout step before this action ` +
+          `(self-hosted runners reuse the workspace across jobs, so it may still ` +
+          `hold the previous job's checkout), or point working-directory at a ` +
+          `checkout of the PR head.`,
+      );
+    }
   }
 
   // Create platform adapter with auto-detection
