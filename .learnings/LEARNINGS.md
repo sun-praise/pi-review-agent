@@ -132,3 +132,28 @@ issue #59 首跑：四个 persona 全部只产出 "Let me check ..." 这类 pre-
 - Source: session_analysis
 - Related Files: src/collect-review.ts, src/review.ts, src/retry.ts, src/pr-comment.ts
 - Tags: pi-agent-core, stream-error, silent-failure, github-api, retry, issue-59
+
+---
+
+## [LRN-20260909-001] pitfall
+
+**Logged**: 2026-09-09T00:00:00Z
+**Priority**: high
+**Status**: resolved
+**Area**: ci
+
+### Summary
+调用方的 review workflow 没写 `actions/checkout` 时，self-hosted runner 的 `$GITHUB_WORKSPACE` 跨 job 持久，reviewer 的 read/grep 和 verifier 的磁盘检查会**静默读到上一个 job 留下的旧 checkout**，基于旧树事实产出幻觉 Blocking 并给出错误 verdict。
+
+### Details
+issue #67（实锤于 review-server-neo PR #15 首轮，sha 15fd2ce）：review workflow 直接 `uses: pi-review-agent@v1`，没有 checkout 步骤；本 action 也不做 checkout（README 示例里有，但没人强制）。self-hosted runner 的 workspace 保留着 CI job 早前的 checkout（甚至是 #13 合并前的 main），于是 reviewer "看见" FuncMap 缺 `add`/`num`、`MarkDone` 只有 6 参——都是旧树事实。verifier 的规则层用 API 拉的真 diff 做行号检查所以能 demote（`file not found on disk`——PR 新增文件在旧树里不存在），但 demote 发生在 coordinator 之后，verdict/prose 不会被修正（issue #67 后半，另修）。
+
+关键鉴别信号：PR 评论里 demote 理由出现 **`file not found on disk` 且该文件确实在 PR diff 里** → workspace 一定不是 head 树。
+
+### Suggested Action
+修法（本条对应的 fix）：diff 里 `new file mode` 的文件在任何正确的 head/merge checkout 里都必然存在，对其做 fs.access 存在性检查，缺任一即 fail-closed 并在错误信息里指引加 `actions/checkout`（src/workspace-check.ts，入口接线在 index.ts main）。modified/deleted 文件无法用存在性区分新旧树，是有意的部分防护。给使用方排查：先看 workflow 有没有 checkout 步骤，再看 runner 是不是 self-hosted（GitHub-hosted 的 workspace 空目录，反而会让 reviewer 全程 grep 不到东西）。
+
+### Metadata
+- Source: user_feedback
+- Related Files: src/workspace-check.ts, src/index.ts, src/verifier.ts, action.yml
+- Tags: self-hosted, stale-workspace, checkout, hallucination, fail-closed, issue-67
