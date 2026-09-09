@@ -177837,7 +177837,7 @@ ${inlineSummary}`;
 
 // src/index.ts
 var import_node_fs8 = require("fs");
-var import_node_path10 = require("path");
+var import_node_path11 = require("path");
 
 // src/provider.ts
 init_dist();
@@ -178013,13 +178013,6 @@ function parseArgs(argv, env2 = process.env) {
   if (modelRaw !== void 0 && !modelRaw.trim()) {
     throw new Error("--model (or PI_REVIEW_MODEL) must not be empty \u2014 unset it to use the default model");
   }
-  const statsUrl = optionalString(args["stats-url"], env2.PI_REVIEW_STATS_URL);
-  const statsEnabled = isTruthyFlag(args["stats-enabled"], env2.PI_REVIEW_STATS_ENABLED);
-  if (statsUrl && !statsEnabled) {
-    process.stderr.write(
-      "stats-url is set but stats is disabled; set stats-enabled to true to record stats events\n"
-    );
-  }
   return {
     pr,
     diffFile: optionalString(args["diff-file"], env2.PI_REVIEW_DIFF_FILE),
@@ -178075,9 +178068,9 @@ function parseArgs(argv, env2 = process.env) {
     styleGuide: optionalString(args["style-guide"], env2.PI_REVIEW_STYLE_GUIDE),
     skipVerify: isTruthyFlag(args["skip-verify"], env2.PI_REVIEW_SKIP_VERIFY),
     skipLlmVerify: isTruthyFlag(args["skip-llm-verify"], env2.PI_REVIEW_SKIP_LLM_VERIFY),
-    statsUrl,
+    statsUrl: optionalString(args["stats-url"], env2.PI_REVIEW_STATS_URL),
     statsToken: optionalString(args["stats-token"], env2.PI_REVIEW_STATS_TOKEN),
-    statsEnabled
+    statsEnabled: isTruthyFlag(args["stats-enabled"], env2.PI_REVIEW_STATS_ENABLED)
   };
 }
 function isTruthyFlag(argVal, envVal) {
@@ -181856,6 +181849,7 @@ async function buildRelatedContext(changedFiles, cwd, opts) {
 
 // src/stats.ts
 var import_node_fs7 = require("fs");
+var import_node_path10 = require("path");
 var import_node_crypto = require("crypto");
 function buildStatsEvent(input) {
   const roles = input.coordinator ? input.personas.concat(input.coordinator) : input.personas;
@@ -181908,6 +181902,7 @@ function statsEventLine(event) {
 `;
 }
 function appendStatsEvent(file2, event) {
+  (0, import_node_fs7.mkdirSync)((0, import_node_path10.dirname)(file2), { recursive: true });
   (0, import_node_fs7.appendFileSync)(file2, statsEventLine(event), "utf8");
 }
 async function shipStatsEvents(url2, token, events) {
@@ -182101,7 +182096,7 @@ ${result.content}
     const prInfo = adapter.resolvePrFromEnv(process.env);
     const repository = prInfo?.repository ?? process.env.GITHUB_REPOSITORY?.trim() ?? "local";
     await recordStats({
-      file: (0, import_node_path10.join)(opts.sessionsRoot, "stats.jsonl"),
+      file: (0, import_node_path11.join)(opts.sessionsRoot, "stats.jsonl"),
       url: opts.statsUrl,
       token: opts.statsToken,
       event: buildStatsEvent({
@@ -182195,7 +182190,7 @@ ${r2.result.content}
   if (opts.statsEnabled) {
     const repository = prInfo?.repository ?? process.env.GITHUB_REPOSITORY?.trim() ?? "local";
     await recordStats({
-      file: (0, import_node_path10.join)(opts.sessionsRoot, "stats.jsonl"),
+      file: (0, import_node_path11.join)(opts.sessionsRoot, "stats.jsonl"),
       url: opts.statsUrl,
       token: opts.statsToken,
       event: buildStatsEvent({
@@ -182241,6 +182236,14 @@ PR comment: ${outcome.comment}
 }
 async function main() {
   const opts = parseArgs(process.argv);
+  if (opts.statsUrl && !opts.statsEnabled) {
+    process.stderr.write(
+      "stats-url is set but stats is disabled; set stats-enabled to true to record stats events\n"
+    );
+  }
+  if (opts.statsToken && !opts.statsUrl) {
+    process.stderr.write("stats-token is set but stats-url is not; the token is never used\n");
+  }
   const { adapter, platform } = await createAdapterFromEnv(process.env, opts.platform);
   process.stderr.write(`Using platform: ${platform}
 `);

@@ -145,6 +145,20 @@ describe("statsEventLine / appendStatsEvent", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("creates a missing parent directory (no ordering dependency on session mkdirs)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "pi-stats-"));
+    try {
+      const file = join(dir, "does", "not", "exist", "stats.jsonl");
+      appendStatsEvent(file, buildStatsEvent({
+        platform: "local", repository: "local", pr: 1, runId: "1", attempt: 1,
+        mode: "single", personas: [], coordinator: null, verdict: null, severity, durationMs: 0,
+      }));
+      assert.equal(readFileSync(file, "utf8").trim().split("\n").length, 1);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe("shipStatsEvents", () => {
@@ -170,24 +184,54 @@ describe("shipStatsEvents", () => {
     }
   });
 
-  it("fail-open: non-2xx and network errors return false, never throw", async () => {
+  it("empty batch short-circuits to false without any request", async () => {
     const original = globalThis.fetch;
-    globalThis.fetch = (async () => new Response("nope", { status: 500 })) as typeof fetch;
+    let called = false;
+    globalThis.fetch = (async () => {
+      called = true;
+      return new Response("{}", { status: 200 });
+    }) as typeof fetch;
     try {
-      assert.equal(await shipStatsEvents("http://dash/api/events", undefined, []), false, "empty batch short-circuits");
+      assert.equal(await shipStatsEvents("http://dash/api/events", undefined, []), false);
+      assert.equal(called, false, "no fetch fired for an empty batch");
     } finally {
       globalThis.fetch = original;
     }
+  });
+
+  it("fail-open: non-2xx returns false, never throws", async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => new Response("nope", { status: 500 })) as typeof fetch;
+    try {
+      assert.equal(
+        await shipStatsEvents("http://dash/api/events", undefined, [
+          buildStatsEvent({
+            platform: "github", repository: "o/r", pr: 1, runId: "1", attempt: 1,
+            mode: "team", personas: [], coordinator: null, verdict: null, severity, durationMs: 0,
+          }),
+        ]),
+        false,
+      );
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("fail-open: network errors return false, never throw", async () => {
+    const original = globalThis.fetch;
     globalThis.fetch = (async () => {
       throw new Error("ECONNREFUSED");
     }) as typeof fetch;
     try {
-      assert.equal(await shipStatsEvents("http://dash/api/events", undefined, [
-        buildStatsEvent({
-          platform: "github", repository: "o/r", pr: 1, runId: "1", attempt: 1,
-          mode: "team", personas: [], coordinator: null, verdict: null, severity, durationMs: 0,
-        }),
-      ]), false);
+      assert.equal(
+        await shipStatsEvents("http://dash/api/events", undefined, [
+          buildStatsEvent({
+            platform: "github", repository: "o/r", pr: 1, runId: "1", attempt: 1,
+            mode: "team", personas: [], coordinator: null, verdict: null, severity, durationMs: 0,
+          }),
+        ]),
+        false,
+      );
     } finally {
       globalThis.fetch = original;
     }

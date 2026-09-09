@@ -156,15 +156,6 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
   if (modelRaw !== undefined && !modelRaw.trim()) {
     throw new Error("--model (or PI_REVIEW_MODEL) must not be empty — unset it to use the default model");
   }
-  // A set stats-url without the switch would silently never push — warn
-  // instead (same spirit as the coordinator-model/skip-coordinator warning).
-  const statsUrl = optionalString(args["stats-url"], env.PI_REVIEW_STATS_URL);
-  const statsEnabled = isTruthyFlag(args["stats-enabled"], env.PI_REVIEW_STATS_ENABLED);
-  if (statsUrl && !statsEnabled) {
-    process.stderr.write(
-      "stats-url is set but stats is disabled; set stats-enabled to true to record stats events\n",
-    );
-  }
   return {
     pr,
     diffFile: optionalString(args["diff-file"], env.PI_REVIEW_DIFF_FILE),
@@ -225,9 +216,9 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     styleGuide: optionalString(args["style-guide"], env.PI_REVIEW_STYLE_GUIDE),
     skipVerify: isTruthyFlag(args["skip-verify"], env.PI_REVIEW_SKIP_VERIFY),
     skipLlmVerify: isTruthyFlag(args["skip-llm-verify"], env.PI_REVIEW_SKIP_LLM_VERIFY),
-    statsUrl,
+    statsUrl: optionalString(args["stats-url"], env.PI_REVIEW_STATS_URL),
     statsToken: optionalString(args["stats-token"], env.PI_REVIEW_STATS_TOKEN),
-    statsEnabled,
+    statsEnabled: isTruthyFlag(args["stats-enabled"], env.PI_REVIEW_STATS_ENABLED),
   };
 }
 

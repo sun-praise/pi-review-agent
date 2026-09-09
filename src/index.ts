@@ -346,6 +346,19 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter, platform: str
 async function main(): Promise<number> {
   const opts = parseArgs(process.argv);
 
+  // Misconfig warnings live HERE (not parseArgs) to keep the module pure —
+  // same pattern as the coordinator-model/skip-coordinator warning. A url
+  // that can never ship, or a token that can never be used, would otherwise
+  // fail silently.
+  if (opts.statsUrl && !opts.statsEnabled) {
+    process.stderr.write(
+      "stats-url is set but stats is disabled; set stats-enabled to true to record stats events\n",
+    );
+  }
+  if (opts.statsToken && !opts.statsUrl) {
+    process.stderr.write("stats-token is set but stats-url is not; the token is never used\n");
+  }
+
   // Create platform adapter with auto-detection
   const { adapter, platform } = await createAdapterFromEnv(process.env, opts.platform);
   process.stderr.write(`Using platform: ${platform}\n`);

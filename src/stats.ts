@@ -13,7 +13,8 @@
  * Pure module (no pi-ai imports) so it stays testable under `node --test`,
  * same rationale as collect-review.ts.
  */
-import { appendFileSync } from "node:fs";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 
 export interface StatsPersonaUsage {
@@ -120,6 +121,14 @@ export function buildStatsEvent(input: BuildStatsEventInput): StatsEvent {
  * GITHUB_RUN_ID/GITHUB_RUN_ATTEMPT; local runs have neither and get a random
  * id — every local run is a distinct event, which is the desired counting
  * semantics (local retries already dedupe at the runReview layer).
+ *
+ * CONTRACT LIMITATION: GITHUB_RUN_ID is shared by EVERY job of one workflow
+ * run, so this key assumes ONE review event per (repository, run, attempt)
+ * — i.e. one action step per workflow (team mode recommended). A workflow
+ * that runs several independent review jobs on the same repo/PR (a persona
+ * matrix, or single + team together) collapses them into one dashboard row
+ * and undercounts. Supporting that needs a per-invocation nonce added to
+ * the key — an additive schema change, deliberately out of scope here.
  */
 export function resolveRunIdentity(env: NodeJS.ProcessEnv): { runId: string; attempt: number } {
   const runId = env.GITHUB_RUN_ID?.trim();
@@ -130,15 +139,22 @@ export function resolveRunIdentity(env: NodeJS.ProcessEnv): { runId: string; att
   return { runId: `local-${randomUUID().slice(0, 8)}`, attempt: 1 };
 }
 
-/** Serialize one event as a JSONL line. "<" is escaped so the line embedded
- *  into an HTML script context downstream (dashboard inline JSON) can never
- *  terminate a <script> tag; in raw JSON text "<" only occurs inside string
- *  values, so a global replace is safe. */
+/** Serialize one event as a JSONL line for the LOCAL stats.jsonl file. "<"
+ *  is escaped so a naive consumer that embeds the RAW line into an HTML
+ *  script context (e.g. cat stats.jsonl into a <script> block) cannot have
+ *  the line terminated early. This does NOT protect the dashboard: the
+ *  shipped POST body is plain JSON.stringify (escaping it there would be
+ *  pointless — any JSON parser restores "<"), and real protection is output
+ *  escaping in the dashboard's own renderer. */
 export function statsEventLine(event: StatsEvent): string {
   return `${JSON.stringify(event).replace(/</g, "\\u003c")}\n`;
 }
 
 export function appendStatsEvent(file: string, event: StatsEvent): void {
+  // Defensive mkdir: local runs may reach stats.jsonl before any review
+  // session created <sessions-root> (sessionFile mkdirs it lazily) — the
+  // local record must not depend on that ordering.
+  mkdirSync(dirname(file), { recursive: true });
   appendFileSync(file, statsEventLine(event), "utf8");
 }
 
