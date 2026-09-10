@@ -19,7 +19,7 @@ import { loadStyleGuide } from "./style-guide.js";
 import { parseSeverity, withFailedReviewerOverride, type Severity } from "./severity.js";
 import { parseInlineComments, type InlineComment } from "./inline-comments.js";
 import { parseChangedLines } from "./changed-lines.js";
-import { verifyInlineComments, type VerifySummary } from "./verifier.js";
+import { verifyInlineComments, type VerifySummary, type VerifiedComment } from "./verifier.js";
 // buildVerifierAgent is imported LAZILY inside runTeamReview (not at module
 // top level). It pulls in @earendil-works/pi-agent-core, whose `exports` map
 // tsx can't resolve under `node --test`; a top-level import here breaks the
@@ -115,6 +115,13 @@ export interface TeamReviewResult {
    *  Carries counts + the demoted findings (with reasons) so the PR comment
    *  can show what was suppressed and why. */
   verification?: VerifySummary;
+  /** #67: true when the final verdict is blocking-level yet EVERY blocking
+   *  inline finding was demoted by the verifier — the verdict's machine-
+   *  checkable evidence is empty (classic cause: reviewers read a stale
+   *  tree). The renderer carries a caution banner so the prose Blocking
+   *  Issues aren't read as verified fact. Undefined when verification
+   *  didn't run (no findings / skipVerify / verifier threw). */
+  blockingAllDemoted?: boolean;
 }
 
 const COORDINATOR_PROMPT = [
@@ -253,6 +260,34 @@ function resolveVerdict(
     if (severity[v] > severity[highest]) highest = v;
   }
   return highest;
+}
+
+/**
+ * #67: does a blocking-level verdict rest entirely on demoted findings?
+ * True when the verdict is CONDITIONAL/CANNOT, at least one blocking inline
+ * finding was demoted, and not one survived verification. In that state the
+ * coordinator's Blocking Issues have no machine-checkable evidence left
+ * (classic cause: reviewers read a stale tree), yet the verdict was already
+ * computed from them — the honest signal is a caution banner on the posted
+ * comment, not a silent pass or an unprovable downgrade to CAN MERGE.
+ * Pure; exported for the unit suite (same pattern as buildSystemPrompt).
+ */
+export function blockingVerdictUnverified(
+  verdict: TeamReviewResult["verdict"],
+  comments: VerifiedComment[],
+): boolean {
+  if (verdict !== "CONDITIONAL MERGE" && verdict !== "CANNOT MERGE") return false;
+  let anyBlockingDemoted = false;
+  for (const c of comments) {
+    if (c.severity !== "blocking") continue;
+    // A single surviving blocking finding refutes "all demoted" — bail out
+    // with false right there rather than tracking a second flag. Assumes
+    // VerifyStatus stays binary ("verified" | "demoted"); a third status
+    // would need this loop to decide explicitly where it falls.
+    if (c.status === "verified") return false;
+    anyBlockingDemoted = true;
+  }
+  return anyBlockingDemoted;
 }
 
 function buildCoordinatorInput(reviews: PersonaReview[]): string {
@@ -397,6 +432,9 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
   // and surfacing "we caught N bad findings" is more honest than silent drop.
   let inlineComments: InlineComment[] = rawComments;
   let verification: VerifySummary | undefined;
+  // #67: set when the verdict is blocking-level while every blocking inline
+  // finding was demoted — drives the caution banner in both rendered bodies.
+  let blockingAllDemoted: boolean | undefined;
   // Note: when rawComments is empty OR skipVerify is set, this block is
   // skipped and `verification` stays undefined. That's intentional — the
   // renderer (team-comment.ts) treats undefined as "no verification line",
@@ -422,6 +460,11 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
       });
       inlineComments = v.comments.filter((c) => c.status === "verified");
       verification = v.summary;
+      // Gated on no failed reviewers: a fail-closed CANNOT MERGE is driven
+      // by missing evidence, not by these findings — a banner there would
+      // mislead (the fail-closed warning already covers that case).
+      blockingAllDemoted =
+        failedReviewers.length === 0 && blockingVerdictUnverified(verdict, v.comments);
       if (v.summary.demoted > 0) {
         process.stderr.write(
           `verifier: demoted ${v.summary.demoted}/${v.summary.total} inline comment(s)\n`,
@@ -445,6 +488,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
     severity,
     inlineComments,
     verification,
+    blockingAllDemoted,
   };
 }
 

@@ -2,6 +2,7 @@ import { describe, it, mock } from "node:test";
 import assert from "node:assert/strict";
 import type { Provider } from "@earendil-works/pi-ai";
 import type { RunReviewOptions, ReviewResult } from "./review.js";
+import type { TeamReviewResult } from "./orchestrate.js";
 
 const EMPTY_USAGE = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, costTotal: 0 };
 
@@ -113,5 +114,98 @@ describe("resolveVerdict full-text fallback (last occurrence wins)", () => {
   it("no coordinator keyword anywhere falls back to the persona vote", async () => {
     coordinatorContent = "I could not determine a verdict from the inputs.";
     assert.equal(await runTeamVerdict(), "CAN MERGE");
+  });
+});
+
+describe("blockingAllDemoted (#67: verdict resting on demoted findings)", () => {
+  // Same harness, full result: the coordinator emits a CONDITIONAL verdict
+  // whose blocking inline finding cites a file the diff never touches — the
+  // verifier's rule layer demotes it ("file not in diff"), reproducing the
+  // review-server-neo PR #15 shape: 0 verified findings, verdict already set.
+  async function runTeamFlag(diff: string): Promise<TeamReviewResult> {
+    const { runTeamReview } = await import("./orchestrate.js");
+    return runTeamReview({
+      provider: fakeProvider(),
+      pr: 1,
+      diff,
+      cwd: process.cwd(),
+      sessionsRoot: "/tmp/sessions",
+      team: "quality",
+      skipLlmVerify: true,
+    });
+  }
+
+  function conditionalWithComments(entries: string): void {
+    coordinatorContent = [
+      "CONDITIONAL MERGE",
+      "",
+      "**Blocking Issues**",
+      "1. stale-tree fact",
+      "",
+      "<inline_comments>",
+      "```json",
+      entries,
+      "```",
+      "</inline_comments>",
+      "",
+      "<verdict>CONDITIONAL MERGE</verdict>",
+    ].join("\n");
+  }
+
+  it("fires when every blocking finding was demoted (the #67 repro)", async () => {
+    conditionalWithComments(
+      '[{"file":"internal/ui/ui.go","line":34,"side":"RIGHT","severity":"blocking","body":"FuncMap lacks add/num"}]',
+    );
+    const r = await runTeamFlag("diff --git a/other.ts b/other.ts");
+    assert.equal(r.verdict, "CONDITIONAL MERGE");
+    assert.equal(r.verification?.demoted, 1);
+    assert.equal(r.inlineComments.length, 0);
+    assert.equal(r.blockingAllDemoted, true);
+  });
+
+  it("does not fire when a blocking finding survives verification", async () => {
+    // src/severity.ts exists in this repo and the diff marks new line 2 →
+    // rule layer verifies it; the other finding is demoted as not in diff.
+    conditionalWithComments(
+      JSON.stringify([
+        { file: "src/severity.ts", line: 2, side: "RIGHT", severity: "blocking", body: "real" },
+        { file: "nowhere.ts", line: 1, side: "RIGHT", severity: "blocking", body: "stale" },
+      ]),
+    );
+    const diff = [
+      "diff --git a/src/severity.ts b/src/severity.ts",
+      "index 111..222 100644",
+      "--- a/src/severity.ts",
+      "+++ b/src/severity.ts",
+      "@@ -1,1 +1,2 @@",
+      " ctx",
+      "+added",
+    ].join("\n");
+    const r = await runTeamFlag(diff);
+    assert.equal(r.verification?.verified, 1);
+    assert.equal(r.verification?.demoted, 1);
+    assert.equal(r.blockingAllDemoted, false);
+  });
+
+  it("does not fire for a CAN MERGE verdict, even with demoted blockings", async () => {
+    conditionalWithComments(
+      '[{"file":"nowhere.ts","line":1,"side":"RIGHT","severity":"blocking","body":"stale"}]',
+    );
+    coordinatorContent = coordinatorContent
+      .replace("CONDITIONAL MERGE", "CAN MERGE")
+      .replace("<verdict>CONDITIONAL MERGE</verdict>", "<verdict>CAN MERGE</verdict>");
+    const r = await runTeamFlag("diff --git a/other.ts b/other.ts");
+    assert.equal(r.verdict, "CAN MERGE");
+    assert.equal(r.verification?.demoted, 1);
+    assert.equal(r.blockingAllDemoted, false);
+  });
+
+  it("does not fire when only warnings were demoted", async () => {
+    conditionalWithComments(
+      '[{"file":"nowhere.ts","line":1,"side":"RIGHT","severity":"warning","body":"stale"}]',
+    );
+    const r = await runTeamFlag("diff --git a/other.ts b/other.ts");
+    assert.equal(r.verification?.demoted, 1);
+    assert.equal(r.blockingAllDemoted, false);
   });
 });

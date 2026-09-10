@@ -26,6 +26,10 @@ export interface CommentTeamView {
   totalCacheRead: number;
   /** Verifier roll-up. Present only when verification ran over findings. */
   verification?: VerifySummary;
+  /** #67: verdict is blocking-level while every blocking inline finding was
+   *  demoted — render a caution banner in both bodies, like the fail-closed
+   *  warning (must not be missable on either surface). */
+  blockingAllDemoted?: boolean;
 }
 
 /** Options for rendering the cost figures. Defaults keep the historical USD
@@ -60,6 +64,16 @@ export function renderTeamComment(
     lines.push(
       `> 🔍 **Verification:** ${v.verified}/${v.total} inline findings independently verified` +
         (v.demoted > 0 ? ` · ${v.demoted} demoted (see below)` : ""),
+    );
+    lines.push("");
+  }
+
+  if (result.blockingAllDemoted) {
+    lines.push(
+      "> ⚠️ **Unverified verdict:** every blocking finding failed independent verification " +
+        '(see "Demoted findings" below). The verdict above was computed from them and may ' +
+        "rest on wrong code facts — treat the synthesis's Blocking Issues as unverified and " +
+        "re-review before merging.",
     );
     lines.push("");
   }
@@ -128,8 +142,9 @@ export function renderTeamComment(
  * there would stack duplicate long bodies per push. The standing top-level
  * comment keeps the full renderTeamComment body; the review body stays a
  * verdict + verification digest + pointer. Safety-critical notes (fail-closed
- * warning) are duplicated here on purpose — they must not be missable just
- * because someone reads the review timeline instead of the top comment.
+ * warning, unverified-verdict banner) are duplicated here on purpose — they
+ * must not be missable just because someone reads the review timeline
+ * instead of the top comment.
  */
 export function renderTeamReviewBody(
   result: CommentTeamView,
@@ -145,6 +160,15 @@ export function renderTeamReviewBody(
     lines.push(
       `> 🔍 **Verification:** ${v.verified}/${v.total} inline findings independently verified` +
         (v.demoted > 0 ? ` · ${v.demoted} demoted` : ""),
+    );
+    lines.push("");
+  }
+
+  if (result.blockingAllDemoted) {
+    lines.push(
+      "> ⚠️ **Unverified verdict:** every blocking finding failed independent verification. " +
+        "The verdict may rest on wrong code facts — see the demoted list in the top-level " +
+        "summary comment and re-review before merging.",
     );
     lines.push("");
   }
