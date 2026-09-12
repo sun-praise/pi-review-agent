@@ -185,21 +185,30 @@ describe("parseArgs --format json (headless bench mode)", () => {
     assert.throws(() => parse([...MIN, "--format", "jsn"]), /--format/);
   });
 
-  it("--pr is optional in json mode but still required in text mode", () => {
-    const opts = parse(JSON_MIN);
-    assert.equal(opts.pr, 0);
+  it("--pr is optional in json mode (invalid values normalize to 0) but required in text mode", () => {
+    assert.equal(parse(JSON_MIN).pr, 0);
+    assert.equal(parse([...JSON_MIN, "--pr", "-1"]).pr, 0);
+    assert.ok(Number.isNaN(parse(["--format", "json", "--persona", "q", "--pr", "abc"]).pr) === false);
     assert.throws(() => parse(["--persona", "quality"]), /--pr/);
   });
 
-  it("output and session-key resolve from CLI and env, normalized like other optionals", () => {
+  it("output resolves from CLI and env, normalized like other optionals", () => {
     assert.equal(parse(JSON_MIN).output, undefined);
     assert.equal(parse([...JSON_MIN, "--output", "out.json"]).output, "out.json");
     assert.equal(parse(JSON_MIN, { PI_REVIEW_OUTPUT: " " }).output, undefined);
+  });
+
+  it("generates a random bench-* session key for keyless json runs (at parse time)", () => {
+    assert.match(parse(JSON_MIN).sessionKey ?? "", /^bench-[0-9a-f-]{36}$/);
+    // text mode never gets a synthetic key
+    assert.equal(parse(MIN).sessionKey, undefined);
+    // an explicit key always wins, from CLI or env
     assert.equal(
       parse([...JSON_MIN, "--session-key", "aacr__instance-42"]).sessionKey,
       "aacr__instance-42",
     );
     assert.equal(parse(JSON_MIN, { PI_REVIEW_SESSION_KEY: "bench-7" }).sessionKey, "bench-7");
-    assert.equal(parse(JSON_MIN).sessionKey, undefined);
+    // json mode with a real --pr and no key keeps pr-based identity
+    assert.equal(parse([...JSON_MIN, "--pr", "9"]).sessionKey, undefined);
   });
 });

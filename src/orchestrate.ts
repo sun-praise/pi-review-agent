@@ -20,6 +20,7 @@ import { parseSeverity, withFailedReviewerOverride, type Severity } from "./seve
 import { parseInlineComments, type InlineComment } from "./inline-comments.js";
 import { parseChangedLines } from "./changed-lines.js";
 import { verifyInlineComments, type VerifySummary, type VerifiedComment } from "./verifier.js";
+import { resolveSessionDirName } from "./session-dir.js";
 // buildVerifierAgent is imported LAZILY inside runTeamReview (not at module
 // top level). It pulls in @earendil-works/pi-agent-core, whose `exports` map
 // tsx can't resolve under `node --test`; a top-level import here breaks the
@@ -126,6 +127,12 @@ export interface TeamReviewResult {
    *  Issues aren't read as verified fact. Undefined when verification
    *  didn't run (no findings / skipVerify / verifier threw). */
   blockingAllDemoted?: boolean;
+  /** Set when the coordinator RAN and failed (error message). Distinguishes
+   *  "skipped" (undefined + coordinator null) from "failed" (set +
+   *  coordinator null) for consumers that report run health — e.g. a
+   *  benchmark harness scoring empty findings differently from a crashed
+   *  synthesis step. */
+  coordinatorError?: string;
 }
 
 const COORDINATOR_PROMPT = [
@@ -359,6 +366,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
   );
 
   let coordinator: ReviewResult | null = null;
+  let coordinatorError: string | undefined;
   if (!opts.skipCoordinator) {
     const coord = coordinatorPersona();
     const input = buildCoordinatorInput(personaResults);
@@ -380,9 +388,8 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
         retryBackoffMs: opts.retryBackoffMs,
       });
     } catch (err: unknown) {
-      process.stderr.write(
-        `coordinator failed: ${err instanceof Error ? err.message : String(err)}\n`,
-      );
+      coordinatorError = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`coordinator failed: ${coordinatorError}\n`);
     }
   }
 
@@ -495,6 +502,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
     inlineComments,
     verification,
     blockingAllDemoted,
+    coordinatorError,
   };
 }
 
@@ -503,9 +511,10 @@ function emptyReview(pr: number, persona: string, sessionKey?: string): ReviewRe
     content: "(review failed)",
     usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, costTotal: 0 },
     resumed: false,
-    // Unscaled (cosmetic) key: this string is never used as a path — the
-    // sanitized form lives inside review.ts's sessionFile.
-    sessionId: `${sessionKey ?? pr}-${persona}`,
+    // Same single source of truth as the success path (session-dir.ts), so
+    // failed and successful personas in one run report identically-shaped
+    // sessionIds.
+    sessionId: `${resolveSessionDirName(sessionKey, pr)}-${persona}`,
     newMessages: [],
   };
 }

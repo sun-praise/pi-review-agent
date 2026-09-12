@@ -31,7 +31,8 @@ export interface JsonPersonaReport {
 export interface JsonRunResult {
   mode: "single" | "team";
   pr: number;
-  /** Session directory name actually used (set when --session-key given). */
+  /** Sanitized session directory name actually used on disk (see
+   *  session-dir.ts). Undefined when identity came from --pr. */
   sessionKey?: string;
   /** Team mode only. */
   verdict?: TeamReviewResult["verdict"];
@@ -43,13 +44,18 @@ export interface JsonRunResult {
   verification?: VerifySummary;
   /** True when every blocking finding was demoted by the verifier (team). */
   blockingAllDemoted?: boolean;
+  /** Team mode only: set when the coordinator RAN and failed — distinguishes
+   *  a skipped synthesis (absent, coordinator null) from a crashed one. */
+  coordinatorError?: string;
   /** Single mode only: the full review prose. */
   content?: string;
   /** Per-reviewer usage; team mode adds the coordinator as `coordinator`. */
   personas: JsonPersonaReport[];
   /** Team mode only: coordinator usage summary (null when skipped/failed). */
   coordinator?: { resumed: boolean; usage: ReviewUsage } | null;
-  /** Aggregate over all reviewers (+ coordinator in team mode). */
+  /** Aggregate over all reviewers (+ coordinator in team mode).
+   *  costTotal/cacheRead reuse TeamReviewResult's own totals so the two
+   *  renderings can never drift apart. */
   usage: ReviewUsage;
 }
 
@@ -105,6 +111,7 @@ export function buildTeamJsonResult(args: {
   const { result } = args;
   const all: ReviewResult[] = result.personas.map((p) => p.result);
   if (result.coordinator) all.push(result.coordinator);
+  const sums = sumUsage(all);
   const payload: JsonRunResult = {
     mode: "team",
     pr: args.pr,
@@ -116,11 +123,23 @@ export function buildTeamJsonResult(args: {
     coordinator: result.coordinator
       ? { resumed: result.coordinator.resumed, usage: result.coordinator.usage }
       : null,
-    usage: sumUsage(all),
+    usage: {
+      input: sums.input,
+      output: sums.output,
+      cacheWrite: sums.cacheWrite,
+      // Reuse the totals orchestrate already computed (same scope:
+      // personas + coordinator) so the JSON and the PR-comment/step-summary
+      // renderings can never disagree.
+      cacheRead: result.totalCacheRead,
+      costTotal: result.totalCost,
+    },
   };
   if (result.verification !== undefined) payload.verification = result.verification;
   if (result.blockingAllDemoted !== undefined) {
     payload.blockingAllDemoted = result.blockingAllDemoted;
+  }
+  if (result.coordinatorError !== undefined) {
+    payload.coordinatorError = result.coordinatorError;
   }
   return payload;
 }

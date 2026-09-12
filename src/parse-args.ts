@@ -15,6 +15,7 @@
  */
 import { parseCostOverrides, type ModelCostTable } from "./model-cost.js";
 import { resolveCurrencyOptions, type CurrencyOptions } from "./currency.js";
+import { randomUUID } from "node:crypto";
 
 export interface CliOptions {
   pr: number;
@@ -147,13 +148,17 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     args[k ?? ""] = argv[i + 1] ?? "";
   }
   const format = parseFormat(optionalString(args.format, env.PI_REVIEW_FORMAT));
-  const pr = Number(args.pr || env.PI_REVIEW_PR || 0);
+  const prRaw = Number(args.pr || env.PI_REVIEW_PR || 0);
   // --pr is the session identity + posting target in text mode; json mode
   // runs headless (--session-key or a random key takes over identity), so
   // a missing PR number there is not an error.
-  if (format !== "json" && (!Number.isFinite(pr) || pr <= 0)) {
+  if (format !== "json" && (!Number.isFinite(prRaw) || prRaw <= 0)) {
     throw new Error(`--pr <number> (or PI_REVIEW_PR) required`);
   }
+  // Normalize in json mode so a bogus --pr (-1, NaN) serializes as a clean
+  // 0 in the payload instead of leaking -1 / null into harness parsing.
+  const pr = Number.isFinite(prRaw) && prRaw > 0 ? prRaw : 0;
+  const sessionKeyInput = optionalString(args["session-key"], env.PI_REVIEW_SESSION_KEY);
   const persona = optionalString(args.persona, env.PI_REVIEW_PERSONA);
   const team = optionalString(args.team, env.PI_REVIEW_TEAM);
   // GitHub Actions always injects env vars as strings, so the literal "false"
@@ -235,7 +240,14 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     statsEnabled: isTruthyFlag(args["stats-enabled"], env.PI_REVIEW_STATS_ENABLED),
     format,
     output: optionalString(args.output, env.PI_REVIEW_OUTPUT),
-    sessionKey: optionalString(args["session-key"], env.PI_REVIEW_SESSION_KEY),
+    // Bench isolation is resolved HERE (not by mutating CliOptions later —
+    // the object is immutable from construction on): a json run with no pr
+    // and no key gets a random bench-* key so unrelated instances never
+    // share sessions/0/; an explicit key opts into deliberate resume.
+    // randomUUID keeps this module free of fs/env side effects.
+    sessionKey:
+      sessionKeyInput ??
+      (format === "json" && pr <= 0 ? `bench-${randomUUID()}` : undefined),
   };
 }
 

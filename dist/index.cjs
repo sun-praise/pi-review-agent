@@ -177837,7 +177837,6 @@ ${inlineSummary}`;
 
 // src/index.ts
 var import_node_fs9 = require("fs");
-var import_node_crypto2 = require("crypto");
 var import_node_path12 = require("path");
 
 // src/provider.ts
@@ -177973,6 +177972,7 @@ function formatCost(usd, opts) {
 }
 
 // src/parse-args.ts
+var import_node_crypto = require("crypto");
 function optionalString(argVal, envVal) {
   for (const val of [argVal, envVal]) {
     if (val !== void 0 && val.trim()) return val;
@@ -178001,10 +178001,12 @@ function parseArgs(argv, env2 = process.env) {
     args[k ?? ""] = argv[i2 + 1] ?? "";
   }
   const format = parseFormat(optionalString(args.format, env2.PI_REVIEW_FORMAT));
-  const pr = Number(args.pr || env2.PI_REVIEW_PR || 0);
-  if (format !== "json" && (!Number.isFinite(pr) || pr <= 0)) {
+  const prRaw = Number(args.pr || env2.PI_REVIEW_PR || 0);
+  if (format !== "json" && (!Number.isFinite(prRaw) || prRaw <= 0)) {
     throw new Error(`--pr <number> (or PI_REVIEW_PR) required`);
   }
+  const pr = Number.isFinite(prRaw) && prRaw > 0 ? prRaw : 0;
+  const sessionKeyInput = optionalString(args["session-key"], env2.PI_REVIEW_SESSION_KEY);
   const persona = optionalString(args.persona, env2.PI_REVIEW_PERSONA);
   const team = optionalString(args.team, env2.PI_REVIEW_TEAM);
   const skipEnv = env2.PI_REVIEW_SKIP_COORDINATOR;
@@ -178075,7 +178077,12 @@ function parseArgs(argv, env2 = process.env) {
     statsEnabled: isTruthyFlag(args["stats-enabled"], env2.PI_REVIEW_STATS_ENABLED),
     format,
     output: optionalString(args.output, env2.PI_REVIEW_OUTPUT),
-    sessionKey: optionalString(args["session-key"], env2.PI_REVIEW_SESSION_KEY)
+    // Bench isolation is resolved HERE (not by mutating CliOptions later —
+    // the object is immutable from construction on): a json run with no pr
+    // and no key gets a random bench-* key so unrelated instances never
+    // share sessions/0/; an explicit key opts into deliberate resume.
+    // randomUUID keeps this module free of fs/env side effects.
+    sessionKey: sessionKeyInput ?? (format === "json" && pr <= 0 ? `bench-${(0, import_node_crypto.randomUUID)()}` : void 0)
   };
 }
 function parseFormat(raw) {
@@ -178165,6 +178172,26 @@ function collectFromAgent(agent, newMessages) {
 init_tools();
 init_walk_grep();
 init_transient_error();
+
+// src/session-dir.ts
+function resolveSessionDirName(sessionKey, pr) {
+  if (sessionKey === void 0) return String(pr);
+  const sanitized = sessionKey.replace(/[^A-Za-z0-9._-]+/g, "_");
+  return usableDirName(sanitized) ? sanitized : `key-${fnv1aHex(sessionKey)}`;
+}
+function usableDirName(name) {
+  return name.length > 0 && name !== "." && name !== ".." && !name.startsWith("..");
+}
+function fnv1aHex(input) {
+  let hash2 = 2166136261;
+  for (let i2 = 0; i2 < input.length; i2 += 1) {
+    hash2 ^= input.charCodeAt(i2);
+    hash2 = Math.imul(hash2, 16777619) >>> 0;
+  }
+  return hash2.toString(16).padStart(8, "0");
+}
+
+// src/review.ts
 function defaultSystemPrompt(persona) {
   const padded = "You are a senior code reviewer. Cite file:line for each finding, classify as blocker / warning / suggestion, and prefer specific concrete remedies over generic advice. Do not invent issues if the diff is fine. " + "Focus on correctness, then security, then clarity, in that order. ".repeat(40);
   return padded + `
@@ -178198,9 +178225,13 @@ function appendLanguageDirective(base, lang) {
 Write the summary, findings, and all prose in ${name}. The verdict keywords (CAN MERGE / CONDITIONAL MERGE / CANNOT MERGE) MUST stay in English uppercase on the first line \u2014 they are parsed by machine and must never be translated.`;
 }
 async function sessionFile(root, dirName, persona) {
-  const dir = import_node_path4.default.join(root, dirName);
-  await import_node_fs2.promises.mkdir(dir, { recursive: true });
-  return import_node_path4.default.join(dir, `${persona}.jsonl`);
+  const rootAbs = import_node_path4.default.resolve(root);
+  const file2 = import_node_path4.default.join(root, dirName, `${persona}.jsonl`);
+  if (!import_node_path4.default.resolve(file2).startsWith(rootAbs + import_node_path4.default.sep)) {
+    throw new Error(`session file escapes sessions root: ${JSON.stringify(file2)}`);
+  }
+  await import_node_fs2.promises.mkdir(import_node_path4.default.dirname(file2), { recursive: true });
+  return file2;
 }
 async function loadTranscript(file2) {
   let text;
@@ -178303,7 +178334,7 @@ ${opts.diff}`;
   throw lastError instanceof Error ? lastError : new Error(`review failed for ${opts.persona} without a captured error`);
 }
 async function runReview(opts) {
-  const sessionDirName = opts.sessionKey ? opts.sessionKey.replace(/[^A-Za-z0-9._-]+/g, "_") : String(opts.pr);
+  const sessionDirName = resolveSessionDirName(opts.sessionKey, opts.pr);
   const file2 = await sessionFile(opts.sessionsRoot, sessionDirName, opts.persona);
   const transcript = await loadTranscript(file2);
   const resumed = transcript.length > 0;
@@ -181434,6 +181465,7 @@ async function runTeamReview(opts) {
     })
   );
   let coordinator = null;
+  let coordinatorError;
   if (!opts.skipCoordinator) {
     const coord = coordinatorPersona();
     const input = buildCoordinatorInput(personaResults);
@@ -181455,10 +181487,9 @@ async function runTeamReview(opts) {
         retryBackoffMs: opts.retryBackoffMs
       });
     } catch (err2) {
-      process.stderr.write(
-        `coordinator failed: ${err2 instanceof Error ? err2.message : String(err2)}
-`
-      );
+      coordinatorError = err2 instanceof Error ? err2.message : String(err2);
+      process.stderr.write(`coordinator failed: ${coordinatorError}
+`);
     }
   }
   const verdict = resolveVerdict(coordinator, personaResults);
@@ -181524,7 +181555,8 @@ async function runTeamReview(opts) {
     severity,
     inlineComments,
     verification,
-    blockingAllDemoted
+    blockingAllDemoted,
+    coordinatorError
   };
 }
 function emptyReview(pr, persona, sessionKey) {
@@ -181532,9 +181564,10 @@ function emptyReview(pr, persona, sessionKey) {
     content: "(review failed)",
     usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, costTotal: 0 },
     resumed: false,
-    // Unscaled (cosmetic) key: this string is never used as a path — the
-    // sanitized form lives inside review.ts's sessionFile.
-    sessionId: `${sessionKey ?? pr}-${persona}`,
+    // Same single source of truth as the success path (session-dir.ts), so
+    // failed and successful personas in one run report identically-shaped
+    // sessionIds.
+    sessionId: `${resolveSessionDirName(sessionKey, pr)}-${persona}`,
     newMessages: []
   };
 }
@@ -181892,7 +181925,7 @@ async function buildRelatedContext(changedFiles, cwd, opts) {
 // src/stats.ts
 var import_node_fs7 = require("fs");
 var import_node_path10 = require("path");
-var import_node_crypto = require("crypto");
+var import_node_crypto2 = require("crypto");
 function buildStatsEvent(input) {
   const roles = input.coordinator ? input.personas.concat(input.coordinator) : input.personas;
   const usage = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
@@ -181937,7 +181970,7 @@ function resolveRunIdentity(env2) {
     const attempt = Number(env2.GITHUB_RUN_ATTEMPT);
     return { runId, attempt: Number.isFinite(attempt) && attempt > 0 ? Math.floor(attempt) : 1 };
   }
-  return { runId: `local-${(0, import_node_crypto.randomUUID)().slice(0, 8)}`, attempt: 1 };
+  return { runId: `local-${(0, import_node_crypto2.randomUUID)().slice(0, 8)}`, attempt: 1 };
 }
 function statsEventLine(event) {
   return `${JSON.stringify(event).replace(/</g, "\\u003c")}
@@ -182053,6 +182086,7 @@ function buildTeamJsonResult(args) {
   const { result } = args;
   const all = result.personas.map((p) => p.result);
   if (result.coordinator) all.push(result.coordinator);
+  const sums = sumUsage(all);
   const payload = {
     mode: "team",
     pr: args.pr,
@@ -182062,11 +182096,23 @@ function buildTeamJsonResult(args) {
     comments: result.inlineComments,
     personas: result.personas.map(personaReport),
     coordinator: result.coordinator ? { resumed: result.coordinator.resumed, usage: result.coordinator.usage } : null,
-    usage: sumUsage(all)
+    usage: {
+      input: sums.input,
+      output: sums.output,
+      cacheWrite: sums.cacheWrite,
+      // Reuse the totals orchestrate already computed (same scope:
+      // personas + coordinator) so the JSON and the PR-comment/step-summary
+      // renderings can never disagree.
+      cacheRead: result.totalCacheRead,
+      costTotal: result.totalCost
+    }
   };
   if (result.verification !== void 0) payload.verification = result.verification;
   if (result.blockingAllDemoted !== void 0) {
     payload.blockingAllDemoted = result.blockingAllDemoted;
+  }
+  if (result.coordinatorError !== void 0) {
+    payload.coordinatorError = result.coordinatorError;
   }
   return payload;
 }
@@ -182115,12 +182161,20 @@ function appendOutputs(lines) {
 function writeJsonRunResult(payload, output) {
   const text = JSON.stringify(payload, null, 2);
   if (output) {
-    (0, import_node_fs9.writeFileSync)(output, text + "\n");
-    process.stderr.write(`json output written to ${output}
+    try {
+      (0, import_node_fs9.writeFileSync)(output, text + "\n");
+      process.stderr.write(`json output written to ${output}
 `);
-    return;
+      return true;
+    } catch (err2) {
+      process.stderr.write(
+        `json output to ${output} failed (${err2 instanceof Error ? err2.message : String(err2)}); falling back to stdout
+`
+      );
+    }
   }
   process.stdout.write(text + "\n");
+  return output === void 0;
 }
 function writeSingleSummary(result, persona, currency) {
   const label = currency.currency.toUpperCase();
@@ -182246,17 +182300,20 @@ async function runSingle(opts, adapter, platform) {
     });
   }
   if (opts.format === "json") {
-    writeJsonRunResult(
+    const delivered = writeJsonRunResult(
       buildSingleJsonResult({
         pr: opts.pr,
-        sessionKey: opts.sessionKey,
+        // The payload reports the sanitized directory name actually used on
+        // disk (single source of truth: session-dir.ts), so the field can
+        // never disagree with the filesystem.
+        sessionKey: opts.sessionKey !== void 0 ? resolveSessionDirName(opts.sessionKey, opts.pr) : void 0,
         persona: personaName,
         result,
         severity
       }),
       opts.output
     );
-    return 0;
+    return delivered ? 0 : 1;
   }
   process.stdout.write(`
 === review (${personaName}, resumed=${result.resumed}) ===
@@ -182351,11 +182408,16 @@ async function runTeam(opts, adapter, platform) {
     });
   }
   if (opts.format === "json") {
-    writeJsonRunResult(
-      buildTeamJsonResult({ pr: opts.pr, sessionKey: opts.sessionKey, result }),
+    const delivered = writeJsonRunResult(
+      buildTeamJsonResult({
+        pr: opts.pr,
+        // Sanitized directory name actually used on disk (session-dir.ts).
+        sessionKey: opts.sessionKey !== void 0 ? resolveSessionDirName(opts.sessionKey, opts.pr) : void 0,
+        result
+      }),
       opts.output
     );
-    return 0;
+    return delivered ? 0 : 1;
   }
   process.stdout.write(`
 === team review (${result.personas.length} personas) ===
@@ -182437,9 +182499,6 @@ Reviewing anyway would feed reviewers and the verifier a stale tree (issue #67).
   }
   await attachRelatedContext(opts);
   if (opts.format === "json") {
-    if (opts.pr <= 0 && !opts.sessionKey) {
-      opts.sessionKey = `bench-${(0, import_node_crypto2.randomUUID)()}`;
-    }
     return opts.team ? runTeam(opts, null, "none") : runSingle(opts, null, "none");
   }
   const { adapter, platform } = await createAdapterFromEnv(process.env, opts.platform);

@@ -51,9 +51,9 @@ LITELLM_API_KEY=... npx tsx src/index.ts --format json \
 
 Behavior in json mode:
 
-- `--pr` is optional; `--session-key` (or `PI_REVIEW_SESSION_KEY`) replaces it as the session identity, sanitized into `<sessions-root>/<key>/<persona>.jsonl`. Without either, a random `bench-*` key isolates the run — pass a stable key to opt into cross-run resume.
+- `--pr` is optional; `--session-key` (or `PI_REVIEW_SESSION_KEY`) replaces it as the session identity, sanitized into `<sessions-root>/<dir-name>/<persona>.jsonl` — traversal-shaped values (`..`, `.`, empty) fall back to a deterministic `key-<hash>` dir, never escape the sessions root, and the final path is containment-asserted. A json run with neither `--pr` nor `--session-key` gets a random `bench-*` key (resolved at parse time); passing `--pr` without a key keeps the usual `sessions/<pr>/` identity, so a harness that wants isolation should always pass `--session-key`.
 - No platform adapter is created; related-files context still works (local fs only).
-- Stdout is a single JSON document (all diagnostics go to stderr); `--output` writes it to a file instead.
+- Stdout is a single JSON document (all diagnostics go to stderr); `--output` writes it to a file instead — if that write fails, the payload falls back to stdout and the exit code reports the failure.
 - The fail-on-severity exit gate is disabled: exit code reflects only process failure, so a harness never mistakes `CANNOT MERGE` for a crash (the missing-instance vs empty-findings distinction).
 - Stats emission (`--stats-enabled`) still works; `repository` falls back to env or `"local"`.
 
@@ -63,13 +63,17 @@ Payload shape (see `src/json-output.ts` for the authoritative types):
 {
   "mode": "team",
   "pr": 0,
-  "sessionKey": "aacr__instance-42",
+  "sessionKey": "aacr__instance-42",  // sanitized dir name actually used on disk
   "verdict": "CANNOT MERGE",
   "severity": { "decision": "CANNOT MERGE", "blockingCount": 2, "...": "..." },
-  "comments": [ { "file": "src/auth.ts", "line": 42, "side": "RIGHT", "severity": "blocking", "body": "..." } ],
-  "verification": { "total": 3, "verified": 2, "demoted": 1, "demotedList": [ "..." ] },
+  "comments": [ { "file": "src/auth.ts", "line": 42, "side": "RIGHT", "severity": "blocking", "body": "...", "status": "verified" } ],
+  "verification": {
+    "total": 3, "verified": 2, "demoted": 1,
+    "demotedList": [ { "file": "...", "line": 99, "side": "RIGHT", "severity": "warning", "body": "...", "status": "demoted", "demoteReason": "..." } ]
+  },
   "personas": [ { "persona": "quality", "resumed": false, "usage": { "...": "..." }, "error": "..." } ],
   "coordinator": { "resumed": false, "usage": { "...": "..." } },
+  "coordinatorError": "all models failed",  // present only when the coordinator ran AND failed
   "usage": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0, "costTotal": 0 }
 }
 ```

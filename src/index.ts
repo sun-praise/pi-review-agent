@@ -26,7 +26,6 @@
  *   GITHUB_OUTPUT=...                    (cacheRead, costTotal, verdict, ...)
  */
 import { readFileSync, appendFileSync, writeFileSync } from "node:fs";
-import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { createLiteLLMDeepSeekProvider } from "./provider.js";
 import { resolveModelIds, DEFAULT_MODEL_ID } from "./model-ids.js";
@@ -46,6 +45,7 @@ import { buildRelatedContext } from "./related-context.js";
 import { buildStatsEvent, recordStats, resolveRunIdentity } from "./stats.js";
 import { checkWorkspace } from "./workspace-check.js";
 import { buildSingleJsonResult, buildTeamJsonResult, type JsonRunResult } from "./json-output.js";
+import { resolveSessionDirName } from "./session-dir.js";
 
 
 function loadDiff(opts: CliOptions): string {
@@ -102,17 +102,27 @@ function appendOutputs(lines: string[]): void {
   appendFileSync(path, lines.join("\n") + "\n");
 }
 
-/** Emit the JSON run payload: to --output when given (path + stderr note),
- *  else stdout. Stdout stays a single JSON document — all diagnostics go to
- *  stderr — so shell pipelines and harnesses can consume it directly. */
-function writeJsonRunResult(payload: JsonRunResult, output: string | undefined): void {
+/** Emit the JSON run payload. Delivery: --output file when given — on write
+ *  failure we fall back to stdout (the review already completed; losing the
+ *  payload would waste the tokens) and report failure so the exit code still
+ *  tells the caller their contract (--output) broke. Without --output,
+ *  stdout is the contract (single JSON document, diagnostics on stderr).
+ *  Returns true when the requested channel succeeded. */
+function writeJsonRunResult(payload: JsonRunResult, output: string | undefined): boolean {
   const text = JSON.stringify(payload, null, 2);
   if (output) {
-    writeFileSync(output, text + "\n");
-    process.stderr.write(`json output written to ${output}\n`);
-    return;
+    try {
+      writeFileSync(output, text + "\n");
+      process.stderr.write(`json output written to ${output}\n`);
+      return true;
+    } catch (err: unknown) {
+      process.stderr.write(
+        `json output to ${output} failed (${err instanceof Error ? err.message : String(err)}); falling back to stdout\n`,
+      );
+    }
   }
   process.stdout.write(text + "\n");
+  return output === undefined;
 }
 
 function writeSingleSummary(result: ReviewResult, persona: string, currency: CurrencyOptions): void {
@@ -254,17 +264,23 @@ async function runSingle(
     });
   }
   if (opts.format === "json") {
-    writeJsonRunResult(
+    const delivered = writeJsonRunResult(
       buildSingleJsonResult({
         pr: opts.pr,
-        sessionKey: opts.sessionKey,
+        // The payload reports the sanitized directory name actually used on
+        // disk (single source of truth: session-dir.ts), so the field can
+        // never disagree with the filesystem.
+        sessionKey:
+          opts.sessionKey !== undefined
+            ? resolveSessionDirName(opts.sessionKey, opts.pr)
+            : undefined,
         persona: personaName,
         result,
         severity,
       }),
       opts.output,
     );
-    return 0;
+    return delivered ? 0 : 1;
   }
   process.stdout.write(`\n=== review (${personaName}, resumed=${result.resumed}) ===\n${result.content}\n`);
   process.stdout.write(
@@ -375,11 +391,19 @@ async function runTeam(
   // concern — a benchmark harness must not read "verdict: CANNOT MERGE" as
   // a process failure (missing_instances vs empty-findings ambiguity).
   if (opts.format === "json") {
-    writeJsonRunResult(
-      buildTeamJsonResult({ pr: opts.pr, sessionKey: opts.sessionKey, result }),
+    const delivered = writeJsonRunResult(
+      buildTeamJsonResult({
+        pr: opts.pr,
+        // Sanitized directory name actually used on disk (session-dir.ts).
+        sessionKey:
+          opts.sessionKey !== undefined
+            ? resolveSessionDirName(opts.sessionKey, opts.pr)
+            : undefined,
+        result,
+      }),
       opts.output,
     );
-    return 0;
+    return delivered ? 0 : 1;
   }
 
   process.stdout.write(`\n=== team review (${result.personas.length} personas) ===\n`);
@@ -488,15 +512,10 @@ async function main(): Promise<number> {
 
   // Headless json mode: no platform adapter is created (and none may be
   // detectable — bench harnesses run outside GitHub/Gitea env), no PR
-  // context is fetched, no comment is posted.
+  // context is fetched, no comment is posted. Bench isolation (random
+  // bench-* session key when no pr/key given) is resolved in parseArgs, so
+  // CliOptions stays immutable from construction on.
   if (opts.format === "json") {
-    // Bench isolation: json mode without --pr and without --session-key
-    // would pile every run into sessions/0/ and resume across unrelated
-    // instances. A random key keeps runs isolated; pass --session-key to
-    // opt into deliberate resume (e.g. re-running one benchmark instance).
-    if (opts.pr <= 0 && !opts.sessionKey) {
-      opts.sessionKey = `bench-${randomUUID()}`;
-    }
     return opts.team ? runTeam(opts, null, "none") : runSingle(opts, null, "none");
   }
 

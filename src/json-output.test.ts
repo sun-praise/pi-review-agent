@@ -25,8 +25,8 @@ function review(partial: Partial<ReviewResult> = {}): ReviewResult {
 const SEVERITY: Severity = { decision: "CAN MERGE", blockingCount: 0, warningCount: 0, fallback: false };
 
 const COMMENTS: InlineComment[] = [
-  { file: "src/auth.ts", line: 42, side: "RIGHT", severity: "blocking", body: "SQL injection" },
-  { file: "src/util.ts", line: 7, side: "LEFT", severity: "suggestion", body: "rename foo" },
+  { file: "src/auth.ts", line: 42, side: "RIGHT", severity: "blocking", body: "SQL injection", status: "verified" },
+  { file: "src/util.ts", line: 7, side: "LEFT", severity: "suggestion", body: "rename foo", status: "verified" },
 ];
 
 const VERIFICATION: VerifySummary = {
@@ -87,7 +87,22 @@ describe("buildTeamJsonResult", () => {
     assert.equal(json.verdict, "CANNOT MERGE");
     assert.equal(json.severity.decision, "CANNOT MERGE");
     assert.deepEqual(json.comments, COMMENTS);
+    assert.ok(json.comments.every((c) => c.status === "verified"));
     assert.deepEqual(json.verification, VERIFICATION);
+  });
+
+  it("carries coordinatorError so a harness can tell skipped from crashed", () => {
+    const json = buildTeamJsonResult({
+      pr: 7,
+      result: teamResult({ coordinator: null, coordinatorError: "all models failed" }),
+    });
+    assert.equal(json.coordinator, null);
+    assert.equal(json.coordinatorError, "all models failed");
+    const skipped = buildTeamJsonResult({
+      pr: 7,
+      result: teamResult({ coordinator: null, coordinatorError: undefined }),
+    });
+    assert.equal("coordinatorError" in skipped, false);
   });
 
   it("reports per-persona usage and surfaces reviewer errors", () => {
