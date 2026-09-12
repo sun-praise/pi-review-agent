@@ -39,6 +39,43 @@ LITELLM_API_KEY=... npx tsx src/index.ts \
 LITELLM_API_KEY=... npm run demo:cache
 ```
 
+## Headless JSON mode (benchmarks)
+
+`--format json` runs the reviewer headless — no PR number, no platform env vars, no PR comment — and prints one machine-readable payload instead of the human report. Built for evaluation harnesses (e.g. [aacr-bench](https://github.com/alibaba/aacr-bench)), where each instance is a repo checkout + a commit-pair diff:
+
+```bash
+LITELLM_API_KEY=... npx tsx src/index.ts --format json \
+  --diff-file ./diff.txt --team "quality:1,security:1" \
+  --session-key <instance-id> [--output result.json]
+```
+
+Behavior in json mode:
+
+- `--pr` is optional; `--session-key` (or `PI_REVIEW_SESSION_KEY`) replaces it as the session identity, sanitized into `<sessions-root>/<key>/<persona>.jsonl`. Without either, a random `bench-*` key isolates the run — pass a stable key to opt into cross-run resume.
+- No platform adapter is created; related-files context still works (local fs only).
+- Stdout is a single JSON document (all diagnostics go to stderr); `--output` writes it to a file instead.
+- The fail-on-severity exit gate is disabled: exit code reflects only process failure, so a harness never mistakes `CANNOT MERGE` for a crash (the missing-instance vs empty-findings distinction).
+- Stats emission (`--stats-enabled`) still works; `repository` falls back to env or `"local"`.
+
+Payload shape (see `src/json-output.ts` for the authoritative types):
+
+```jsonc
+{
+  "mode": "team",
+  "pr": 0,
+  "sessionKey": "aacr__instance-42",
+  "verdict": "CANNOT MERGE",
+  "severity": { "decision": "CANNOT MERGE", "blockingCount": 2, "...": "..." },
+  "comments": [ { "file": "src/auth.ts", "line": 42, "side": "RIGHT", "severity": "blocking", "body": "..." } ],
+  "verification": { "total": 3, "verified": 2, "demoted": 1, "demotedList": [ "..." ] },
+  "personas": [ { "persona": "quality", "resumed": false, "usage": { "...": "..." }, "error": "..." } ],
+  "coordinator": { "resumed": false, "usage": { "...": "..." } },
+  "usage": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0, "costTotal": 0 }
+}
+```
+
+`comments` carries the verified, line-pinned findings (the same objects the GitHub Reviews API layer posts); `body` is the semantic text field a benchmark matcher maps onto ground truth.
+
 ## Gitea Support
 
 pi-review-agent now supports Gitea in addition to GitHub. The platform is auto-detected from environment variables, or can be explicitly set via `--platform`.

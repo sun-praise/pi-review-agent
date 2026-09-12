@@ -171,3 +171,35 @@ describe("parseArgs flags and numbers", () => {
     assert.equal(parse(MIN, { PI_REVIEW_FAIL_ON_SEVERITY: "bogus" }).failOnSeverity, "none");
   });
 });
+
+describe("parseArgs --format json (headless bench mode)", () => {
+  const JSON_MIN = ["--format", "json", "--persona", "quality"];
+
+  it("defaults to text; --format json / PI_REVIEW_FORMAT are honored (case-insensitive)", () => {
+    assert.equal(parse(MIN).format, "text");
+    assert.equal(parse([...MIN, "--format", "json"]).format, "json");
+    assert.equal(parse(MIN, { PI_REVIEW_FORMAT: "JSON" }).format, "json");
+  });
+
+  it("rejects unknown format values loudly", () => {
+    assert.throws(() => parse([...MIN, "--format", "jsn"]), /--format/);
+  });
+
+  it("--pr is optional in json mode but still required in text mode", () => {
+    const opts = parse(JSON_MIN);
+    assert.equal(opts.pr, 0);
+    assert.throws(() => parse(["--persona", "quality"]), /--pr/);
+  });
+
+  it("output and session-key resolve from CLI and env, normalized like other optionals", () => {
+    assert.equal(parse(JSON_MIN).output, undefined);
+    assert.equal(parse([...JSON_MIN, "--output", "out.json"]).output, "out.json");
+    assert.equal(parse(JSON_MIN, { PI_REVIEW_OUTPUT: " " }).output, undefined);
+    assert.equal(
+      parse([...JSON_MIN, "--session-key", "aacr__instance-42"]).sessionKey,
+      "aacr__instance-42",
+    );
+    assert.equal(parse(JSON_MIN, { PI_REVIEW_SESSION_KEY: "bench-7" }).sessionKey, "bench-7");
+    assert.equal(parse(JSON_MIN).sessionKey, undefined);
+  });
+});

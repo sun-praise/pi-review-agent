@@ -43,6 +43,10 @@ export interface TeamReviewOptions {
   relatedContext?: string;
   cwd: string;
   sessionsRoot: string;
+  /** Session identity override passed to every reviewer + the coordinator
+   *  (see RunReviewOptions.sessionKey). Headless/benchmark runs use this in
+   *  place of a PR number. */
+  sessionKey?: string;
   /** e.g. "quality:1,security:1,performance:1". Default: all built-ins. */
   team?: string;
   /** Model id registered in the provider. Default "deepseek-v4-flash". */
@@ -334,6 +338,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
           prContext: opts.prContext,
           relatedContext: opts.relatedContext,
           sessionsRoot: opts.sessionsRoot,
+          sessionKey: opts.sessionKey,
           cwd: opts.cwd,
           systemPrompt: buildSystemPrompt(persona, styleGuide),
           language: opts.language,
@@ -346,7 +351,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
         const message = err instanceof Error ? err.message : String(err);
         return {
           persona: persona.name,
-          result: emptyReview(opts.pr, persona.name),
+          result: emptyReview(opts.pr, persona.name, opts.sessionKey),
           error: message,
         };
       }
@@ -366,6 +371,7 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
         fallbackModels: opts.fallbackModels,
         diff: input,
         sessionsRoot: opts.sessionsRoot,
+        sessionKey: opts.sessionKey,
         cwd: opts.cwd,
         systemPrompt: coord.prompt,
         language: opts.language,
@@ -492,12 +498,14 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
   };
 }
 
-function emptyReview(pr: number, persona: string): ReviewResult {
+function emptyReview(pr: number, persona: string, sessionKey?: string): ReviewResult {
   return {
     content: "(review failed)",
     usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, costTotal: 0 },
     resumed: false,
-    sessionId: `${pr}-${persona}`,
+    // Unscaled (cosmetic) key: this string is never used as a path — the
+    // sanitized form lives inside review.ts's sessionFile.
+    sessionId: `${sessionKey ?? pr}-${persona}`,
     newMessages: [],
   };
 }

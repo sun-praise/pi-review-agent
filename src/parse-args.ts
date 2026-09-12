@@ -92,6 +92,16 @@ export interface CliOptions {
    *  flags) enables the local <sessions-root>/stats.jsonl record; a set
    *  stats-url then additionally ships each event to the dashboard. */
   statsEnabled: boolean;
+  /** Output format: "text" (default — human stdout + PR comment) or "json"
+   *  (headless: machine payload on stdout / --output, no platform needed,
+   *  no PR posting, no severity exit gate). */
+  format: "text" | "json";
+  /** With --format json: write the payload to this file instead of stdout. */
+  output: string | undefined;
+  /** Session identity override (--session-key / PI_REVIEW_SESSION_KEY).
+   *  Replaces the PR number as the session directory so headless runs
+   *  (benchmarks) get isolated sessions; a stable value opts into resume. */
+  sessionKey: string | undefined;
 }
 
 /**
@@ -136,8 +146,12 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     const k = argv[i]?.replace(/^--/, "");
     args[k ?? ""] = argv[i + 1] ?? "";
   }
+  const format = parseFormat(optionalString(args.format, env.PI_REVIEW_FORMAT));
   const pr = Number(args.pr || env.PI_REVIEW_PR || 0);
-  if (!Number.isFinite(pr) || pr <= 0) {
+  // --pr is the session identity + posting target in text mode; json mode
+  // runs headless (--session-key or a random key takes over identity), so
+  // a missing PR number there is not an error.
+  if (format !== "json" && (!Number.isFinite(pr) || pr <= 0)) {
     throw new Error(`--pr <number> (or PI_REVIEW_PR) required`);
   }
   const persona = optionalString(args.persona, env.PI_REVIEW_PERSONA);
@@ -219,7 +233,21 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     statsUrl: optionalString(args["stats-url"], env.PI_REVIEW_STATS_URL),
     statsToken: optionalString(args["stats-token"], env.PI_REVIEW_STATS_TOKEN),
     statsEnabled: isTruthyFlag(args["stats-enabled"], env.PI_REVIEW_STATS_ENABLED),
+    format,
+    output: optionalString(args.output, env.PI_REVIEW_OUTPUT),
+    sessionKey: optionalString(args["session-key"], env.PI_REVIEW_SESSION_KEY),
   };
+}
+
+/** Parse --format / PI_REVIEW_FORMAT. Only "text" (default) and "json" are
+ *  valid; anything else fails loudly — a mistyped "jsn" silently producing
+ *  human output would break downstream machine parsers. */
+function parseFormat(raw: string | undefined): "text" | "json" {
+  const v = (raw ?? "text").trim().toLowerCase();
+  if (v !== "text" && v !== "json") {
+    throw new Error(`--format must be "text" or "json" (got "${v}")`);
+  }
+  return v;
 }
 
 /** Resolve a boolean skip-flag from a CLI arg or env var. Only "1"/"true"

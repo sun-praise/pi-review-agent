@@ -5,6 +5,24 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Headless JSON mode** (`--format json` / `PI_REVIEW_FORMAT`): runs the
+  reviewer without a PR number, platform env vars, or PR-comment posting,
+  and emits one machine-readable payload (stdout, or `--output` /
+  `PI_REVIEW_OUTPUT`) with the verified line-pinned `comments`, the
+  verifier summary, verdict/severity, and per-persona + aggregate usage
+  (tokens, cacheRead, cost) — built for evaluation harnesses such as
+  aacr-bench, where an instance is a repo checkout plus a commit-pair diff.
+  `--session-key` (`PI_REVIEW_SESSION_KEY`) replaces the PR number as the
+  session identity (sanitized path segment, stable value = deliberate
+  resume); without it a random `bench-*` key isolates each run. The
+  fail-on-severity exit gate is disabled in json mode so a harness never
+  reads `CANNOT MERGE` as a process failure. Related-files context and
+  opt-in stats still work headless (repository falls back to env or
+  `"local"`).
 
 ## [1.8.0] - 2026-09-10
 

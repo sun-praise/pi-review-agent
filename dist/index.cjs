@@ -43056,7 +43056,7 @@ var require_gaxios = __commonJS({
     var retry_js_1 = require_retry3();
     var stream_1 = require("stream");
     var interceptor_js_1 = require_interceptor();
-    var randomUUID2 = async () => globalThis.crypto?.randomUUID() || (await import("crypto")).randomUUID();
+    var randomUUID3 = async () => globalThis.crypto?.randomUUID() || (await import("crypto")).randomUUID();
     var HTTP_STATUS_NO_CONTENT = 204;
     var Gaxios = class {
       agentCache = /* @__PURE__ */ new Map();
@@ -43329,7 +43329,7 @@ var require_gaxios = __commonJS({
          */
         ["Blob", "File", "FormData"].includes(opts.data?.constructor?.name || "");
         if (opts.multipart?.length) {
-          const boundary = await randomUUID2();
+          const boundary = await randomUUID3();
           preparedHeaders.set("content-type", `multipart/related; boundary=${boundary}`);
           opts.body = stream_1.Readable.from(this.getMultipartRequest(opts.multipart, boundary));
         } else if (shouldDirectlyPassData) {
@@ -177837,6 +177837,7 @@ ${inlineSummary}`;
 
 // src/index.ts
 var import_node_fs9 = require("fs");
+var import_node_crypto2 = require("crypto");
 var import_node_path12 = require("path");
 
 // src/provider.ts
@@ -177999,8 +178000,9 @@ function parseArgs(argv, env2 = process.env) {
     const k = argv[i2]?.replace(/^--/, "");
     args[k ?? ""] = argv[i2 + 1] ?? "";
   }
+  const format = parseFormat(optionalString(args.format, env2.PI_REVIEW_FORMAT));
   const pr = Number(args.pr || env2.PI_REVIEW_PR || 0);
-  if (!Number.isFinite(pr) || pr <= 0) {
+  if (format !== "json" && (!Number.isFinite(pr) || pr <= 0)) {
     throw new Error(`--pr <number> (or PI_REVIEW_PR) required`);
   }
   const persona = optionalString(args.persona, env2.PI_REVIEW_PERSONA);
@@ -178070,8 +178072,18 @@ function parseArgs(argv, env2 = process.env) {
     skipLlmVerify: isTruthyFlag(args["skip-llm-verify"], env2.PI_REVIEW_SKIP_LLM_VERIFY),
     statsUrl: optionalString(args["stats-url"], env2.PI_REVIEW_STATS_URL),
     statsToken: optionalString(args["stats-token"], env2.PI_REVIEW_STATS_TOKEN),
-    statsEnabled: isTruthyFlag(args["stats-enabled"], env2.PI_REVIEW_STATS_ENABLED)
+    statsEnabled: isTruthyFlag(args["stats-enabled"], env2.PI_REVIEW_STATS_ENABLED),
+    format,
+    output: optionalString(args.output, env2.PI_REVIEW_OUTPUT),
+    sessionKey: optionalString(args["session-key"], env2.PI_REVIEW_SESSION_KEY)
   };
+}
+function parseFormat(raw) {
+  const v = (raw ?? "text").trim().toLowerCase();
+  if (v !== "text" && v !== "json") {
+    throw new Error(`--format must be "text" or "json" (got "${v}")`);
+  }
+  return v;
 }
 function isTruthyFlag(argVal, envVal) {
   const raw = argVal ?? envVal;
@@ -178185,10 +178197,10 @@ function appendLanguageDirective(base, lang) {
 
 Write the summary, findings, and all prose in ${name}. The verdict keywords (CAN MERGE / CONDITIONAL MERGE / CANNOT MERGE) MUST stay in English uppercase on the first line \u2014 they are parsed by machine and must never be translated.`;
 }
-async function sessionFile(opts) {
-  const dir = import_node_path4.default.join(opts.sessionsRoot, String(opts.pr));
+async function sessionFile(root, dirName, persona) {
+  const dir = import_node_path4.default.join(root, dirName);
   await import_node_fs2.promises.mkdir(dir, { recursive: true });
-  return import_node_path4.default.join(dir, `${opts.persona}.jsonl`);
+  return import_node_path4.default.join(dir, `${persona}.jsonl`);
 }
 async function loadTranscript(file2) {
   let text;
@@ -178291,14 +178303,15 @@ ${opts.diff}`;
   throw lastError instanceof Error ? lastError : new Error(`review failed for ${opts.persona} without a captured error`);
 }
 async function runReview(opts) {
-  const file2 = await sessionFile(opts);
+  const sessionDirName = opts.sessionKey ? opts.sessionKey.replace(/[^A-Za-z0-9._-]+/g, "_") : String(opts.pr);
+  const file2 = await sessionFile(opts.sessionsRoot, sessionDirName, opts.persona);
   const transcript = await loadTranscript(file2);
   const resumed = transcript.length > 0;
   const systemPrompt = appendLanguageDirective(
     opts.systemPrompt ?? defaultSystemPrompt(opts.persona),
     opts.language
   );
-  const sessionId = `${opts.pr}-${opts.persona}`;
+  const sessionId = `${sessionDirName}-${opts.persona}`;
   const cwd = opts.cwd ?? process.cwd();
   const primaryModel = opts.modelId ?? "deepseek-v4-flash";
   const fallbackModels = opts.fallbackModels ?? [];
@@ -181401,6 +181414,7 @@ async function runTeamReview(opts) {
           prContext: opts.prContext,
           relatedContext: opts.relatedContext,
           sessionsRoot: opts.sessionsRoot,
+          sessionKey: opts.sessionKey,
           cwd: opts.cwd,
           systemPrompt: buildSystemPrompt(persona, styleGuide),
           language: opts.language,
@@ -181413,7 +181427,7 @@ async function runTeamReview(opts) {
         const message = err2 instanceof Error ? err2.message : String(err2);
         return {
           persona: persona.name,
-          result: emptyReview(opts.pr, persona.name),
+          result: emptyReview(opts.pr, persona.name, opts.sessionKey),
           error: message
         };
       }
@@ -181432,6 +181446,7 @@ async function runTeamReview(opts) {
         fallbackModels: opts.fallbackModels,
         diff: input,
         sessionsRoot: opts.sessionsRoot,
+        sessionKey: opts.sessionKey,
         cwd: opts.cwd,
         systemPrompt: coord.prompt,
         language: opts.language,
@@ -181512,12 +181527,14 @@ async function runTeamReview(opts) {
     blockingAllDemoted
   };
 }
-function emptyReview(pr, persona) {
+function emptyReview(pr, persona, sessionKey) {
   return {
     content: "(review failed)",
     usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, costTotal: 0 },
     resumed: false,
-    sessionId: `${pr}-${persona}`,
+    // Unscaled (cosmetic) key: this string is never used as a path — the
+    // sanitized form lives inside review.ts's sessionFile.
+    sessionId: `${sessionKey ?? pr}-${persona}`,
     newMessages: []
   };
 }
@@ -181996,6 +182013,64 @@ async function checkWorkspace(diff, cwd) {
   return { ok: missing.length === 0, missing };
 }
 
+// src/json-output.ts
+function sumUsage(results) {
+  const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, costTotal: 0 };
+  for (const r2 of results) {
+    total.input += r2.usage.input;
+    total.output += r2.usage.output;
+    total.cacheRead += r2.usage.cacheRead;
+    total.cacheWrite += r2.usage.cacheWrite;
+    total.costTotal += r2.usage.costTotal;
+  }
+  return total;
+}
+function personaReport(r2) {
+  const report = {
+    persona: r2.persona,
+    resumed: r2.result.resumed,
+    usage: r2.result.usage
+  };
+  if (r2.error !== void 0) report.error = r2.error;
+  return report;
+}
+function buildSingleJsonResult(args) {
+  const { result } = args;
+  return {
+    mode: "single",
+    pr: args.pr,
+    sessionKey: args.sessionKey,
+    severity: args.severity,
+    comments: [],
+    content: result.content,
+    personas: [
+      { persona: args.persona, resumed: result.resumed, usage: result.usage }
+    ],
+    usage: sumUsage([result])
+  };
+}
+function buildTeamJsonResult(args) {
+  const { result } = args;
+  const all = result.personas.map((p) => p.result);
+  if (result.coordinator) all.push(result.coordinator);
+  const payload = {
+    mode: "team",
+    pr: args.pr,
+    sessionKey: args.sessionKey,
+    verdict: result.verdict,
+    severity: result.severity,
+    comments: result.inlineComments,
+    personas: result.personas.map(personaReport),
+    coordinator: result.coordinator ? { resumed: result.coordinator.resumed, usage: result.coordinator.usage } : null,
+    usage: sumUsage(all)
+  };
+  if (result.verification !== void 0) payload.verification = result.verification;
+  if (result.blockingAllDemoted !== void 0) {
+    payload.blockingAllDemoted = result.blockingAllDemoted;
+  }
+  return payload;
+}
+
 // src/index.ts
 function loadDiff(opts) {
   if (opts.diffInline) return opts.diffInline;
@@ -182036,6 +182111,16 @@ function appendOutputs(lines) {
   const path13 = process.env.GITHUB_OUTPUT;
   if (!path13) return;
   (0, import_node_fs9.appendFileSync)(path13, lines.join("\n") + "\n");
+}
+function writeJsonRunResult(payload, output) {
+  const text = JSON.stringify(payload, null, 2);
+  if (output) {
+    (0, import_node_fs9.writeFileSync)(output, text + "\n");
+    process.stderr.write(`json output written to ${output}
+`);
+    return;
+  }
+  process.stdout.write(text + "\n");
 }
 function writeSingleSummary(result, persona, currency) {
   const label = currency.currency.toUpperCase();
@@ -182125,6 +182210,7 @@ async function runSingle(opts, adapter, platform) {
     prContext: opts.prContext,
     relatedContext: opts.relatedContext,
     sessionsRoot: opts.sessionsRoot,
+    sessionKey: opts.sessionKey,
     cwd: opts.cwd,
     systemPrompt,
     language: opts.language,
@@ -182132,24 +182218,9 @@ async function runSingle(opts, adapter, platform) {
     maxAttempts: opts.maxAttempts,
     retryBackoffMs: opts.retryBackoffMs
   });
-  process.stdout.write(`
-=== review (${personaName}, resumed=${result.resumed}) ===
-${result.content}
-`);
-  process.stdout.write(
-    `cacheRead: ${result.usage.cacheRead}  cost: ${formatCost(result.usage.costTotal, opts.displayCurrency)}
-`
-  );
-  writeSingleSummary(result, personaName, opts.displayCurrency);
-  appendOutputs([
-    `cacheRead=${result.usage.cacheRead}`,
-    `costTotal=${result.usage.costTotal.toFixed(6)}`,
-    `resumed=${result.resumed}`,
-    `sessionId=${result.sessionId}`
-  ]);
   const severity = parseSeverity(result.content);
+  const prInfo = adapter ? adapter.resolvePrFromEnv(process.env) : null;
   if (opts.statsEnabled) {
-    const prInfo = adapter.resolvePrFromEnv(process.env);
     const repository = prInfo?.repository ?? process.env.GITHUB_REPOSITORY?.trim() ?? "local";
     await recordStats({
       file: (0, import_node_path12.join)(opts.sessionsRoot, "stats.jsonl"),
@@ -182174,6 +182245,34 @@ ${result.content}
       })
     });
   }
+  if (opts.format === "json") {
+    writeJsonRunResult(
+      buildSingleJsonResult({
+        pr: opts.pr,
+        sessionKey: opts.sessionKey,
+        persona: personaName,
+        result,
+        severity
+      }),
+      opts.output
+    );
+    return 0;
+  }
+  process.stdout.write(`
+=== review (${personaName}, resumed=${result.resumed}) ===
+${result.content}
+`);
+  process.stdout.write(
+    `cacheRead: ${result.usage.cacheRead}  cost: ${formatCost(result.usage.costTotal, opts.displayCurrency)}
+`
+  );
+  writeSingleSummary(result, personaName, opts.displayCurrency);
+  appendOutputs([
+    `cacheRead=${result.usage.cacheRead}`,
+    `costTotal=${result.usage.costTotal.toFixed(6)}`,
+    `resumed=${result.resumed}`,
+    `sessionId=${result.sessionId}`
+  ]);
   return shouldFail(severity, opts.failOnSeverity) ? 1 : 0;
 }
 async function runTeam(opts, adapter, platform) {
@@ -182205,6 +182304,7 @@ async function runTeam(opts, adapter, platform) {
     relatedContext: opts.relatedContext,
     cwd: opts.cwd,
     sessionsRoot: opts.sessionsRoot,
+    sessionKey: opts.sessionKey,
     team: opts.team,
     modelId: opts.modelId,
     coordinatorModelId,
@@ -182219,30 +182319,7 @@ async function runTeam(opts, adapter, platform) {
     skipVerify: opts.skipVerify,
     skipLlmVerify: opts.skipLlmVerify
   });
-  process.stdout.write(`
-=== team review (${result.personas.length} personas) ===
-`);
-  process.stdout.write(`verdict: ${result.verdict}
-`);
-  process.stdout.write(
-    `total cost: ${formatCost(result.totalCost, opts.displayCurrency)} \xB7 cacheRead ${result.totalCacheRead}
-`
-  );
-  if (result.coordinator) {
-    process.stdout.write(`
---- coordinator ---
-${result.coordinator.content}
-`);
-  }
-  for (const r2 of result.personas) {
-    process.stdout.write(`
---- ${r2.persona} ---
-${r2.result.content}
-`);
-  }
-  const commentBody = renderTeamComment(result, { currency: opts.displayCurrency });
-  writeTeamSummary(result, opts.displayCurrency, commentBody);
-  const prInfo = adapter.resolvePrFromEnv(process.env);
+  const prInfo = adapter ? adapter.resolvePrFromEnv(process.env) : null;
   if (opts.statsEnabled) {
     const repository = prInfo?.repository ?? process.env.GITHUB_REPOSITORY?.trim() ?? "local";
     await recordStats({
@@ -182273,7 +182350,37 @@ ${r2.result.content}
       })
     });
   }
-  if (prInfo) {
+  if (opts.format === "json") {
+    writeJsonRunResult(
+      buildTeamJsonResult({ pr: opts.pr, sessionKey: opts.sessionKey, result }),
+      opts.output
+    );
+    return 0;
+  }
+  process.stdout.write(`
+=== team review (${result.personas.length} personas) ===
+`);
+  process.stdout.write(`verdict: ${result.verdict}
+`);
+  process.stdout.write(
+    `total cost: ${formatCost(result.totalCost, opts.displayCurrency)} \xB7 cacheRead ${result.totalCacheRead}
+`
+  );
+  if (result.coordinator) {
+    process.stdout.write(`
+--- coordinator ---
+${result.coordinator.content}
+`);
+  }
+  for (const r2 of result.personas) {
+    process.stdout.write(`
+--- ${r2.persona} ---
+${r2.result.content}
+`);
+  }
+  const commentBody = renderTeamComment(result, { currency: opts.displayCurrency });
+  writeTeamSummary(result, opts.displayCurrency, commentBody);
+  if (prInfo && adapter) {
     const reviewBody = renderTeamReviewBody(result, { currency: opts.displayCurrency });
     const commentContext = {
       apiBase: prInfo.apiBase,
@@ -182289,6 +182396,19 @@ PR comment: ${outcome.comment}
 `);
   }
   return shouldFail(result.severity, opts.failOnSeverity) ? 1 : 0;
+}
+async function attachRelatedContext(opts) {
+  if (!opts.includeRelatedContext) return;
+  try {
+    const diff = prepareDiff(opts);
+    const changedFiles = listDiffFiles(diff);
+    opts.relatedContext = await buildRelatedContext(changedFiles, opts.cwd);
+  } catch (err2) {
+    process.stderr.write(
+      `related context: failed (${err2 instanceof Error ? err2.message : String(err2)}); skipping
+`
+    );
+  }
 }
 async function main() {
   const opts = parseArgs(process.argv);
@@ -182315,6 +182435,13 @@ Reviewing anyway would feed reviewers and the verifier a stale tree (issue #67).
       );
     }
   }
+  await attachRelatedContext(opts);
+  if (opts.format === "json") {
+    if (opts.pr <= 0 && !opts.sessionKey) {
+      opts.sessionKey = `bench-${(0, import_node_crypto2.randomUUID)()}`;
+    }
+    return opts.team ? runTeam(opts, null, "none") : runSingle(opts, null, "none");
+  }
   const { adapter, platform } = await createAdapterFromEnv(process.env, opts.platform);
   process.stderr.write(`Using platform: ${platform}
 `);
@@ -182330,18 +182457,6 @@ Reviewing anyway would feed reviewers and the verifier a stale tree (issue #67).
     } else {
       process.stderr.write(
         "includePrContext enabled but platform env vars not configured; skipping context fetch\n"
-      );
-    }
-  }
-  if (opts.includeRelatedContext) {
-    try {
-      const diff = prepareDiff(opts);
-      const changedFiles = listDiffFiles(diff);
-      opts.relatedContext = await buildRelatedContext(changedFiles, opts.cwd);
-    } catch (err2) {
-      process.stderr.write(
-        `related context: failed (${err2 instanceof Error ? err2.message : String(err2)}); skipping
-`
       );
     }
   }

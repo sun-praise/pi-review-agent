@@ -49,6 +49,11 @@ export interface RunReviewOptions {
   relatedContext?: string;
   /** Root directory for session JSONL files. */
   sessionsRoot: string;
+  /** Session identity override: replaces the PR number as the session
+   *  directory + sessionId. For headless runs (benchmarks, --format json)
+   *  where there is no real PR — gives each instance an isolated,
+   *  collision-free session (and deliberate resume via a stable key). */
+  sessionKey?: string;
   /** Reviewer cwd for read/grep tools. Default process.cwd(). */
   cwd?: string;
   modelId?: string;
@@ -146,10 +151,10 @@ function appendLanguageDirective(base: string, lang: string | undefined): string
   );
 }
 
-async function sessionFile(opts: RunReviewOptions): Promise<string> {
-  const dir = path.join(opts.sessionsRoot, String(opts.pr));
+async function sessionFile(root: string, dirName: string, persona: string): Promise<string> {
+  const dir = path.join(root, dirName);
   await fs.mkdir(dir, { recursive: true });
-  return path.join(dir, `${opts.persona}.jsonl`);
+  return path.join(dir, `${persona}.jsonl`);
 }
 
 async function loadTranscript(file: string): Promise<AgentMessage[]> {
@@ -278,14 +283,19 @@ async function runModelAttempt(
 }
 
 export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
-  const file = await sessionFile(opts);
+  // Sanitized because the value becomes a filesystem path segment: harness
+  // ids (e.g. benchmark instance ids) can carry "/" or "..".
+  const sessionDirName = opts.sessionKey
+    ? opts.sessionKey.replace(/[^A-Za-z0-9._-]+/g, "_")
+    : String(opts.pr);
+  const file = await sessionFile(opts.sessionsRoot, sessionDirName, opts.persona);
   const transcript = await loadTranscript(file);
   const resumed = transcript.length > 0;
   const systemPrompt = appendLanguageDirective(
     opts.systemPrompt ?? defaultSystemPrompt(opts.persona),
     opts.language,
   );
-  const sessionId = `${opts.pr}-${opts.persona}`;
+  const sessionId = `${sessionDirName}-${opts.persona}`;
   const cwd = opts.cwd ?? process.cwd();
   const primaryModel = opts.modelId ?? "deepseek-v4-flash";
   const fallbackModels = opts.fallbackModels ?? [];
