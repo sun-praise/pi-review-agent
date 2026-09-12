@@ -39,6 +39,47 @@ LITELLM_API_KEY=... npx tsx src/index.ts \
 LITELLM_API_KEY=... npm run demo:cache
 ```
 
+## Headless JSON mode (benchmarks)
+
+`--format json` runs the reviewer headless — no PR number, no platform env vars, no PR comment — and prints one machine-readable payload instead of the human report. Built for evaluation harnesses (e.g. [aacr-bench](https://github.com/alibaba/aacr-bench)), where each instance is a repo checkout + a commit-pair diff:
+
+```bash
+LITELLM_API_KEY=... npx tsx src/index.ts --format json \
+  --diff-file ./diff.txt --team "quality:1,security:1" \
+  --session-key <instance-id> [--output result.json]
+```
+
+Behavior in json mode:
+
+- `--pr` is optional; `--session-key` (or `PI_REVIEW_SESSION_KEY`) replaces it as the session identity, sanitized into `<sessions-root>/<dir-name>/<persona>.jsonl` — traversal-shaped values (`..`, `.`, empty) fall back to a deterministic `key-<hash>` dir, never escape the sessions root, and the final path is containment-asserted. A json run with neither `--pr` nor `--session-key` gets a random `bench-*` key (resolved at parse time); passing `--pr` without a key keeps the usual `sessions/<pr>/` identity, so a harness that wants isolation should always pass `--session-key`.
+- No platform adapter is created; related-files context still works (local fs only).
+- Stdout is a single JSON document (all diagnostics go to stderr); `--output` writes it to a file instead — if that write fails, the payload falls back to stdout and the exit code reports the failure.
+- The fail-on-severity exit gate is disabled: exit code reflects only process failure, so a harness never mistakes `CANNOT MERGE` for a crash (the missing-instance vs empty-findings distinction).
+- Stats emission (`--stats-enabled`) still works; `repository` falls back to env or `"local"`.
+
+Payload shape (see `src/json-output.ts` for the authoritative types):
+
+```jsonc
+{
+  "mode": "team",
+  "pr": 0,
+  "sessionKey": "aacr__instance-42",  // sanitized dir name actually used on disk
+  "verdict": "CANNOT MERGE",
+  "severity": { "decision": "CANNOT MERGE", "blockingCount": 2, "...": "..." },
+  "comments": [ { "file": "src/auth.ts", "line": 42, "side": "RIGHT", "severity": "blocking", "body": "...", "status": "verified" } ],
+  "verification": {
+    "total": 3, "verified": 2, "demoted": 1,
+    "demotedList": [ { "file": "...", "line": 99, "side": "RIGHT", "severity": "warning", "body": "...", "status": "demoted", "demoteReason": "..." } ]
+  },
+  "personas": [ { "persona": "quality", "resumed": false, "usage": { "...": "..." }, "error": "..." } ],
+  "coordinator": { "resumed": false, "usage": { "...": "..." } },
+  "coordinatorError": "all models failed",  // present only when the coordinator ran AND failed
+  "usage": { "input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0, "costTotal": 0 }
+}
+```
+
+`comments` carries the verified, line-pinned findings (the same objects the GitHub Reviews API layer posts); `body` is the semantic text field a benchmark matcher maps onto ground truth.
+
 ## Gitea Support
 
 pi-review-agent now supports Gitea in addition to GitHub. The platform is auto-detected from environment variables, or can be explicitly set via `--platform`.

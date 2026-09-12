@@ -15,6 +15,7 @@
  */
 import { parseCostOverrides, type ModelCostTable } from "./model-cost.js";
 import { resolveCurrencyOptions, type CurrencyOptions } from "./currency.js";
+import { randomUUID } from "node:crypto";
 
 export interface CliOptions {
   pr: number;
@@ -92,6 +93,16 @@ export interface CliOptions {
    *  flags) enables the local <sessions-root>/stats.jsonl record; a set
    *  stats-url then additionally ships each event to the dashboard. */
   statsEnabled: boolean;
+  /** Output format: "text" (default — human stdout + PR comment) or "json"
+   *  (headless: machine payload on stdout / --output, no platform needed,
+   *  no PR posting, no severity exit gate). */
+  format: "text" | "json";
+  /** With --format json: write the payload to this file instead of stdout. */
+  output: string | undefined;
+  /** Session identity override (--session-key / PI_REVIEW_SESSION_KEY).
+   *  Replaces the PR number as the session directory so headless runs
+   *  (benchmarks) get isolated sessions; a stable value opts into resume. */
+  sessionKey: string | undefined;
 }
 
 /**
@@ -136,10 +147,18 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     const k = argv[i]?.replace(/^--/, "");
     args[k ?? ""] = argv[i + 1] ?? "";
   }
-  const pr = Number(args.pr || env.PI_REVIEW_PR || 0);
-  if (!Number.isFinite(pr) || pr <= 0) {
+  const format = parseFormat(optionalString(args.format, env.PI_REVIEW_FORMAT));
+  const prRaw = Number(args.pr || env.PI_REVIEW_PR || 0);
+  // --pr is the session identity + posting target in text mode; json mode
+  // runs headless (--session-key or a random key takes over identity), so
+  // a missing PR number there is not an error.
+  if (format !== "json" && (!Number.isFinite(prRaw) || prRaw <= 0)) {
     throw new Error(`--pr <number> (or PI_REVIEW_PR) required`);
   }
+  // Normalize in json mode so a bogus --pr (-1, NaN) serializes as a clean
+  // 0 in the payload instead of leaking -1 / null into harness parsing.
+  const pr = Number.isFinite(prRaw) && prRaw > 0 ? prRaw : 0;
+  const sessionKeyInput = optionalString(args["session-key"], env.PI_REVIEW_SESSION_KEY);
   const persona = optionalString(args.persona, env.PI_REVIEW_PERSONA);
   const team = optionalString(args.team, env.PI_REVIEW_TEAM);
   // GitHub Actions always injects env vars as strings, so the literal "false"
@@ -219,7 +238,28 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     statsUrl: optionalString(args["stats-url"], env.PI_REVIEW_STATS_URL),
     statsToken: optionalString(args["stats-token"], env.PI_REVIEW_STATS_TOKEN),
     statsEnabled: isTruthyFlag(args["stats-enabled"], env.PI_REVIEW_STATS_ENABLED),
+    format,
+    output: optionalString(args.output, env.PI_REVIEW_OUTPUT),
+    // Bench isolation is resolved HERE (not by mutating CliOptions later —
+    // the object is immutable from construction on): a json run with no pr
+    // and no key gets a random bench-* key so unrelated instances never
+    // share sessions/0/; an explicit key opts into deliberate resume.
+    // randomUUID keeps this module free of fs/env side effects.
+    sessionKey:
+      sessionKeyInput ??
+      (format === "json" && pr <= 0 ? `bench-${randomUUID()}` : undefined),
   };
+}
+
+/** Parse --format / PI_REVIEW_FORMAT. Only "text" (default) and "json" are
+ *  valid; anything else fails loudly — a mistyped "jsn" silently producing
+ *  human output would break downstream machine parsers. */
+function parseFormat(raw: string | undefined): "text" | "json" {
+  const v = (raw ?? "text").trim().toLowerCase();
+  if (v !== "text" && v !== "json") {
+    throw new Error(`--format must be "text" or "json" (got "${v}")`);
+  }
+  return v;
 }
 
 /** Resolve a boolean skip-flag from a CLI arg or env var. Only "1"/"true"

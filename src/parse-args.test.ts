@@ -171,3 +171,44 @@ describe("parseArgs flags and numbers", () => {
     assert.equal(parse(MIN, { PI_REVIEW_FAIL_ON_SEVERITY: "bogus" }).failOnSeverity, "none");
   });
 });
+
+describe("parseArgs --format json (headless bench mode)", () => {
+  const JSON_MIN = ["--format", "json", "--persona", "quality"];
+
+  it("defaults to text; --format json / PI_REVIEW_FORMAT are honored (case-insensitive)", () => {
+    assert.equal(parse(MIN).format, "text");
+    assert.equal(parse([...MIN, "--format", "json"]).format, "json");
+    assert.equal(parse(MIN, { PI_REVIEW_FORMAT: "JSON" }).format, "json");
+  });
+
+  it("rejects unknown format values loudly", () => {
+    assert.throws(() => parse([...MIN, "--format", "jsn"]), /--format/);
+  });
+
+  it("--pr is optional in json mode (invalid values normalize to 0) but required in text mode", () => {
+    assert.equal(parse(JSON_MIN).pr, 0);
+    assert.equal(parse([...JSON_MIN, "--pr", "-1"]).pr, 0);
+    assert.ok(Number.isNaN(parse(["--format", "json", "--persona", "q", "--pr", "abc"]).pr) === false);
+    assert.throws(() => parse(["--persona", "quality"]), /--pr/);
+  });
+
+  it("output resolves from CLI and env, normalized like other optionals", () => {
+    assert.equal(parse(JSON_MIN).output, undefined);
+    assert.equal(parse([...JSON_MIN, "--output", "out.json"]).output, "out.json");
+    assert.equal(parse(JSON_MIN, { PI_REVIEW_OUTPUT: " " }).output, undefined);
+  });
+
+  it("generates a random bench-* session key for keyless json runs (at parse time)", () => {
+    assert.match(parse(JSON_MIN).sessionKey ?? "", /^bench-[0-9a-f-]{36}$/);
+    // text mode never gets a synthetic key
+    assert.equal(parse(MIN).sessionKey, undefined);
+    // an explicit key always wins, from CLI or env
+    assert.equal(
+      parse([...JSON_MIN, "--session-key", "aacr__instance-42"]).sessionKey,
+      "aacr__instance-42",
+    );
+    assert.equal(parse(JSON_MIN, { PI_REVIEW_SESSION_KEY: "bench-7" }).sessionKey, "bench-7");
+    // json mode with a real --pr and no key keeps pr-based identity
+    assert.equal(parse([...JSON_MIN, "--pr", "9"]).sessionKey, undefined);
+  });
+});

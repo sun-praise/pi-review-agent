@@ -28,6 +28,7 @@ import { collectFromAgent, type ReviewUsage } from "./collect-review.js";
 import { createReadFileTool, createGrepTool, type GrepWalker } from "./tools.js";
 import { walkGrep } from "./walk-grep.js";
 import { isTransientReviewerError } from "./transient-error.js";
+import { resolveSessionDirName } from "./session-dir.js";
 
 export interface RunReviewOptions {
   provider: Provider<"openai-completions">;
@@ -49,6 +50,11 @@ export interface RunReviewOptions {
   relatedContext?: string;
   /** Root directory for session JSONL files. */
   sessionsRoot: string;
+  /** Session identity override: replaces the PR number as the session
+   *  directory + sessionId. For headless runs (benchmarks, --format json)
+   *  where there is no real PR — gives each instance an isolated,
+   *  collision-free session (and deliberate resume via a stable key). */
+  sessionKey?: string;
   /** Reviewer cwd for read/grep tools. Default process.cwd(). */
   cwd?: string;
   modelId?: string;
@@ -146,10 +152,18 @@ function appendLanguageDirective(base: string, lang: string | undefined): string
   );
 }
 
-async function sessionFile(opts: RunReviewOptions): Promise<string> {
-  const dir = path.join(opts.sessionsRoot, String(opts.pr));
-  await fs.mkdir(dir, { recursive: true });
-  return path.join(dir, `${opts.persona}.jsonl`);
+async function sessionFile(root: string, dirName: string, persona: string): Promise<string> {
+  const rootAbs = path.resolve(root);
+  const file = path.join(root, dirName, `${persona}.jsonl`);
+  // Defense in depth: resolveSessionDirName already rejects `.`/`..`-shaped
+  // dir names, and the containment assert below (checked on the FINAL path,
+  // so a hostile persona name can't escape either) makes any future slip
+  // loud instead of a silent write outside the sessions root.
+  if (!path.resolve(file).startsWith(rootAbs + path.sep)) {
+    throw new Error(`session file escapes sessions root: ${JSON.stringify(file)}`);
+  }
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  return file;
 }
 
 async function loadTranscript(file: string): Promise<AgentMessage[]> {
@@ -278,14 +292,18 @@ async function runModelAttempt(
 }
 
 export async function runReview(opts: RunReviewOptions): Promise<ReviewResult> {
-  const file = await sessionFile(opts);
+  // Single source of truth for the path segment (see session-dir.ts): the
+  // sanitized name is shared with emptyReview and the JSON payload, so all
+  // identity renderings agree within one run.
+  const sessionDirName = resolveSessionDirName(opts.sessionKey, opts.pr);
+  const file = await sessionFile(opts.sessionsRoot, sessionDirName, opts.persona);
   const transcript = await loadTranscript(file);
   const resumed = transcript.length > 0;
   const systemPrompt = appendLanguageDirective(
     opts.systemPrompt ?? defaultSystemPrompt(opts.persona),
     opts.language,
   );
-  const sessionId = `${opts.pr}-${opts.persona}`;
+  const sessionId = `${sessionDirName}-${opts.persona}`;
   const cwd = opts.cwd ?? process.cwd();
   const primaryModel = opts.modelId ?? "deepseek-v4-flash";
   const fallbackModels = opts.fallbackModels ?? [];

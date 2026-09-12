@@ -1,5 +1,5 @@
 /**
- * Review-agent entry. Two modes:
+ * Review-agent entry. Three modes:
  *
  * Single-persona CLI:
  *   tsx src/index.ts --pr 123 --diff-file ./diff.txt --persona quality
@@ -8,6 +8,13 @@
  *   tsx src/index.ts --pr 123 --diff-file ./diff.txt --team "quality:1,security:1"
  *   # in a GitHub Action the PR comment is posted automatically when
  *   # GITHUB_TOKEN + GITHUB_REF are set.
+ *
+ * Headless JSON mode (benchmarks / harnesses):
+ *   tsx src/index.ts --format json --diff-file ./diff.txt \
+ *     --team "quality:1,security:1" --session-key <instance-id> [--output out.json]
+ *   # no --pr, no platform env, no PR comment; structured findings + usage
+ *   # as one JSON payload; exit code reflects only process failure (the
+ *   # fail-on-severity gate is a CI-posting concern, not a bench one).
  *
  * Env-driven (GitHub Action):
  *   PI_REVIEW_PR=123
@@ -18,7 +25,7 @@
  *   GITHUB_STEP_SUMMARY=...              (cost table appended here)
  *   GITHUB_OUTPUT=...                    (cacheRead, costTotal, verdict, ...)
  */
-import { readFileSync, appendFileSync } from "node:fs";
+import { readFileSync, appendFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createLiteLLMDeepSeekProvider } from "./provider.js";
 import { resolveModelIds, DEFAULT_MODEL_ID } from "./model-ids.js";
@@ -37,6 +44,8 @@ import { listDiffFiles } from "./changed-lines.js";
 import { buildRelatedContext } from "./related-context.js";
 import { buildStatsEvent, recordStats, resolveRunIdentity } from "./stats.js";
 import { checkWorkspace } from "./workspace-check.js";
+import { buildSingleJsonResult, buildTeamJsonResult, type JsonRunResult } from "./json-output.js";
+import { resolveSessionDirName } from "./session-dir.js";
 
 
 function loadDiff(opts: CliOptions): string {
@@ -91,6 +100,29 @@ function appendOutputs(lines: string[]): void {
   const path = process.env.GITHUB_OUTPUT;
   if (!path) return;
   appendFileSync(path, lines.join("\n") + "\n");
+}
+
+/** Emit the JSON run payload. Delivery: --output file when given — on write
+ *  failure we fall back to stdout (the review already completed; losing the
+ *  payload would waste the tokens) and report failure so the exit code still
+ *  tells the caller their contract (--output) broke. Without --output,
+ *  stdout is the contract (single JSON document, diagnostics on stderr).
+ *  Returns true when the requested channel succeeded. */
+function writeJsonRunResult(payload: JsonRunResult, output: string | undefined): boolean {
+  const text = JSON.stringify(payload, null, 2);
+  if (output) {
+    try {
+      writeFileSync(output, text + "\n");
+      process.stderr.write(`json output written to ${output}\n`);
+      return true;
+    } catch (err: unknown) {
+      process.stderr.write(
+        `json output to ${output} failed (${err instanceof Error ? err.message : String(err)}); falling back to stdout\n`,
+      );
+    }
+  }
+  process.stdout.write(text + "\n");
+  return output === undefined;
 }
 
 function writeSingleSummary(result: ReviewResult, persona: string, currency: CurrencyOptions): void {
@@ -156,7 +188,11 @@ function writeTeamSummary(
 }
 
 
-async function runSingle(opts: CliOptions, adapter: PlatformAdapter, platform: string): Promise<number> {
+async function runSingle(
+  opts: CliOptions,
+  adapter: PlatformAdapter | null,
+  platform: string,
+): Promise<number> {
   const startedAt = Date.now();
   const provider = createLiteLLMDeepSeekProvider({
     baseURL: opts.baseURL,
@@ -186,6 +222,7 @@ async function runSingle(opts: CliOptions, adapter: PlatformAdapter, platform: s
     prContext: opts.prContext,
     relatedContext: opts.relatedContext,
     sessionsRoot: opts.sessionsRoot,
+    sessionKey: opts.sessionKey,
     cwd: opts.cwd,
     systemPrompt,
     language: opts.language,
@@ -193,24 +230,15 @@ async function runSingle(opts: CliOptions, adapter: PlatformAdapter, platform: s
     maxAttempts: opts.maxAttempts,
     retryBackoffMs: opts.retryBackoffMs,
   });
-  process.stdout.write(`\n=== review (${personaName}, resumed=${result.resumed}) ===\n${result.content}\n`);
-  process.stdout.write(
-    `cacheRead: ${result.usage.cacheRead}  cost: ${formatCost(result.usage.costTotal, opts.displayCurrency)}\n`,
-  );
-  writeSingleSummary(result, personaName, opts.displayCurrency);
-  appendOutputs([
-    `cacheRead=${result.usage.cacheRead}`,
-    `costTotal=${result.usage.costTotal.toFixed(6)}`,
-    `resumed=${result.resumed}`,
-    `sessionId=${result.sessionId}`,
-  ]);
   // Single-persona mode has no coordinator: parse severity straight from
   // the reviewer's output. The gate is fail-closed (unparseable → fail).
   const severity = parseSeverity(result.content);
   // Stats emission is opt-in (stats-enabled, default off) and strictly
   // fail-open (see stats.ts) — a stats problem can never mask a review.
+  // Works headless too (json mode passes a null adapter; repository falls
+  // back to env or "local").
+  const prInfo = adapter ? adapter.resolvePrFromEnv(process.env) : null;
   if (opts.statsEnabled) {
-    const prInfo = adapter.resolvePrFromEnv(process.env);
     const repository = prInfo?.repository ?? process.env.GITHUB_REPOSITORY?.trim() ?? "local";
     await recordStats({
       file: join(opts.sessionsRoot, "stats.jsonl"),
@@ -235,10 +263,44 @@ async function runSingle(opts: CliOptions, adapter: PlatformAdapter, platform: s
       }),
     });
   }
+  if (opts.format === "json") {
+    const delivered = writeJsonRunResult(
+      buildSingleJsonResult({
+        pr: opts.pr,
+        // The payload reports the sanitized directory name actually used on
+        // disk (single source of truth: session-dir.ts), so the field can
+        // never disagree with the filesystem.
+        sessionKey:
+          opts.sessionKey !== undefined
+            ? resolveSessionDirName(opts.sessionKey, opts.pr)
+            : undefined,
+        persona: personaName,
+        result,
+        severity,
+      }),
+      opts.output,
+    );
+    return delivered ? 0 : 1;
+  }
+  process.stdout.write(`\n=== review (${personaName}, resumed=${result.resumed}) ===\n${result.content}\n`);
+  process.stdout.write(
+    `cacheRead: ${result.usage.cacheRead}  cost: ${formatCost(result.usage.costTotal, opts.displayCurrency)}\n`,
+  );
+  writeSingleSummary(result, personaName, opts.displayCurrency);
+  appendOutputs([
+    `cacheRead=${result.usage.cacheRead}`,
+    `costTotal=${result.usage.costTotal.toFixed(6)}`,
+    `resumed=${result.resumed}`,
+    `sessionId=${result.sessionId}`,
+  ]);
   return shouldFail(severity, opts.failOnSeverity) ? 1 : 0;
 }
 
-async function runTeam(opts: CliOptions, adapter: PlatformAdapter, platform: string): Promise<number> {
+async function runTeam(
+  opts: CliOptions,
+  adapter: PlatformAdapter | null,
+  platform: string,
+): Promise<number> {
   const startedAt = Date.now();
   const diff = prepareDiff(opts);
   // Per-role resolution: an unset override falls back to the reviewer model —
@@ -271,6 +333,7 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter, platform: str
     relatedContext: opts.relatedContext,
     cwd: opts.cwd,
     sessionsRoot: opts.sessionsRoot,
+    sessionKey: opts.sessionKey,
     team: opts.team,
     modelId: opts.modelId,
     coordinatorModelId,
@@ -285,24 +348,11 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter, platform: str
     skipVerify: opts.skipVerify,
     skipLlmVerify: opts.skipLlmVerify,
   });
-  process.stdout.write(`\n=== team review (${result.personas.length} personas) ===\n`);
-  process.stdout.write(`verdict: ${result.verdict}\n`);
-  process.stdout.write(
-    `total cost: ${formatCost(result.totalCost, opts.displayCurrency)} · cacheRead ${result.totalCacheRead}\n`,
-  );
-  if (result.coordinator) {
-    process.stdout.write(`\n--- coordinator ---\n${result.coordinator.content}\n`);
-  }
-  for (const r of result.personas) {
-    process.stdout.write(`\n--- ${r.persona} ---\n${r.result.content}\n`);
-  }
-  const commentBody = renderTeamComment(result, { currency: opts.displayCurrency });
-  writeTeamSummary(result, opts.displayCurrency, commentBody);
-
   // Stats emission (opt-in via stats-enabled) before PR posting (fail-open):
   // a posting failure must not lose the run's token/cost record — the review
-  // itself already succeeded.
-  const prInfo = adapter.resolvePrFromEnv(process.env);
+  // itself already succeeded. Runs in json mode too (null adapter → repository
+  // falls back to env or "local").
+  const prInfo = adapter ? adapter.resolvePrFromEnv(process.env) : null;
   if (opts.statsEnabled) {
     const repository = prInfo?.repository ?? process.env.GITHUB_REPOSITORY?.trim() ?? "local";
     await recordStats({
@@ -336,8 +386,42 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter, platform: str
     });
   }
 
+  // Headless exit: structured payload instead of the human report / step
+  // summary / PR posting / severity exit gate. The gate stays a text-mode
+  // concern — a benchmark harness must not read "verdict: CANNOT MERGE" as
+  // a process failure (missing_instances vs empty-findings ambiguity).
+  if (opts.format === "json") {
+    const delivered = writeJsonRunResult(
+      buildTeamJsonResult({
+        pr: opts.pr,
+        // Sanitized directory name actually used on disk (session-dir.ts).
+        sessionKey:
+          opts.sessionKey !== undefined
+            ? resolveSessionDirName(opts.sessionKey, opts.pr)
+            : undefined,
+        result,
+      }),
+      opts.output,
+    );
+    return delivered ? 0 : 1;
+  }
+
+  process.stdout.write(`\n=== team review (${result.personas.length} personas) ===\n`);
+  process.stdout.write(`verdict: ${result.verdict}\n`);
+  process.stdout.write(
+    `total cost: ${formatCost(result.totalCost, opts.displayCurrency)} · cacheRead ${result.totalCacheRead}\n`,
+  );
+  if (result.coordinator) {
+    process.stdout.write(`\n--- coordinator ---\n${result.coordinator.content}\n`);
+  }
+  for (const r of result.personas) {
+    process.stdout.write(`\n--- ${r.persona} ---\n${r.result.content}\n`);
+  }
+  const commentBody = renderTeamComment(result, { currency: opts.displayCurrency });
+  writeTeamSummary(result, opts.displayCurrency, commentBody);
+
   // Post PR results using platform adapter
-  if (prInfo) {
+  if (prInfo && adapter) {
     const reviewBody = renderTeamReviewBody(result, { currency: opts.displayCurrency });
     const commentContext = {
       apiBase: prInfo.apiBase,
@@ -353,6 +437,23 @@ async function runTeam(opts: CliOptions, adapter: PlatformAdapter, platform: str
     process.stdout.write(`\nPR review: ${outcome.review ?? "none"}\nPR comment: ${outcome.comment}\n`);
   }
   return shouldFail(result.severity, opts.failOnSeverity) ? 1 : 0;
+}
+
+/** Best-effort related-files context (shared by both formats): build a
+ *  reverse-import graph over cwd and surface the files that import the PR's
+ *  changed files. Fail-open — any error leaves relatedContext empty and the
+ *  reviewer falls back to diff-only. */
+async function attachRelatedContext(opts: CliOptions): Promise<void> {
+  if (!opts.includeRelatedContext) return;
+  try {
+    const diff = prepareDiff(opts);
+    const changedFiles = listDiffFiles(diff);
+    opts.relatedContext = await buildRelatedContext(changedFiles, opts.cwd);
+  } catch (err: unknown) {
+    process.stderr.write(
+      `related context: failed (${err instanceof Error ? err.message : String(err)}); skipping\n`,
+    );
+  }
 }
 
 async function main(): Promise<number> {
@@ -405,6 +506,19 @@ async function main(): Promise<number> {
     }
   }
 
+  // Related context is local-fs only (no platform), so it serves both the
+  // text and the headless json path — compute it once, before the split.
+  await attachRelatedContext(opts);
+
+  // Headless json mode: no platform adapter is created (and none may be
+  // detectable — bench harnesses run outside GitHub/Gitea env), no PR
+  // context is fetched, no comment is posted. Bench isolation (random
+  // bench-* session key when no pr/key given) is resolved in parseArgs, so
+  // CliOptions stays immutable from construction on.
+  if (opts.format === "json") {
+    return opts.team ? runTeam(opts, null, "none") : runSingle(opts, null, "none");
+  }
+
   // Create platform adapter with auto-detection
   const { adapter, platform } = await createAdapterFromEnv(process.env, opts.platform);
   process.stderr.write(`Using platform: ${platform}\n`);
@@ -421,20 +535,6 @@ async function main(): Promise<number> {
     } else {
       process.stderr.write(
         "includePrContext enabled but platform env vars not configured; skipping context fetch\n",
-      );
-    }
-  }
-  // Related-files context: build a reverse-import graph over cwd and surface
-  // the files that import the PR's changed files. Fail-open — any error leaves
-  // relatedContext empty and the reviewer falls back to diff-only.
-  if (opts.includeRelatedContext) {
-    try {
-      const diff = prepareDiff(opts);
-      const changedFiles = listDiffFiles(diff);
-      opts.relatedContext = await buildRelatedContext(changedFiles, opts.cwd);
-    } catch (err: unknown) {
-      process.stderr.write(
-        `related context: failed (${err instanceof Error ? err.message : String(err)}); skipping\n`,
       );
     }
   }
