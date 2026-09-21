@@ -1,6 +1,6 @@
 # pi-review-agent
 
-Multi-persona PR review agent built on [Pi](https://github.com/earendil-works/pi) (earendil-works), with cross-runner session resume, inline review comments, and correct `cache_read` accounting.
+Multi-persona PR review agent built on [Pi](https://github.com/earendil-works/pi) (earendil-works), with cross-runner session resume, inline review comments, and correct `cache_read` accounting. Runs on GitHub **and self-hosted Gitea** — the platform is auto-detected.
 
 ## Why this exists
 
@@ -82,7 +82,19 @@ Payload shape (see `src/json-output.ts` for the authoritative types):
 
 ## Gitea Support
 
-pi-review-agent now supports Gitea in addition to GitHub. The platform is auto-detected from environment variables, or can be explicitly set via `--platform`.
+pi-review-agent treats Gitea as a first-class platform, not a compatibility afterthought. Most AI review actions are GitHub-only, which locks self-hosted forges out of automated review; here both platforms sit behind one adapter interface, so on Gitea you get the same personas, the same verdict pipeline, and the same per-head-SHA summary comment, edited in place on re-runs. The platform is auto-detected from environment variables, or can be explicitly set via `--platform`.
+
+What carries over to Gitea:
+
+- PR context via the Gitea API — title, body, changed files, discussion comments, prior reviews
+- One summary comment per head SHA, updated in place on same-SHA re-runs (hidden-marker lookup, same as GitHub)
+- Transient-error retry on comment posting (network, 429, 5xx — permanent 4xx fails fast)
+- Stats events tagged with the platform, so GitHub and Gitea reviews aggregate side by side on the dashboard
+
+What differs:
+
+- Line-pinned inline findings are folded into the summary comment as formatted text (`file:line (severity): ...`) — Gitea's review surface is a single comment, not GitHub's inline Reviews API
+- `GITEA_URL` must be `https://`; the adapter refuses plaintext URLs to prevent token leakage
 
 ### Gitea Environment Variables
 
