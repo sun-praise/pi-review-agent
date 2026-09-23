@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { walkGrep } from "./walk-grep.js";
+import { walkGrep, classifyGitGrepFailure } from "./walk-grep.js";
 
 let dir: string;
 
@@ -113,5 +113,112 @@ describe("walkGrep", () => {
     await writeFile(path.join(dir, "node_modules", "junk.ts"), "validateToken");
     const out = await walkGrep(dir, "validateToken", undefined, 50);
     assert.ok(!out.includes("node_modules"), "should skip node_modules");
+  });
+});
+
+// --- git mode: the primary backend (issue #76) ---
+
+describe("walkGrep (git repo)", () => {
+  let repo: string;
+
+  beforeEach(async () => {
+    repo = await mkdtemp(path.join(tmpdir(), "walk-grep-git-"));
+    const run = (await import("node:child_process")).execFileSync;
+    const git = (...args: string[]) =>
+      run("git", args, { cwd: repo, stdio: ["ignore", "pipe", "pipe"] });
+    git("init", "-q");
+    git("config", "user.email", "t@example.com");
+    git("config", "user.name", "t");
+    await writeFile(path.join(repo, ".gitignore"), "ignored/\n");
+    // A committed build artifact: the exact #76 shape — tracked dist/ that
+    // the old hardcoded IGNORE list refused to search.
+    const distDir = path.join(repo, "dist", "nested");
+    await mkdir(distDir, { recursive: true });
+    await writeFile(path.join(distDir, "bundle.js"), "export const unquoteGitPath = 1;\n");
+    // A committed non-ASCII filename: paths must come back literally (#74).
+    const cnDir = path.join(repo, "content", "post", "中文路径");
+    await mkdir(cnDir, { recursive: true });
+    await writeFile(path.join(cnDir, "index.md"), "needle octal-path\n");
+    // Untracked-but-not-ignored file, and a gitignored file.
+    await writeFile(path.join(repo, "untracked.ts"), "needle fresh\n");
+    const ignoredDir = path.join(repo, "ignored");
+    await mkdir(ignoredDir);
+    await writeFile(path.join(ignoredDir, "secret.ts"), "needle skipped\n");
+    git("add", "dist", "content", ".gitignore");
+    git("commit", "-q", "-m", "init");
+  });
+
+  afterEach(async () => {
+    await rm(repo, { recursive: true, force: true });
+  });
+
+  it("searches committed build artifacts (the #76 case)", async () => {
+    const out = await walkGrep(repo, "unquoteGitPath", undefined, 50);
+    assert.match(out, /dist\/nested\/bundle\.js:1:/);
+  });
+
+  it("reports non-ASCII paths literally, not octal-escaped", async () => {
+    const out = await walkGrep(repo, "octal-path", undefined, 50);
+    assert.ok(out.includes("中文路径"), `expected literal CJK path in: ${out}`);
+    assert.ok(!out.includes("\\344"), "must not octal-escape the path");
+  });
+
+  it("searches untracked files but honors .gitignore", async () => {
+    const out = await walkGrep(repo, "needle", undefined, 50);
+    assert.match(out, /untracked\.ts:1:/);
+    assert.ok(!out.includes("ignored/"), "gitignored dir must not be searched");
+  });
+
+  it("filters by glob via git pathspec", async () => {
+    const out = await walkGrep(repo, "needle", "**/*.md", 50);
+    assert.match(out, /index\.md:1:/);
+    assert.ok(!out.includes("untracked.ts"), "glob must exclude non-matching files");
+  });
+
+  it("returns empty string on no matches", async () => {
+    const out = await walkGrep(repo, "definitely-not-present", undefined, 50);
+    assert.equal(out, "");
+  });
+
+  it("caps rendering and reports true totals in a Note line", async () => {
+    const out = await walkGrep(repo, "needle|unquoteGitPath", undefined, 1);
+    const lines = out.split("\n");
+    assert.match(lines[0]!, /^Note: showing first 1 of \d+ matches/);
+    assert.equal(lines.filter((l) => l !== "" && !l.startsWith("Note:")).length, 1);
+  });
+});
+
+// --- failure classification (review of #77: PCRE/ENOENT/maxBuffer paths) ---
+
+describe("classifyGitGrepFailure", () => {
+  const pcreStderr = "fatal: support for the -P option is not compiled into this version of git";
+
+  it("exit 1 with empty stdout means no matches", () => {
+    assert.equal(classifyGitGrepFailure(1, "", false, true), "no-match");
+  });
+
+  it("exit 128 with 'not a git repository' means fallback to the walker", () => {
+    assert.equal(classifyGitGrepFailure(128, "fatal: not a git repository", false, true), "not-repo");
+  });
+
+  it("ENOENT (string code) means the git binary is absent", () => {
+    assert.equal(classifyGitGrepFailure("ENOENT", "", false, true), "no-git");
+  });
+
+  it("maxBuffer overflow (string code) is its own actionable kind", () => {
+    assert.equal(classifyGitGrepFailure("ERR_CHILD_PROCESS_STDIO_MAXBUFFER", "", false, false), "max-buffer");
+  });
+
+  it("PCRE-missing fatal maps to no-pcre regardless of exit code", () => {
+    assert.equal(classifyGitGrepFailure(128, pcreStderr, false, true), "no-pcre");
+    assert.equal(classifyGitGrepFailure(129, "usage: ... cannot use -P with ...", false, true), "no-pcre");
+  });
+
+  it("killed processes are timeouts, not plain failures", () => {
+    assert.equal(classifyGitGrepFailure(null, "", true, true), "timeout");
+  });
+
+  it("anything else is a plain failure", () => {
+    assert.equal(classifyGitGrepFailure(128, "fatal: bad object HEAD", false, true), "failed");
   });
 });

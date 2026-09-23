@@ -118,14 +118,19 @@ export function createGrepTool(
     label: "grep",
     name: "grep",
     description:
-      "Search file contents under cwd. Returns matching lines as `file:line:text`. " +
-      "Pattern is a regex by default; set `literal: true` for plain substring matching. " +
+      "Search file contents under cwd via git grep: tracked files (committed " +
+      "build artifacts included) plus untracked files not gitignored. Returns " +
+      "matching lines as `file:line:text`; a 0-match result means git found " +
+      "nothing in that range — .gitignore'd files are not searched. Pattern is " +
+      "a regex by default; set `literal: true` for plain substring matching. " +
       "Use to find callers, usages, error-handling patterns, or definitions.",
     parameters: grepSchema,
     execute: async (_id, params): Promise<AgentToolResult<GrepDetails>> => {
       const cap = Math.min(200, params.maxResults ?? 50);
       const out = await walk(cwd, params.pattern, params.glob, cap, params.literal);
-      const matches = out ? out.split("\n").length : 0;
+      const matches = out
+        ? out.split("\n").filter((line) => line !== "" && !line.startsWith("Note:")).length
+        : 0;
       return {
         content: [{ type: "text", text: out || "(no matches)" }],
         details: { matches, truncated: matches >= cap },

@@ -33,6 +33,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **grep now searches committed build artifacts and reports non-ASCII paths
+  literally** (#76): the reviewer/verifier `grep` tool walked the tree with a
+  hardcoded IGNORE list (`dist/`, `build/`, `vendor/`…), so in repositories
+  that commit their build output — this one runs `node dist/index.cjs` from
+  git — grep evidence about the bundle was silently empty, and a reviewer
+  could turn "the tool refused to look" into a confident "verified absent"
+  blocking finding. The tool now shells out to
+  `git -c core.quotepath=false grep --untracked` (same approach as
+  alibaba/open-code-review): the search range is defined by git itself —
+  tracked files plus untracked non-ignored files, `.gitignore` honored — and
+  non-ASCII paths come back literally instead of octal-escaped (#74 family).
+  Truncated results now lead with a `Note:` line reporting the true match
+  and file totals (all lines are counted, only rendering is capped); a
+  timeout or git failure surfaces as an actionable note instead of an empty
+  result. Non-git directories keep the legacy walker as a fallback.
+
 - **Non-ASCII filenames no longer false-positive the stale-tree guard**
   (#74): git (and `gh pr diff` / the GitHub `.diff` API) quotes non-ASCII
   paths and escapes every non-ASCII byte as 3-digit octal

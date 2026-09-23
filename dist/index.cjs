@@ -176814,12 +176814,12 @@ function createGrepTool(cwd, walk) {
   return {
     label: "grep",
     name: "grep",
-    description: "Search file contents under cwd. Returns matching lines as `file:line:text`. Pattern is a regex by default; set `literal: true` for plain substring matching. Use to find callers, usages, error-handling patterns, or definitions.",
+    description: "Search file contents under cwd via git grep: tracked files (committed build artifacts included) plus untracked files not gitignored. Returns matching lines as `file:line:text`; a 0-match result means git found nothing in that range \u2014 .gitignore'd files are not searched. Pattern is a regex by default; set `literal: true` for plain substring matching. Use to find callers, usages, error-handling patterns, or definitions.",
     parameters: grepSchema,
     execute: async (_id, params) => {
       const cap = Math.min(200, params.maxResults ?? 50);
       const out = await walk(cwd, params.pattern, params.glob, cap, params.literal);
-      const matches = out ? out.split("\n").length : 0;
+      const matches = out ? out.split("\n").filter((line) => line !== "" && !line.startsWith("Note:")).length : 0;
       return {
         content: [{ type: "text", text: out || "(no matches)" }],
         details: { matches, truncated: matches >= cap }
@@ -176859,6 +176859,117 @@ var init_tools = __esm({
 // src/walk-grep.ts
 async function walkGrep(cwd, pattern, glob, cap, literal2) {
   if (!pattern) return "";
+  if (!literal2 && !safeRegex(pattern)) return "";
+  try {
+    return await gitGrep(cwd, pattern, glob, cap, literal2);
+  } catch (err2) {
+    if (err2 instanceof NotAGitRepo || err2 instanceof GitUnavailable) {
+      return legacyWalkGrep(cwd, pattern, glob, cap, literal2);
+    }
+    if (err2 instanceof PcreUnavailable) {
+      return "Note: this git lacks PCRE (-P); fell back to the JS-regex walker, which skips common build dirs (dist/, build/, vendor/\u2026) \u2014 treat negative results about those directories as unverified\n" + await legacyWalkGrep(cwd, pattern, glob, cap, literal2);
+    }
+    if (err2 instanceof GitGrepTimeout) {
+      return `Note: git grep timed out after ${GIT_GREP_TIMEOUT_MS / 1e3}s; narrow the glob or pattern and retry
+`;
+    }
+    if (err2 instanceof OutputTooLarge) {
+      return `Note: git grep ${err2.message} and returned nothing \u2014 narrow the glob or pattern (or use literal: true) and retry
+`;
+    }
+    const detail = err2 instanceof Error ? err2.message : String(err2);
+    return `Note: git grep failed (${detail}); results below may be incomplete
+`;
+  }
+}
+async function gitGrep(cwd, pattern, glob, cap, literal2) {
+  const args = [
+    "-c",
+    "core.quotepath=false",
+    "grep",
+    "--no-color",
+    "-n",
+    // Paths come back relative to cwd (git's default; --full-name would make
+    // them repo-root-relative). No --relative here: it only exists in
+    // git >= 2.44 and older runners reject the whole invocation.
+    "--untracked",
+    literal2 ? "-F" : "-P",
+    "-e",
+    pattern
+  ];
+  if (glob) args.push("--", `:(glob)${glob}`);
+  const stdout = await runGitGrep(cwd, args);
+  const lines = stdout.split("\n").filter((line) => line !== "");
+  const rendered = [];
+  let truncated = false;
+  for (const line of lines) {
+    if (rendered.length >= cap) {
+      truncated = true;
+      break;
+    }
+    rendered.push(line.slice(0, LINE_RENDER_CAP));
+  }
+  if (!truncated) return rendered.join("\n");
+  const files = new Set(
+    lines.map((line) => {
+      const idx = line.indexOf(":");
+      return idx >= 0 ? line.slice(0, idx) : line;
+    })
+  );
+  return `Note: showing first ${cap} of ${lines.length} matches across ${files.size} matching files; narrow the glob or pattern to see the rest
+` + rendered.join("\n");
+}
+function classifyGitGrepFailure(code, stderr, killed, stdoutEmpty) {
+  if (code === "ENOENT") return "no-git";
+  if (code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") return "max-buffer";
+  if (killed) return "timeout";
+  if (code === 1 && stdoutEmpty) return "no-match";
+  if (code === 128 && /not a git repository/i.test(stderr)) return "not-repo";
+  if (/support for the .*-P option is not compiled|cannot use -P/i.test(stderr)) return "no-pcre";
+  return "failed";
+}
+async function runGitGrep(cwd, args) {
+  let stdout;
+  let stderr;
+  try {
+    const result = await execFileAsync("git", args, {
+      cwd,
+      timeout: GIT_GREP_TIMEOUT_MS,
+      maxBuffer: GIT_GREP_MAX_BUFFER
+    });
+    stdout = result.stdout;
+    stderr = result.stderr;
+  } catch (err2) {
+    const e2 = err2;
+    stdout = e2.stdout ?? "";
+    stderr = e2.stderr ?? "";
+    switch (classifyGitGrepFailure(e2.code, stderr, e2.killed === true, stdout === "")) {
+      case "no-match":
+        return "";
+      case "not-repo":
+        throw new NotAGitRepo(stderr.trim());
+      case "no-git":
+        throw new GitUnavailable("git binary not found");
+      case "no-pcre":
+        throw new PcreUnavailable(stderr.trim());
+      case "max-buffer":
+        throw new OutputTooLarge(`output exceeded ${GIT_GREP_MAX_BUFFER / (1024 * 1024)} MB`);
+      case "timeout":
+        throw new GitGrepTimeout("deadline exceeded");
+      case "failed":
+        throw new Error(trimFirstLine(stderr) || `git exited with ${String(e2.code)}`);
+    }
+  }
+  if (stdout === "" && stderr !== "") {
+    return "";
+  }
+  return stdout;
+}
+function trimFirstLine(stderr) {
+  const first = stderr.split("\n", 1)[0] ?? "";
+  return first.trim();
+}
+async function legacyWalkGrep(cwd, pattern, glob, cap, literal2) {
   const out = [];
   const matcher = glob ? compileGlob(glob) : null;
   let match2;
@@ -176918,12 +177029,28 @@ function safeRegex(pattern) {
     return null;
   }
 }
-var import_promises4, import_node_path3, IGNORE;
+var import_node_child_process, import_node_util4, import_promises4, import_node_path3, execFileAsync, GIT_GREP_TIMEOUT_MS, GIT_GREP_MAX_BUFFER, LINE_RENDER_CAP, NotAGitRepo, GitUnavailable, PcreUnavailable, OutputTooLarge, GitGrepTimeout, IGNORE;
 var init_walk_grep = __esm({
   "src/walk-grep.ts"() {
     "use strict";
+    import_node_child_process = require("child_process");
+    import_node_util4 = require("util");
     import_promises4 = require("fs/promises");
     import_node_path3 = __toESM(require("path"), 1);
+    execFileAsync = (0, import_node_util4.promisify)(import_node_child_process.execFile);
+    GIT_GREP_TIMEOUT_MS = 1e4;
+    GIT_GREP_MAX_BUFFER = 32 * 1024 * 1024;
+    LINE_RENDER_CAP = 200;
+    NotAGitRepo = class extends Error {
+    };
+    GitUnavailable = class extends Error {
+    };
+    PcreUnavailable = class extends Error {
+    };
+    OutputTooLarge = class extends Error {
+    };
+    GitGrepTimeout = class extends Error {
+    };
     IGNORE = {
       node_modules: true,
       ".git": true,
