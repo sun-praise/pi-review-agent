@@ -181028,9 +181028,34 @@ function parseInlineComments(text) {
 }
 
 // src/diff-path.ts
+function unquoteGitPath(path13) {
+  if (!path13.includes("\\")) return path13;
+  const bytes = [];
+  for (let i2 = 0; i2 < path13.length; i2++) {
+    const ch = path13[i2];
+    if (ch !== "\\") {
+      bytes.push(...Buffer.from(ch, "utf8"));
+      continue;
+    }
+    const octal = path13.slice(i2 + 1, i2 + 4).match(/^[0-7]{3}$/);
+    if (octal) {
+      bytes.push(parseInt(path13.slice(i2 + 1, i2 + 4), 8));
+      i2 += 3;
+      continue;
+    }
+    const next = path13[i2 + 1];
+    if (next === '"' || next === "\\") {
+      bytes.push(next.charCodeAt(0));
+      i2 += 1;
+      continue;
+    }
+    bytes.push(ch.charCodeAt(0));
+  }
+  return Buffer.from(bytes).toString("utf8");
+}
 function parseDiffPath(header) {
-  const quoted = header.match(/^diff --git "a\/[^"]*" "b\/(.+)"/);
-  if (quoted) return quoted[1];
+  const quoted = header.match(/^diff --git "a\/(?:[^"\\]|\\.)*" "b\/(.+)"/);
+  if (quoted) return unquoteGitPath(quoted[1]);
   const unquoted = header.match(/^diff --git a\/.* b\/(.+?)\r?$/);
   return unquoted ? unquoted[1] : null;
 }

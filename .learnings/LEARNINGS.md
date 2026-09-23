@@ -157,3 +157,32 @@ issue #67（实锤于 review-server-neo PR #15 首轮，sha 15fd2ce）：review 
 - Source: user_feedback
 - Related Files: src/workspace-check.ts, src/index.ts, src/verifier.ts, action.yml
 - Tags: self-hosted, stale-workspace, checkout, hallucination, fail-closed, issue-67
+
+---
+
+## [LRN-20260923-001] pitfall
+
+**Logged**: 2026-09-23T00:00:00Z
+**Priority**: high
+**Status**: resolved
+**Area**: ci
+
+### Summary
+git（及 `gh pr diff` / GitHub `.diff` API）对非 ASCII 文件名输出**带引号 + 3 位八进制字节转义**（`core.quotepath` 默认开启）；解析 diff 头时若不解码 `\NNN`，任何含非 ASCII 路径的文件身份都是错的。
+
+### Details
+Svtter/hugo-blog PR #134（新增中文文件名博文）review job 直接失败：#67 stale-tree guard 报 "workspace is not the PR head tree"，而工作区其实是正确的 head checkout。判别特征：同一 PR 里纯 ASCII 的新增文件通过检查、只有中文路径被 miss，且报错信息里路径本身带 `\347\232\204` 八进制转义。
+
+根因在 `src/diff-path.ts` 的 `parseDiffPath()`：quoted 分支原样返回引号内内容（注释还声称 "git has already escaped anything tricky"），没有把 `\NNN` 解码回字节再按 UTF-8 组装。`fs.access` 拿字面量 `...omp-\347\232\204-...` 去磁盘找，磁盘上是真实 UTF-8「的」，必然 miss。
+
+`parseDiffPath` 被 `changed-lines.ts`（inline comment file key）、`diff-filter.ts`、`workspace-check.ts` 三处共用——即使不崩，非 ASCII 文件的 inline comment 也会全部 miss。#68 的回归测试只覆盖了含空格的 quoted 路径，没覆盖八进制转义。
+
+### Suggested Action
+- 判断标志：错误信息/日志里的路径出现 `\NNN` 八进制序列 = 转义没被解码。
+- 修法模板：quoted 分支后接 C-style 反转义——`\NNN`（3 位八进制）收进字节 buffer 最后整体按 UTF-8 decode（一个转义是**多字节字符的单个字节**，不能逐个 toString）；`\"` / `\\` 映射字面字符；未知转义保留原样。a-side 正则用 `(?:[^"\\]|\\.)*` 而非 `[^"]*`，否则路径内的 `\"` 提前截断匹配。
+- 写 diff 解析测试时，务必包含一个非 ASCII 文件名用例（这是 #68 测试矩阵的缺口）。
+
+### Metadata
+- Source: session_analysis
+- Related Files: src/diff-path.ts, src/workspace-check.ts, src/changed-lines.ts, src/diff-filter.ts
+- Tags: git, quotepath, diff-parsing, non-ascii, false-positive, issue-74
