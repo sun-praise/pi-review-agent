@@ -53,12 +53,28 @@ export async function walkGrep(
   try {
     return await gitGrep(cwd, pattern, glob, cap, literal);
   } catch (err) {
-    if (err instanceof NotAGitRepo) {
+    if (err instanceof NotAGitRepo || err instanceof GitUnavailable) {
       return legacyWalkGrep(cwd, pattern, glob, cap, literal);
+    }
+    if (err instanceof PcreUnavailable) {
+      // Regex mode needs -P; without PCRE the only faithful fallback is the
+      // JS-regex walker (an -E downgrade would silently change semantics —
+      // POSIX ERE has no \d, for one). Its IGNORE list is a real blind spot,
+      // so the note names it instead of hiding it.
+      return (
+        "Note: this git lacks PCRE (-P); fell back to the JS-regex walker, " +
+        "which skips common build dirs (dist/, build/, vendor/…) — treat " +
+        "negative results about those directories as unverified\n" +
+        (await legacyWalkGrep(cwd, pattern, glob, cap, literal))
+      );
     }
     if (err instanceof GitGrepTimeout) {
       return `Note: git grep timed out after ${GIT_GREP_TIMEOUT_MS / 1000}s; ` +
         `narrow the glob or pattern and retry\n`;
+    }
+    if (err instanceof OutputTooLarge) {
+      return `Note: git grep ${err.message} and returned nothing — narrow the ` +
+        `glob or pattern (or use literal: true) and retry\n`;
     }
     const detail = err instanceof Error ? err.message : String(err);
     return `Note: git grep failed (${detail}); results below may be incomplete\n`;
@@ -67,6 +83,12 @@ export async function walkGrep(
 
 /** Raised when cwd is not inside a git work tree — caller falls back. */
 class NotAGitRepo extends Error {}
+/** Raised when the git binary is absent (ENOENT) — caller falls back. */
+class GitUnavailable extends Error {}
+/** Raised when this git lacks PCRE support for -P — caller falls back. */
+class PcreUnavailable extends Error {}
+/** Raised when git grep output exceeded the buffer. */
+class OutputTooLarge extends Error {}
 /** Raised when git grep exceeded its deadline. */
 class GitGrepTimeout extends Error {}
 
@@ -118,6 +140,31 @@ async function gitGrep(
   );
 }
 
+/** Outcome of classifying a failed git invocation. Pure: unit-tested. */
+export type GitGrepFailureKind =
+  | "no-match" // exit 1, empty stdout — not an error
+  | "not-repo" // exit 128, "not a git repository"
+  | "no-git" // ENOENT — binary absent
+  | "no-pcre" // fatal: -P not compiled in
+  | "max-buffer" // output exceeded maxBuffer
+  | "timeout" // killed by the deadline
+  | "failed"; // anything else
+
+export function classifyGitGrepFailure(
+  code: unknown,
+  stderr: string,
+  killed: boolean,
+  stdoutEmpty: boolean,
+): GitGrepFailureKind {
+  if (code === "ENOENT") return "no-git";
+  if (code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") return "max-buffer";
+  if (killed) return "timeout";
+  if (code === 1 && stdoutEmpty) return "no-match";
+  if (code === 128 && /not a git repository/i.test(stderr)) return "not-repo";
+  if (/support for the .*-P option is not compiled|cannot use -P/i.test(stderr)) return "no-pcre";
+  return "failed";
+}
+
 async function runGitGrep(cwd: string, args: string[]): Promise<string> {
   let stdout: string;
   let stderr: string;
@@ -130,20 +177,25 @@ async function runGitGrep(cwd: string, args: string[]): Promise<string> {
     stdout = result.stdout;
     stderr = result.stderr;
   } catch (err) {
-    const e = err as NodeJS.ErrnoException & { code?: number | string; stdout?: string; stderr?: string; killed?: boolean };
-    if (e.killed) throw new GitGrepTimeout("deadline exceeded");
+    const e = err as NodeJS.ErrnoException & { code?: unknown; stdout?: string; stderr?: string; killed?: boolean };
     stdout = e.stdout ?? "";
     stderr = e.stderr ?? "";
-    // git grep exits 1 on "no matches" — distinct from real failures.
-    if (typeof e.code === "number" && e.code === 1 && stdout === "") return "";
-    if (
-      typeof e.code === "number" &&
-      e.code === 128 &&
-      /not a git repository/i.test(stderr)
-    ) {
-      throw new NotAGitRepo(stderr.trim());
+    switch (classifyGitGrepFailure(e.code, stderr, e.killed === true, stdout === "")) {
+      case "no-match":
+        return "";
+      case "not-repo":
+        throw new NotAGitRepo(stderr.trim());
+      case "no-git":
+        throw new GitUnavailable("git binary not found");
+      case "no-pcre":
+        throw new PcreUnavailable(stderr.trim());
+      case "max-buffer":
+        throw new OutputTooLarge(`output exceeded ${GIT_GREP_MAX_BUFFER / (1024 * 1024)} MB`);
+      case "timeout":
+        throw new GitGrepTimeout("deadline exceeded");
+      case "failed":
+        throw new Error(trimFirstLine(stderr) || `git exited with ${String(e.code)}`);
     }
-    throw new Error(trimFirstLine(stderr) || `git exited with ${String(e.code)}`);
   }
   if (stdout === "" && stderr !== "") {
     // Zero matches with a warning (e.g. untracked dir unreadable): still no

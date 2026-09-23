@@ -176863,11 +176863,18 @@ async function walkGrep(cwd, pattern, glob, cap, literal2) {
   try {
     return await gitGrep(cwd, pattern, glob, cap, literal2);
   } catch (err2) {
-    if (err2 instanceof NotAGitRepo) {
+    if (err2 instanceof NotAGitRepo || err2 instanceof GitUnavailable) {
       return legacyWalkGrep(cwd, pattern, glob, cap, literal2);
+    }
+    if (err2 instanceof PcreUnavailable) {
+      return "Note: this git lacks PCRE (-P); fell back to the JS-regex walker, which skips common build dirs (dist/, build/, vendor/\u2026) \u2014 treat negative results about those directories as unverified\n" + await legacyWalkGrep(cwd, pattern, glob, cap, literal2);
     }
     if (err2 instanceof GitGrepTimeout) {
       return `Note: git grep timed out after ${GIT_GREP_TIMEOUT_MS / 1e3}s; narrow the glob or pattern and retry
+`;
+    }
+    if (err2 instanceof OutputTooLarge) {
+      return `Note: git grep ${err2.message} and returned nothing \u2014 narrow the glob or pattern (or use literal: true) and retry
 `;
     }
     const detail = err2 instanceof Error ? err2.message : String(err2);
@@ -176912,6 +176919,15 @@ async function gitGrep(cwd, pattern, glob, cap, literal2) {
   return `Note: showing first ${cap} of ${lines.length} matches across ${files.size} matching files; narrow the glob or pattern to see the rest
 ` + rendered.join("\n");
 }
+function classifyGitGrepFailure(code, stderr, killed, stdoutEmpty) {
+  if (code === "ENOENT") return "no-git";
+  if (code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") return "max-buffer";
+  if (killed) return "timeout";
+  if (code === 1 && stdoutEmpty) return "no-match";
+  if (code === 128 && /not a git repository/i.test(stderr)) return "not-repo";
+  if (/support for the .*-P option is not compiled|cannot use -P/i.test(stderr)) return "no-pcre";
+  return "failed";
+}
 async function runGitGrep(cwd, args) {
   let stdout;
   let stderr;
@@ -176925,14 +176941,24 @@ async function runGitGrep(cwd, args) {
     stderr = result.stderr;
   } catch (err2) {
     const e2 = err2;
-    if (e2.killed) throw new GitGrepTimeout("deadline exceeded");
     stdout = e2.stdout ?? "";
     stderr = e2.stderr ?? "";
-    if (typeof e2.code === "number" && e2.code === 1 && stdout === "") return "";
-    if (typeof e2.code === "number" && e2.code === 128 && /not a git repository/i.test(stderr)) {
-      throw new NotAGitRepo(stderr.trim());
+    switch (classifyGitGrepFailure(e2.code, stderr, e2.killed === true, stdout === "")) {
+      case "no-match":
+        return "";
+      case "not-repo":
+        throw new NotAGitRepo(stderr.trim());
+      case "no-git":
+        throw new GitUnavailable("git binary not found");
+      case "no-pcre":
+        throw new PcreUnavailable(stderr.trim());
+      case "max-buffer":
+        throw new OutputTooLarge(`output exceeded ${GIT_GREP_MAX_BUFFER / (1024 * 1024)} MB`);
+      case "timeout":
+        throw new GitGrepTimeout("deadline exceeded");
+      case "failed":
+        throw new Error(trimFirstLine(stderr) || `git exited with ${String(e2.code)}`);
     }
-    throw new Error(trimFirstLine(stderr) || `git exited with ${String(e2.code)}`);
   }
   if (stdout === "" && stderr !== "") {
     return "";
@@ -177003,7 +177029,7 @@ function safeRegex(pattern) {
     return null;
   }
 }
-var import_node_child_process, import_node_util4, import_promises4, import_node_path3, execFileAsync, GIT_GREP_TIMEOUT_MS, GIT_GREP_MAX_BUFFER, LINE_RENDER_CAP, NotAGitRepo, GitGrepTimeout, IGNORE;
+var import_node_child_process, import_node_util4, import_promises4, import_node_path3, execFileAsync, GIT_GREP_TIMEOUT_MS, GIT_GREP_MAX_BUFFER, LINE_RENDER_CAP, NotAGitRepo, GitUnavailable, PcreUnavailable, OutputTooLarge, GitGrepTimeout, IGNORE;
 var init_walk_grep = __esm({
   "src/walk-grep.ts"() {
     "use strict";
@@ -177016,6 +177042,12 @@ var init_walk_grep = __esm({
     GIT_GREP_MAX_BUFFER = 32 * 1024 * 1024;
     LINE_RENDER_CAP = 200;
     NotAGitRepo = class extends Error {
+    };
+    GitUnavailable = class extends Error {
+    };
+    PcreUnavailable = class extends Error {
+    };
+    OutputTooLarge = class extends Error {
     };
     GitGrepTimeout = class extends Error {
     };

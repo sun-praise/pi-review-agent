@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, writeFile, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { walkGrep } from "./walk-grep.js";
+import { walkGrep, classifyGitGrepFailure } from "./walk-grep.js";
 
 let dir: string;
 
@@ -185,5 +185,40 @@ describe("walkGrep (git repo)", () => {
     const lines = out.split("\n");
     assert.match(lines[0]!, /^Note: showing first 1 of \d+ matches/);
     assert.equal(lines.filter((l) => l !== "" && !l.startsWith("Note:")).length, 1);
+  });
+});
+
+// --- failure classification (review of #77: PCRE/ENOENT/maxBuffer paths) ---
+
+describe("classifyGitGrepFailure", () => {
+  const pcreStderr = "fatal: support for the -P option is not compiled into this version of git";
+
+  it("exit 1 with empty stdout means no matches", () => {
+    assert.equal(classifyGitGrepFailure(1, "", false, true), "no-match");
+  });
+
+  it("exit 128 with 'not a git repository' means fallback to the walker", () => {
+    assert.equal(classifyGitGrepFailure(128, "fatal: not a git repository", false, true), "not-repo");
+  });
+
+  it("ENOENT (string code) means the git binary is absent", () => {
+    assert.equal(classifyGitGrepFailure("ENOENT", "", false, true), "no-git");
+  });
+
+  it("maxBuffer overflow (string code) is its own actionable kind", () => {
+    assert.equal(classifyGitGrepFailure("ERR_CHILD_PROCESS_STDIO_MAXBUFFER", "", false, false), "max-buffer");
+  });
+
+  it("PCRE-missing fatal maps to no-pcre regardless of exit code", () => {
+    assert.equal(classifyGitGrepFailure(128, pcreStderr, false, true), "no-pcre");
+    assert.equal(classifyGitGrepFailure(129, "usage: ... cannot use -P with ...", false, true), "no-pcre");
+  });
+
+  it("killed processes are timeouts, not plain failures", () => {
+    assert.equal(classifyGitGrepFailure(null, "", true, true), "timeout");
+  });
+
+  it("anything else is a plain failure", () => {
+    assert.equal(classifyGitGrepFailure(128, "fatal: bad object HEAD", false, true), "failed");
   });
 });
