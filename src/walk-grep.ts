@@ -3,7 +3,7 @@
  *
  * Primary path shells out to git (same approach as alibaba/open-code-review):
  *
- *   git -c core.quotepath=false grep --no-color -n --relative --untracked \
+ *   git -c core.quotepath=false grep --no-color -n --untracked \
  *       (-F | -P) -e <pattern> [-- :(glob)<glob>]
  *
  * The search range is defined by git itself: every tracked file (committed
