@@ -115,3 +115,75 @@ describe("walkGrep", () => {
     assert.ok(!out.includes("node_modules"), "should skip node_modules");
   });
 });
+
+// --- git mode: the primary backend (issue #76) ---
+
+describe("walkGrep (git repo)", () => {
+  let repo: string;
+
+  beforeEach(async () => {
+    repo = await mkdtemp(path.join(tmpdir(), "walk-grep-git-"));
+    const run = (await import("node:child_process")).execFileSync;
+    const git = (...args: string[]) =>
+      run("git", args, { cwd: repo, stdio: ["ignore", "pipe", "pipe"] });
+    git("init", "-q");
+    git("config", "user.email", "t@example.com");
+    git("config", "user.name", "t");
+    await writeFile(path.join(repo, ".gitignore"), "ignored/\n");
+    // A committed build artifact: the exact #76 shape — tracked dist/ that
+    // the old hardcoded IGNORE list refused to search.
+    const distDir = path.join(repo, "dist", "nested");
+    await mkdir(distDir, { recursive: true });
+    await writeFile(path.join(distDir, "bundle.js"), "export const unquoteGitPath = 1;\n");
+    // A committed non-ASCII filename: paths must come back literally (#74).
+    const cnDir = path.join(repo, "content", "post", "中文路径");
+    await mkdir(cnDir, { recursive: true });
+    await writeFile(path.join(cnDir, "index.md"), "needle octal-path\n");
+    // Untracked-but-not-ignored file, and a gitignored file.
+    await writeFile(path.join(repo, "untracked.ts"), "needle fresh\n");
+    const ignoredDir = path.join(repo, "ignored");
+    await mkdir(ignoredDir);
+    await writeFile(path.join(ignoredDir, "secret.ts"), "needle skipped\n");
+    git("add", "dist", "content", ".gitignore");
+    git("commit", "-q", "-m", "init");
+  });
+
+  afterEach(async () => {
+    await rm(repo, { recursive: true, force: true });
+  });
+
+  it("searches committed build artifacts (the #76 case)", async () => {
+    const out = await walkGrep(repo, "unquoteGitPath", undefined, 50);
+    assert.match(out, /dist\/nested\/bundle\.js:1:/);
+  });
+
+  it("reports non-ASCII paths literally, not octal-escaped", async () => {
+    const out = await walkGrep(repo, "octal-path", undefined, 50);
+    assert.ok(out.includes("中文路径"), `expected literal CJK path in: ${out}`);
+    assert.ok(!out.includes("\\344"), "must not octal-escape the path");
+  });
+
+  it("searches untracked files but honors .gitignore", async () => {
+    const out = await walkGrep(repo, "needle", undefined, 50);
+    assert.match(out, /untracked\.ts:1:/);
+    assert.ok(!out.includes("ignored/"), "gitignored dir must not be searched");
+  });
+
+  it("filters by glob via git pathspec", async () => {
+    const out = await walkGrep(repo, "needle", "**/*.md", 50);
+    assert.match(out, /index\.md:1:/);
+    assert.ok(!out.includes("untracked.ts"), "glob must exclude non-matching files");
+  });
+
+  it("returns empty string on no matches", async () => {
+    const out = await walkGrep(repo, "definitely-not-present", undefined, 50);
+    assert.equal(out, "");
+  });
+
+  it("caps rendering and reports true totals in a Note line", async () => {
+    const out = await walkGrep(repo, "needle|unquoteGitPath", undefined, 1);
+    const lines = out.split("\n");
+    assert.match(lines[0]!, /^Note: showing first 1 of \d+ matches/);
+    assert.equal(lines.filter((l) => l !== "" && !l.startsWith("Note:")).length, 1);
+  });
+});

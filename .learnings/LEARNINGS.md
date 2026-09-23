@@ -186,3 +186,30 @@ Svtter/hugo-blog PR #134（新增中文文件名博文）review job 直接失败
 - Source: session_analysis
 - Related Files: src/diff-path.ts, src/workspace-check.ts, src/changed-lines.ts, src/diff-filter.ts
 - Tags: git, quotepath, diff-parsing, non-ascii, false-positive, issue-74
+
+---
+
+## [LRN-20260923-002] pitfall
+
+**Logged**: 2026-09-23T00:00:00Z
+**Priority**: high
+**Status**: resolved
+**Area**: testing
+
+### Summary
+自研文件遍历 + 硬编码忽略表（dist/build/vendor…）会让「提交构建产物」型仓库的 grep 证据静默为空；搜索范围应交给 git（tracked/gitignore 语义）判定。另：`git grep --relative` 是 git 2.44+ 才有的选项，老 runner 上整个调用直接报 unknown option。
+
+### Details
+#75 的 dogfood 评审给出假 blocking（「dist 里 grep 不到 unquoteGitPath」）——事实是 dist 已提交且含该函数，但旧 `walkGrep` 的 IGNORE 表无条件跳过 `dist/` 且无任何提示（issue #76）。评审把「工具拒绝看」当成「验证过不存在」，coordinator 按「证据充分者优先」采纳假证据。对照 alibaba/open-code-review 的做法：搜索直接 `git -c core.quotepath=false grep --untracked`，tracked 文件（含提交的构建产物）必可搜、.gitignore 决定排除、非 ASCII 路径字面输出。
+
+实现时踩坑：`git grep --relative` 在 git 2.39（本机/部分 runner）不存在，报 `unknown option 'relative'`——整条命令失败而不是降级。git grep 默认就按 cwd 相对输出路径，无需该选项。
+
+### Suggested Action
+- 判断标志：评审引用「grep 无匹配」作为存在性否证时，先确认工具的搜索范围定义在哪（硬编码表 = 静默盲区；git tracked = 与仓库事实一致）。
+- 修法模板：`git -c core.quotepath=false grep --no-color -n --untracked (-F|-P) -e <pattern> [-- :(glob)<glob>]`；glob 用 `:(glob)` 前缀走 wildmatch（`*` 不跨 `/`，`**` 跨）。退出码 1 = 无匹配，128 + "not a git repository" = 回退非 git 遍历。不要用 `--relative`（2.44+ only）。
+- 截断时先数完所有匹配行再截断渲染，Note 行报真实总数——模型需要区分「少」和「被截断」。
+
+### Metadata
+- Source: session_analysis
+- Related Files: src/walk-grep.ts, src/tools.ts, internal/tool/code_search.go (alibaba/open-code-review)
+- Tags: git-grep, ignore-list, build-artifacts, negative-evidence, issue-76, compatibility
