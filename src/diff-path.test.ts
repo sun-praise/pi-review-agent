@@ -21,6 +21,35 @@ describe("parseDiffPath", () => {
     );
   });
 
+  it("decodes octal escapes in a quoted non-ASCII path (the #74 regression)", () => {
+    // git's core.quotepath (and `gh pr diff` / the GitHub .diff API) escapes
+    // every non-ASCII byte as 3-digit octal inside quotes. Undecoded, the
+    // path can never match the on-disk UTF-8 name.
+    const header =
+      'diff --git "a/content/post/2026-09-23-omp-\\347\\232\\204-skill-\\345\\212\\240\\350\\275\\275\\346\\234\\272\\345\\210\\266/index.md" ' +
+      '"b/content/post/2026-09-23-omp-\\347\\232\\204-skill-\\345\\212\\240\\350\\275\\275\\346\\234\\272\\345\\210\\266/index.md"';
+    assert.equal(
+      parseDiffPath(header),
+      "content/post/2026-09-23-omp-的-skill-加载机制/index.md",
+    );
+  });
+
+  it("decodes escaped quote and backslash in a quoted path", () => {
+    assert.equal(
+      parseDiffPath('diff --git "a/we \\"ird\\\\dir/f.ts" "b/we \\"ird\\\\dir/f.ts"'),
+      'we "ird\\dir/f.ts',
+    );
+  });
+
+  it("keeps a lone backslash literal in a quoted path", () => {
+    // git emits `\\` for a real backslash, so a lone `\` is not its output —
+    // but if one slips through, dropping it would corrupt the name.
+    assert.equal(
+      parseDiffPath('diff --git "a/src/w\\x.ts" "b/src/w\\x.ts"'),
+      "src/w\\x.ts",
+    );
+  });
+
   it("anchors b/ via the quoted form when the path contains ' b/'", () => {
     // Unquoted, this header is genuinely ambiguous (is " b/" a separator or
     // part of the path?). Git resolves it by quoting; our quoted branch uses

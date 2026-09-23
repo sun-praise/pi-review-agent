@@ -155,4 +155,31 @@ describe("checkWorkspace", () => {
       await fs.rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("end-to-end: octal-escaped non-ASCII additions verify on disk (the #74 case)", async () => {
+    // git quotes non-ASCII paths and escapes every non-ASCII byte as octal.
+    // Undecoded, the guard probes `...omp-\347\232\204-...` while the disk
+    // holds real UTF-8 — a correct head checkout false-positives as stale
+    // and the whole review aborts (issue #74).
+    const escapedPath = "content/post/2026-09-23-omp-\\347\\232\\204-skill-\\345\\212\\240\\350\\275\\275\\346\\234\\272\\345\\210\\266/index.md";
+    const dir = await makeTmpDir();
+    try {
+      const target = path.join(dir, "content", "post", `2026-09-23-omp-的-skill-加载机制`);
+      await fs.mkdir(target, { recursive: true });
+      await fs.writeFile(path.join(target, "index.md"), "x");
+      const diff = [
+        `diff --git "a/${escapedPath}" "b/${escapedPath}"`,
+        "new file mode 100644",
+        "--- /dev/null",
+        `+++ "b/${escapedPath}"`,
+        "@@ -0,0 +1 @@",
+        "+x",
+      ].join("\n");
+      const r = await checkWorkspace(diff, dir);
+      assert.equal(r.ok, true);
+      assert.deepEqual(r.missing, []);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
 });
