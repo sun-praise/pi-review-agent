@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.8.1] - 2026-09-23
 
 ### Added
 
@@ -30,6 +30,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--output` write falls back to stdout with a failing exit code.
   Related-files context and opt-in stats still work headless (repository
   falls back to env or `"local"`).
+
+### Fixed
+
+- **Non-ASCII filenames no longer false-positive the stale-tree guard**
+  (#74): git (and `gh pr diff` / the GitHub `.diff` API) quotes non-ASCII
+  paths and escapes every non-ASCII byte as 3-digit octal
+  (`core.quotepath`, on by default). `parseDiffPath()` returned the quoted
+  segment verbatim, so a Chinese-named file the PR adds never matched its
+  on-disk UTF-8 name — the #67 guard aborted a perfectly correct head
+  checkout (first seen on hugo-blog PR #134), and `changed-lines`
+  inline-comment keys / `diff-filter` mismatched the same way. The quoted
+  branch now decodes `\"` / `\\` literally and `\NNN` into a byte buffer
+  decoded as UTF-8 once at the end (one escape is a single byte of a
+  multi-byte character), and its a-side regex takes `(?:[^"\\]|\\.)*` so an
+  embedded `\"` no longer truncates the match.
 
 ## [1.8.0] - 2026-09-10
 
