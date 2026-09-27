@@ -42397,6 +42397,7 @@ function parseCostOverrides(raw) {
 }
 
 // src/provider.ts
+var MAX_TOKENS_OMIT = 0;
 function createLiteLLMDeepSeekProvider(opts) {
   const id = opts.id ?? "litellm-deepseek";
   const envVar = opts.envVar ?? "LITELLM_API_KEY";
@@ -42434,18 +42435,16 @@ function createLiteLLMDeepSeekProvider(opts) {
       // Declared hint for pi-ai's clampMaxTokensToContext. MiMo v2.x: 1M
       // context (mimo.mi.com docs). Verify per family before relying on it.
       contextWindow: 1e6,
-      // Deliberately 0 = omit max_completion_tokens on the wire (pi-ai skips
-      // falsy maxTokens), for every family. pi-ai >= 0.87 sends
-      // model.maxTokens by default, which silently activated the historical
-      // 384000 scaffold metadata in v1.10.0 and 400'd every MiMo request
-      // (family cap 131072, ops issue #126). Not sending restores the
-      // pre-0.87 wire behavior that ran in production for months: each
-      // upstream applies its own default ceiling (MiMo v2.6 defaults to its
-      // full 131072), which is also a tighter cost guard than any guessed
-      // value. If a future model's default truncates reviews, add a
-      // per-model cap THEN, with a verified number — a guessed ceiling is
-      // exactly the ops#126 failure shape.
-      maxTokens: 0
+      // Omit max_completion_tokens for every family (see MAX_TOKENS_OMIT).
+      // pi-ai >= 0.87 sends model.maxTokens by default, which silently
+      // activated the historical 384000 scaffold metadata in v1.10.0 and
+      // 400'd every MiMo request (family cap 131072, ops issue #126). Not
+      // sending restores the pre-0.87 wire behavior that ran in production
+      // for months: each upstream applies its own default ceiling (MiMo
+      // v2.6 defaults to its full 131072), which is also a tighter cost
+      // guard than any guessed value. If a future model's default truncates
+      // reviews, add a per-model cap THEN, with a verified number.
+      maxTokens: MAX_TOKENS_OMIT
     })),
     api: openAICompletionsApi()
   });

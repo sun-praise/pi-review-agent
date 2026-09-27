@@ -52,12 +52,14 @@ jobs:
           # includes fail-closed CANNOT MERGE verdicts) instead of always
           # exiting 0 and leaving only a comment (#82 review).
           fail-on-severity: "blocking"
-          # Headroom over the 600s default: thinking-on reviews on a shared
-          # Token Plan under concurrent load (review-server daemon et al.)
-          # can exceed 600s per persona and fail-closed without any code
-          # fault — observed live on this PR's first two runs (04:20, 04:36
-          # UTC). Slow-but-successful reviews should pass; real failures
-          # still red via fail-on-severity.
+          # Headroom over the 600s default for TIMEOUT-type slowness only:
+          # thinking-on reviews on a loaded shared Token Plan can exceed
+          # 600s per persona and fail-closed with no code fault (observed
+          # 04:36 UTC). This does NOT help 429-type fail-closed failures
+          # (04:20 UTC: concurrent runs rate-limited each other) — those
+          # rerun off-peak, don't raise this again. Real failures still red
+          # via fail-on-severity: blocking; this only tolerates
+          # slow-but-successful reviews.
           timeout-seconds: 900
           team: "quality:1,security:1,performance:1"
           # This repo must commit dist/index.cjs (the action runs from it), so

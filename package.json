@@ -16,8 +16,8 @@
     "test": "node --import tsx --experimental-test-module-mocks --test \"src/**/*.test.ts\""
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "^0.87.1",
-    "@earendil-works/pi-ai": "^0.87.1",
+    "@earendil-works/pi-agent-core": "0.87.1",
+    "@earendil-works/pi-ai": "0.87.1",
     "js-yaml": "^5.1.0"
   },
   "devDependencies": {
