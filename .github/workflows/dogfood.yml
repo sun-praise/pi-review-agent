@@ -4,6 +4,15 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel in-flight runs for the same ref when a new commit is pushed: a
+# superseded dogfood run races the fresh one for Token Plan quota (observed
+# 2026-09-27 04:35 UTC — two concurrent runs rate-limited each other into a
+# fail-closed red) and can overwrite the standing comment with a stale sha
+# when it finishes late. Mirrors ci.yml.
+concurrency:
+  group: dogfood-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   review:
     runs-on: ubuntu-latest
