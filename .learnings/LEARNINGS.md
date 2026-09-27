@@ -213,3 +213,25 @@ Svtter/hugo-blog PR #134（新增中文文件名博文）review job 直接失败
 - Source: session_analysis
 - Related Files: src/walk-grep.ts, src/tools.ts, internal/tool/code_search.go (alibaba/open-code-review)
 - Tags: git-grep, ignore-list, build-artifacts, negative-evidence, issue-76, compatibility
+
+## [LRN-20260927-001] pitfall
+
+**Logged**: 2026-09-27T00:00:00Z
+**Priority**: low
+**Status**: active
+**Area**: build
+
+### Summary
+pi 依赖升级后 dist/index.cjs 从 6.9MB/183k 行缩到 1.7MB/47k 行（-75%）——不是构建损坏，是旧 pi-ai 的包结构把内置模型 catalog（几百个模型的 thinkingLevelMap/compat 表）整体内联进 bundle 且无法 tree-shake，0.87 的包结构让 tsup 把它们摇掉了。
+
+### Details
+pi-ai/pi-agent-core 0.80.2 → 0.87.1（#79）重建 dist 时体积骤降，diff 显示 -153k 行，第一反应是「bundle 是不是没打全」。核对：旧 dist `grep -c thinkingLevelMap` = 236（catalog 被内联），新 dist = 18（只剩 provider.ts 自己的用法）；`reasoning_content` 6 处、`EAI_AGAIN`/`getaddrinfo` 各 1 处（0.82 的 DNS 自动重试）都在，`node dist/index.cjs` headless 启动走通 arg-parse 报错路径。体积变化来自上游包结构，与本仓库代码无关。
+
+### Suggested Action
+- 判断标志：升 pi 依赖后 dist 体积大幅变动 ≠ 构建坏了；先 grep 关键运行时字符串（thinkingFormat / reasoning_content / 事件名）确认实现都在，再 `node dist/index.cjs` 跑一次 headless 启动。
+- 不要按体积判断 bundle 完整性；本仓库 action 跑的是 dist，验证标准是「关键路径字符串在 + CLI 能启动 + dogfood 自审绿」。
+
+### Metadata
+- Source: session_analysis
+- Related Files: package.json, dist/index.cjs, tsup.config.ts
+- Tags: deps, pi-ai, tree-shaking, bundle-size, issue-79
