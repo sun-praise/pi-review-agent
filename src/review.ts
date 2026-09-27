@@ -29,6 +29,7 @@ import { createReadFileTool, createGrepTool, type GrepWalker } from "./tools.js"
 import { walkGrep } from "./walk-grep.js";
 import { isTransientReviewerError } from "./transient-error.js";
 import { resolveSessionDirName } from "./session-dir.js";
+import { buildReviewRequest } from "./review-request.js";
 
 export interface RunReviewOptions {
   provider: Provider<"openai-completions">;
@@ -48,6 +49,16 @@ export interface RunReviewOptions {
    * sees the blast radius of the change without having to grep for callers.
    * Empty/undefined → no related context. Best-effort like prContext. */
   relatedContext?: string;
+  /**
+   * Incremental review: the commit the previous round reviewed. When set,
+   * `diff` holds only the delta since then and the request wording switches
+   * to the incremental contract (focus on the delta, verdict on the PR's
+   * cumulative state). Undefined → full review. */
+  incrementalSince?: string;
+  /**
+   * Incremental review: the previous round's posted summary (findings to
+   * re-check against the delta). Undefined/empty → not injected. */
+  previousReview?: string;
   /** Root directory for session JSONL files. */
   sessionsRoot: string;
   /** Session identity override: replaces the PR number as the session
@@ -244,13 +255,16 @@ async function runModelAttempt(
           models.streamSimple(m, ctx, streamOpts ?? {}) as never,
       });
       const done = collectFromAgent(agent, newMessages);
-      // Assemble the prompt prefix (PR metadata + related files), keeping the
-      // diff last so the "Review this diff" instruction sits right above it.
-      // Empty/undefined blocks are skipped so a diff-only run is unchanged.
-      const prefix = [opts.prContext, opts.relatedContext].filter((s): s is string => Boolean(s && s.trim())).join("\n\n");
-      const userMessage = prefix
-        ? `${prefix}\n\n=== Review request ===\nReview this diff:\n\n${opts.diff}`
-        : `Review this diff:\n\n${opts.diff}`;
+      // Prompt assembly lives in review-request.ts (pure, testable — this
+      // module can't be loaded under `node --test`). Context blocks first,
+      // diff last so the review instruction sits directly above the payload.
+      const userMessage = buildReviewRequest({
+        diff: opts.diff,
+        prContext: opts.prContext,
+        relatedContext: opts.relatedContext,
+        incrementalSince: opts.incrementalSince,
+        previousReview: opts.previousReview,
+      });
       const promptP = agent.prompt(userMessage);
       await (timeoutMs > 0 ? withTimeout(promptP, timeoutMs, opts.persona) : promptP);
       const collected = await done;

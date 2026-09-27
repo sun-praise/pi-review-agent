@@ -8,6 +8,7 @@
  * never fails just because comment posting did.
  */
 import type { InlineComment, InlineSeverity } from "./inline-comments.js";
+import { SELF_MARKER as MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX } from "./review-anchor.js";
 import { withTransientRetry } from "./retry.js";
 import { isTransientReviewerError } from "./transient-error.js";
 
@@ -43,8 +44,6 @@ const VERIFY_EMOJI: Record<NonNullable<InlineComment["status"]>, string> = {
   demoted: "⚠️",
 };
 
-const MARKER = "<!-- pi-review-agent -->";
-
 export interface PrCommentContext {
   /** GitHub API base, e.g. https://api.github.com. */
   apiBase: string;
@@ -77,9 +76,6 @@ async function fetchJson(url: string, init: RequestInit): Promise<unknown> {
   }
   return res.json();
 }
-
-const SHA_LINE_PREFIX = "<!-- pi-review-agent-sha:";
-const SHA_LINE_SUFFIX = " -->";
 
 /**
  * Find a prior review comment posted for the same head SHA. Returns its id,

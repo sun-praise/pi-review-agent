@@ -2,6 +2,7 @@
  * Platform adapter interface for abstracting Git platform operations.
  * Supports GitHub and Gitea implementations.
  */
+import type { ReviewAnchor } from "../review-anchor.js";
 
 export type Platform = "github" | "gitea";
 
@@ -60,6 +61,13 @@ export interface InlineComment {
 
 export type PostReviewResult = "review" | "summary-review" | "created" | "updated" | "skipped";
 
+export interface CompareDiffOptions extends PrContextOptions {
+  /** Base commit of the comparison (the last reviewed commit). */
+  base: string;
+  /** Head commit of the comparison (the current PR head). */
+  head: string;
+}
+
 export interface PlatformAdapter {
   /**
    * Fetch PR context (title, body, comments, reviews, changed files)
@@ -67,6 +75,22 @@ export interface PlatformAdapter {
    * Returns empty string on failure (best-effort).
    */
   fetchPrContext(options: PrContextOptions): Promise<string>;
+
+  /**
+   * Find the most recent review anchor (the hidden sha fingerprint in our
+   * own standing comments) — the baseline for incremental review. Returns
+   * null when no anchored comment exists (first review) or on any failure;
+   * never throws. Callers treat null as "run a full review".
+   */
+  getLastReviewAnchor(options: PrContextOptions): Promise<ReviewAnchor | null>;
+
+  /**
+   * Fetch the unified diff base…head via the platform compare API — the
+   * fallback when git cannot compute the delta locally (no checkout, SHA
+   * wants disabled). Returns null when unsupported (Gitea) or failed;
+   * never throws.
+   */
+  fetchCompareDiff(options: CompareDiffOptions): Promise<string | null>;
 
   /**
    * Post or update a PR comment.

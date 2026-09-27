@@ -42,6 +42,18 @@ export interface TeamReviewOptions {
    * to every reviewer's prompt alongside prContext. NOT passed to the
    * coordinator (same rationale as prContext). Undefined/empty → none. */
   relatedContext?: string;
+  /**
+   * Incremental review, passed to every persona (see RunReviewOptions). The
+   * coordinator never sees it — it synthesizes reports, not the diff. */
+  incrementalSince?: string;
+  /** Incremental review: previous round's summary, passed to every persona. */
+  previousReview?: string;
+  /**
+   * Diff for the verifier's changed-lines rule. In incremental runs this is
+   * the FULL PR diff: a carry-forward finding may legitimately target a line
+   * an earlier round changed, which the delta alone would call a
+   * hallucination and demote. Defaults to `diff` (full-review runs). */
+  verifyDiff?: string;
   cwd: string;
   sessionsRoot: string;
   /** Session identity override passed to every reviewer + the coordinator
@@ -344,6 +356,8 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
           diff: opts.diff,
           prContext: opts.prContext,
           relatedContext: opts.relatedContext,
+          incrementalSince: opts.incrementalSince,
+          previousReview: opts.previousReview,
           sessionsRoot: opts.sessionsRoot,
           sessionKey: opts.sessionKey,
           cwd: opts.cwd,
@@ -454,7 +468,10 @@ export async function runTeamReview(opts: TeamReviewOptions): Promise<TeamReview
   // and findings are posted as-is (pre-verifier behavior). Same when the
   // verifier throws: we catch, keep all findings, and leave verification unset.
   if (rawComments.length > 0 && !opts.skipVerify) {
-    const changedLines = parseChangedLines(opts.diff);
+    // Incremental runs verify against the full PR diff: a carry-forward
+    // finding may target a line an earlier round changed (verifyDiff);
+    // full-review runs pass the same diff either way.
+    const changedLines = parseChangedLines(opts.verifyDiff ?? opts.diff);
     // Lazy import: buildVerifierAgent pulls in pi-agent-core at runtime, which
     // we must not load at module-eval time (see the note near the imports).
     const { buildVerifierAgent } = await import("./verifier-agent.js");

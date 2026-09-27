@@ -3,12 +3,10 @@
  * Supports Gitea REST API v1.
  */
 
-import type { PlatformAdapter, PrContextOptions, PrCommentContext, PrInfo, InlineComment, PostReviewResult } from "../types.js";
+import type { PlatformAdapter, PrContextOptions, PrCommentContext, PrInfo, InlineComment, PostReviewResult, CompareDiffOptions } from "../types.js";
+import type { ReviewAnchor } from "../../review-anchor.js";
+import { SELF_MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX, latestReviewAnchor } from "../../review-anchor.js";
 import { withTransientRetry } from "../../retry.js";
-
-const SELF_MARKER = "<!-- pi-review-agent -->";
-const SHA_LINE_PREFIX = "<!-- pi-review-agent-sha:";
-const SHA_LINE_SUFFIX = " -->";
 
 /** Fetch timeout in milliseconds. */
 const FETCH_TIMEOUT_MS = 30_000;
@@ -99,6 +97,32 @@ export class GiteaAdapter implements PlatformAdapter {
       );
       return "";
     }
+  }
+
+  async getLastReviewAnchor(options: PrContextOptions): Promise<ReviewAnchor | null> {
+    if (!options.token) return null;
+    const base = `${options.apiBase.replace(/\/+$/, "")}/repos/${options.repository}`;
+    try {
+      const comments = await giteaFetch<GiteaComment[]>(
+        `${base}/issues/${options.pr}/comments`,
+        options.token,
+      );
+      return latestReviewAnchor(comments);
+    } catch (err: unknown) {
+      process.stderr.write(
+        `Gitea getLastReviewAnchor: failed (${err instanceof Error ? err.message : String(err)}); incremental falls back to a full review\n`,
+      );
+      return null;
+    }
+  }
+
+  async fetchCompareDiff(_options: CompareDiffOptions): Promise<string | null> {
+    // Gitea's API v1 compare endpoint returns JSON (per-file patches), and
+    // the web .diff route has no token-auth story for private repos. The
+    // git-object path in delta-diff.ts is the delta source on Gitea; when it
+    // fails, the caller falls back to a full review.
+    process.stderr.write("Gitea fetchCompareDiff: unsupported — relying on the git delta path\n");
+    return null;
   }
 
   async postComment(context: PrCommentContext, body: string): Promise<"created" | "updated" | "skipped"> {

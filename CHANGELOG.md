@@ -5,6 +5,29 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Incremental review**: on a re-run of the same PR, the review payload is
+  the delta since the last reviewed commit instead of the full PR diff. The
+  anchor is the hidden sha fingerprint (`<!-- pi-review-agent-sha:... -->`)
+  already embedded in every standing comment — no new state. The delta is
+  computed with `git diff <anchor>..<head>` from the object database (never
+  the working tree, so a stale checkout cannot skew it; missing commits are
+  fetched from origin first), with the GitHub compare API as fallback. The
+  previous round's summary is injected into every reviewer prompt (markers
+  stripped, capped at 6000 chars) so unresolved findings ride along, and the
+  verdict is judged on the PR's cumulative state. The verifier keeps the
+  full diff as its changed-lines baseline so a carry-forward finding on a
+  line an earlier round changed is not demoted as a hallucination.
+  Fail-open at every layer: first review, force-push with an unfetchable
+  anchor, no checkout, API failure → full review, exactly the previous
+  behavior. Opt-out via `incremental: false` (`PI_REVIEW_INCREMENTAL=0`);
+  on-demand full re-review via `force-full: true` (`PI_REVIEW_FORCE_FULL=1`,
+  e.g. wired to a `full-review` label). Stats events carry a new additive
+  `incrementalSince` field (null = full review).
+
 ## [1.10.0] - 2026-09-27
 
 ### Changed
