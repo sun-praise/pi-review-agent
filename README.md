@@ -215,8 +215,12 @@ How a delta run works:
   disabled), the GitHub compare API is tried; failing that, the run silently
   falls back to a **full review** — incremental is strictly an optimization.
 - Anchor selection is identity-checked: candidates must carry the agent's
-  marker AND be authored by the token's own login, so a copied fingerprint
-  in someone else's comment cannot steer the delta.
+  marker AND be authored by the agent itself. With a token whose `GET /user`
+  resolves (PATs, Gitea tokens) that means an exact login match; with the
+  default `github.token` (an installation token — `/user` returns 403) the
+  check degrades to requiring a Bot-type author, which human commenters
+  cannot fake. A copied fingerprint in someone else's comment therefore
+  cannot steer the delta under either mode.
 - The previous round's summary is injected into every reviewer prompt
   (unresolved findings ride along) and the verdict is judged on the PR's
   **cumulative state** — an incremental run can still say CANNOT MERGE over

@@ -257,6 +257,7 @@ async function runSingle(
         coordinator: null,
         verdict: null,
         incrementalSince: opts.incrementalSince || null,
+        incrementalFallback: opts.incrementalFallback || null,
         severity: {
           decision: severity.decision,
           blocking: severity.blockingCount,
@@ -383,6 +384,7 @@ async function runTeam(
           : null,
         verdict: result.verdict,
         incrementalSince: opts.incrementalSince || null,
+        incrementalFallback: opts.incrementalFallback || null,
         severity: {
           decision: result.severity.decision,
           blocking: result.severity.blockingCount,
@@ -488,13 +490,17 @@ async function attachRelatedContext(opts: CliOptions): Promise<void> {
  */
 async function applyIncrementalDiff(opts: CliOptions, adapter: PlatformAdapter): Promise<void> {
   if (!opts.incremental) return;
+  const query = { forceFull: opts.forceFull, pr: opts.pr, cwd: opts.cwd };
   const outcome = await resolveIncremental(
-    { forceFull: opts.forceFull, pr: opts.pr, cwd: opts.cwd },
+    query,
     adapter,
     preparedDiffCache.get(opts),
     process.env,
   );
   if (outcome.mode === "full") {
+    // Observability for degradation analysis (stats event): force-full is a
+    // deliberate request, everything else is a fallback worth counting.
+    if (!query.forceFull) opts.incrementalFallback = outcome.reason;
     process.stderr.write(`incremental: ${outcome.reason} — full review\n`);
     return;
   }

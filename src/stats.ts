@@ -48,6 +48,10 @@ export interface StatsEvent {
   /** Anchor commit of an incremental run (the reviewed delta started there).
    *  Null = full review. Additive field: pre-incremental events lack it. */
   incrementalSince: string | null;
+  /** Why an ENABLED incremental run degraded to a full review (empty delta,
+   *  non-ancestor anchor, tool failure). Null = delta ran, incremental was
+   *  off, or force-full was explicitly requested. Additive field. */
+  incrementalFallback: string | null;
   severity: { decision: string; blocking: number; warning: number; fallback: boolean };
   usage: { input: number; output: number; cacheRead: number; cacheWrite: number };
   costTotal: number;
@@ -76,6 +80,8 @@ export interface BuildStatsEventInput {
   verdict: string | null;
   /** See StatsEvent.incrementalSince. Optional: omitted → null (full review). */
   incrementalSince?: string | null;
+  /** See StatsEvent.incrementalFallback. Optional: omitted → null. */
+  incrementalFallback?: string | null;
   severity: StatsEvent["severity"];
   durationMs: number | null;
 }
@@ -113,6 +119,7 @@ export function buildStatsEvent(input: BuildStatsEventInput): StatsEvent {
     personas,
     verdict: input.verdict,
     incrementalSince: input.incrementalSince ?? null,
+    incrementalFallback: input.incrementalFallback ?? null,
     severity: input.severity,
     usage,
     costTotal,

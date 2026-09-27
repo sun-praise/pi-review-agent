@@ -6,19 +6,20 @@
  *
  * The contract: incremental is strictly an optimization layered on the
  * full-diff flow. A delta run is only returned when it is SAFE:
- *   - a self-authored anchor exists (marker + fingerprint + login check),
+ *   - the full filtered diff is available (the verifier baseline and the
+ *     no-diff-source error path both assume it — checked FIRST, before any
+ *     network or git work),
+ *   - a self-authored anchor exists (marker + fingerprint + identity check),
  *   - the anchor commit is an ancestor of head (rebase/force-push → full),
  *   - the delta is non-empty (an empty diff would collide with loadDiff's
- *     falsy-source check and crash the run with "no diff source"),
- *   - the full filtered diff is available (the verifier baseline and the
- *     no-diff-source error path both assume it).
- * Anything else → mode "full" with the reason for the log. Never throws.
+ *     falsy-source check and crash the run with "no diff source").
+ * Anything else → mode "full" with the reason for the log and stats. Never
+ * throws.
  *
  * Pure-ish: all I/O (platform adapter, delta computation) is injected.
  */
-import type { PlatformAdapter, PrContextOptions } from "./platforms/types.js";
-import type { PrInfo } from "./platforms/types.js";
-import { computeDeltaDiff } from "./delta-diff.js";
+import type { PlatformAdapter, PrContextOptions, PrInfo } from "./platforms/types.js";
+import { computeDeltaDiff, type DeltaResult } from "./delta-diff.js";
 
 /** The adapter surface this resolver needs (PlatformAdapter satisfies it). */
 export type IncrementalAdapter = Pick<
@@ -57,6 +58,12 @@ export async function resolveIncremental(
   if (query.forceFull) {
     return { mode: "full", reason: "force-full set" };
   }
+  // Before any I/O: without the full diff there is no verifier baseline, and
+  // the run's "no diff source" misconfiguration would be silently rescued
+  // into an incremental-only review. Keep the loud failure path.
+  if (fullDiff === undefined) {
+    return { mode: "full", reason: "full diff unavailable — incremental swap skipped" };
+  }
   const prInfo: PrInfo | null = adapter.resolvePrFromEnv(env);
   if (!prInfo || !prInfo.headSha) {
     return { mode: "full", reason: "no platform PR identity (pr/head sha)" };
@@ -75,16 +82,22 @@ export async function resolveIncremental(
     return { mode: "full", reason: "anchor already at head (re-run of the same commit)" };
   }
   const compute = deps.computeDelta ?? computeDeltaDiff;
-  const delta = await compute(anchor.sha, prInfo.headSha, query.cwd, {
+  const result: DeltaResult = await compute(anchor.sha, prInfo.headSha, query.cwd, {
     fetchCompare: (base, head) => adapter.fetchCompareDiff({ ...anchorOptions, base, head }),
   });
-  if (delta === null) {
+  if (result.error === "non-ancestor") {
     return {
       mode: "full",
-      reason: `delta since ${anchor.sha.slice(0, 8)} unavailable (git and compare both failed, or the anchor is not an ancestor of head)`,
+      reason: `anchor ${anchor.sha.slice(0, 8)} is not an ancestor of head (rebase/force-push) — full review`,
     };
   }
-  if (delta.trim() === "") {
+  if (result.error === "unavailable") {
+    return {
+      mode: "full",
+      reason: `delta since ${anchor.sha.slice(0, 8)} unavailable (git and compare both failed) — full review`,
+    };
+  }
+  if (result.diff.trim() === "") {
     // Nothing reviewable changed since the anchor (rebase squash, amend-only
     // message edit, empty re-push). Falling through with "" would hit
     // loadDiff's falsy-source check and crash the run with "no diff source"
@@ -94,17 +107,11 @@ export async function resolveIncremental(
       reason: "delta is empty (nothing changed since the anchor; e.g. rebase/amend-only)",
     };
   }
-  if (fullDiff === undefined) {
-    // Without the full diff there is no verifier baseline, and the run's
-    // "no diff source" misconfiguration would be silently rescued into an
-    // incremental-only review. Keep the loud failure path.
-    return { mode: "full", reason: "full diff unavailable — incremental swap skipped" };
-  }
   return {
     mode: "delta",
     since: anchor.sha,
     previousReview: anchor.body,
-    delta,
+    delta: result.diff,
     fullDiff,
   };
 }

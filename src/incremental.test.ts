@@ -51,14 +51,16 @@ function fakeAdapter(opts: FakeAdapterOptions = {}): IncrementalAdapter & {
   };
 }
 
-/** Delta computation stub: returns the configured value (null = failure). */
-function fakeCompute(result: string | null) {
+import type { DeltaResult } from "./delta-diff.js";
+
+/** Delta computation stub: returns the configured outcome verbatim. */
+function fakeCompute(result: DeltaResult) {
   const calls: string[][] = [];
   const fn = async (prev: string, head: string) => {
     calls.push([prev, head]);
     return result;
   };
-  return { fn: fn as (prev: string, head: string, cwd: string, deps?: unknown) => Promise<string | null>, calls };
+  return { fn: fn as typeof import("./delta-diff.js").computeDeltaDiff, calls };
 }
 
 const QUERY = { forceFull: false, pr: 7, cwd: "/repo" };
@@ -67,7 +69,7 @@ describe("resolveIncremental — full-review fallbacks", () => {
   it("force-full wins before any network or git work", async () => {
     const adapter = fakeAdapter();
     const out = await resolveIncremental({ ...QUERY, forceFull: true }, adapter, FULL_DIFF, {}, {
-      computeDelta: fakeCompute(DELTA).fn,
+      computeDelta: fakeCompute({ diff: DELTA }).fn,
     });
     assert.deepEqual(out, { mode: "full", reason: "force-full set" });
     assert.equal(adapter.anchorCalls.length, 0);
@@ -75,14 +77,14 @@ describe("resolveIncremental — full-review fallbacks", () => {
 
   it("no platform identity → full", async () => {
     const out = await resolveIncremental(QUERY, fakeAdapter({ prInfo: null }), FULL_DIFF, {}, {
-      computeDelta: fakeCompute(DELTA).fn,
+      computeDelta: fakeCompute({ diff: DELTA }).fn,
     });
     assert.equal(out.mode, "full");
   });
 
   it("no anchor (first review) → full", async () => {
     const out = await resolveIncremental(QUERY, fakeAdapter({ anchor: null }), FULL_DIFF, {}, {
-      computeDelta: fakeCompute(DELTA).fn,
+      computeDelta: fakeCompute({ diff: DELTA }).fn,
     });
     assert.equal(out.mode, "full");
     assert.match(out.mode === "full" ? out.reason : "", /no prior review anchor/);
@@ -94,23 +96,31 @@ describe("resolveIncremental — full-review fallbacks", () => {
       fakeAdapter({ anchor: { sha: HEAD_SHA, body: "x" } }),
       FULL_DIFF,
       {},
-      { computeDelta: fakeCompute(DELTA).fn },
+      { computeDelta: fakeCompute({ diff: DELTA }).fn },
     );
     assert.equal(out.mode, "full");
     assert.match(out.mode === "full" ? out.reason : "", /already at head/);
   });
 
-  it("delta unavailable (non-ancestor pair included) → full", async () => {
+  it("delta unavailable (git and compare both failed) → full, reason says so", async () => {
     const out = await resolveIncremental(QUERY, fakeAdapter(), FULL_DIFF, {}, {
-      computeDelta: fakeCompute(null).fn,
+      computeDelta: fakeCompute({ error: "unavailable" }).fn,
     });
     assert.equal(out.mode, "full");
-    assert.match(out.mode === "full" ? out.reason : "", /delta since/);
+    assert.match(out.mode === "full" ? out.reason : "", /unavailable \(git and compare both failed\)/);
+  });
+
+  it("non-ancestor anchor (rebase/force-push) → full, reason distinct from tool failure", async () => {
+    const out = await resolveIncremental(QUERY, fakeAdapter(), FULL_DIFF, {}, {
+      computeDelta: fakeCompute({ error: "non-ancestor" }).fn,
+    });
+    assert.equal(out.mode, "full");
+    assert.match(out.mode === "full" ? out.reason : "", /not an ancestor of head/);
   });
 
   it("EMPTY delta → full review, not an empty-diff run (regression: loadDiff crash)", async () => {
     const out = await resolveIncremental(QUERY, fakeAdapter(), FULL_DIFF, {}, {
-      computeDelta: fakeCompute("").fn,
+      computeDelta: fakeCompute({ diff: "" }).fn,
     });
     // The empty string must never become the run's diff source: loadDiff
     // treats a falsy diffInline as "no source" and throws, failing the run.
@@ -118,18 +128,20 @@ describe("resolveIncremental — full-review fallbacks", () => {
     assert.match(out.mode === "full" ? out.reason : "", /delta is empty/);
   });
 
-  it("full diff unavailable → full review (regression: verifier baseline loss)", async () => {
-    const out = await resolveIncremental(QUERY, fakeAdapter(), undefined, {}, {
-      computeDelta: fakeCompute(DELTA).fn,
+  it("full diff unavailable → full review BEFORE any anchor/delta I/O (regression: verifier baseline loss)", async () => {
+    const adapter = fakeAdapter();
+    const out = await resolveIncremental(QUERY, adapter, undefined, {}, {
+      computeDelta: fakeCompute({ diff: DELTA }).fn,
     });
     assert.equal(out.mode, "full");
     assert.match(out.mode === "full" ? out.reason : "", /full diff unavailable/);
+    assert.equal(adapter.anchorCalls.length, 0, "no anchor fetch when the full diff is missing");
   });
 });
 
 describe("resolveIncremental — delta mode", () => {
   it("returns the delta with anchor body and the full diff as verifier baseline", async () => {
-    const compute = fakeCompute(DELTA);
+    const compute = fakeCompute({ diff: DELTA });
     const out = await resolveIncremental(QUERY, fakeAdapter(), FULL_DIFF, {}, {
       computeDelta: compute.fn,
     });
@@ -150,7 +162,10 @@ describe("resolveIncremental — delta mode", () => {
       _head: string,
       _cwd: string,
       deps?: { fetchCompare?: (b: string, h: string) => Promise<string | null> },
-    ) => deps?.fetchCompare?.(ANCHOR_SHA, HEAD_SHA) ?? DELTA;
+    ): Promise<DeltaResult> => {
+      const viaApi = await deps?.fetchCompare?.(ANCHOR_SHA, HEAD_SHA);
+      return viaApi == null ? { error: "unavailable" } : { diff: viaApi };
+    };
     const adapter = fakeAdapter({ compare: "compare-delta" });
     const out = await resolveIncremental(QUERY, adapter, FULL_DIFF, {}, { computeDelta: compute });
     assert.equal(out.mode, "delta");

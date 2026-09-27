@@ -73,50 +73,72 @@ const defaultRunGit: GitRunner = (args, cwd, timeoutMs) => {
   return promise;
 };
 
+/** Result of a delta attempt. `diff` is the unified diff ("" = a valid
+ *  empty delta). `error` says why no delta could be produced — the caller
+ *  distinguishes the DELIBERATE bail (non-ancestor pair) from tool failures
+ *  ("unavailable", which includes an exhausted compare fallback). */
+export type DeltaResult =
+  | { diff: string; error?: undefined }
+  | { diff?: undefined; error: "non-ancestor" }
+  | { diff?: undefined; error: "unavailable" };
+
 /**
- * Delta diff between two commits, or null when neither git nor the compare
- * fallback could produce one. An empty-string return is a valid delta ("no
- * changes since the anchor") — callers distinguish it from null.
+ * Delta diff between two commits, or an error outcome when neither git nor
+ * the compare fallback could produce one. An empty-string diff is a valid
+ * delta ("no changes since the anchor").
  */
 export async function computeDeltaDiff(
   prev: string,
   head: string,
   cwd: string,
   deps: DeltaDiffDeps = {},
-): Promise<string | null> {
-  if (!SHA_RE.test(prev) || !SHA_RE.test(head)) return null;
+): Promise<DeltaResult> {
+  const unavailable: DeltaResult = { error: "unavailable" };
+  if (!SHA_RE.test(prev) || !SHA_RE.test(head)) return unavailable;
   const runGit = deps.runGit ?? defaultRunGit;
   const timeoutMs = deps.timeoutMs ?? 60_000;
+  const compare = async (): Promise<DeltaResult> => {
+    if (!deps.fetchCompare) return unavailable;
+    const viaApi = await deps.fetchCompare(prev, head);
+    return viaApi === null ? unavailable : { diff: viaApi };
+  };
 
   const hasCommit = async (sha: string): Promise<boolean> =>
     (await runGit(["cat-file", "-e", `${sha}^{commit}`], cwd, timeoutMs)).code === 0;
 
   // A usable repo must exist (runners without a checkout step, bare dirs).
   if ((await runGit(["rev-parse", "--git-dir"], cwd, timeoutMs)).code !== 0) {
-    return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
+    return compare();
   }
   // Depth-1 checkouts don't carry the anchor commit; fetch both SHAs from
-  // origin with full history (see the module comment for why not --depth).
-  // A failure here (no origin, SHA wants disabled) exits to the compare
-  // fallback.
+  // origin. Blob-less first (commit graph only — cheap, and the ancestry
+  // gate may reject the pair right after), plain full fetch as the fallback
+  // where the server lacks partial-clone support (Gitea). Blobs for the
+  // diff arrive lazily on partial clones, or with the plain fetch.
   if (!(await hasCommit(prev)) || !(await hasCommit(head))) {
-    const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
-    if (fetched.code !== 0) return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
-    if (!(await hasCommit(prev)) || !(await hasCommit(head))) {
-      return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
+    const blobless = await runGit(
+      ["fetch", "--no-tags", "--filter=blob:none", "origin", prev, head],
+      cwd,
+      timeoutMs,
+    );
+    if (blobless.code !== 0) {
+      const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
+      if (fetched.code !== 0) return compare();
     }
+    if (!(await hasCommit(prev)) || !(await hasCommit(head))) return compare();
   }
   // Ancestry gate: exit 0 = ancestor (safe two-dot delta), exit 1 = NOT an
-  // ancestor (rebase/force-push) → full review, deliberately skipping the
-  // compare fallback. Any other exit is a git error → compare fallback.
+  // ancestor (rebase/force-push) → deliberate bail, skipping the compare
+  // fallback (three-dot diff would silently miss reverted commits). Any
+  // other exit is a git error → compare fallback.
   const ancestry = await runGit(["merge-base", "--is-ancestor", prev, head], cwd, timeoutMs);
-  if (ancestry.code === 1) return null;
-  if (ancestry.code !== 0) return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
+  if (ancestry.code === 1) return { error: "non-ancestor" };
+  if (ancestry.code !== 0) return compare();
   const diff = await runGit(
     ["diff", "--no-color", "--no-textconv", "--no-ext-diff", prev, head],
     cwd,
     timeoutMs,
   );
-  if (diff.code !== 0) return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
-  return diff.stdout;
+  if (diff.code !== 0) return compare();
+  return { diff: diff.stdout };
 }

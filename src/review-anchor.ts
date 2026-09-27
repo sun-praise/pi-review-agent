@@ -52,6 +52,11 @@ export interface ReviewAnchorComment {
    *  token's own identity (selfLogin) whenever that is known, so a forged
    *  fingerprint posted by anyone else cannot steer the anchor. */
   login?: string;
+  /** Author account type ("User" | "Bot" | ...), when the listing provides
+   *  it. Used by callers whose token cannot resolve its own login
+   *  (installation tokens 403 on GET /user): the degraded check requires a
+   *  Bot author, which human commenters cannot fake. */
+  accountType?: string;
 }
 
 /** The anchor consumed by incremental review: the sha a prior round reviewed

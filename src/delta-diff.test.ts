@@ -41,8 +41,8 @@ function catFileOk(args: string[]): GitResult {
 describe("computeDeltaDiff — validation", () => {
   it("rejects non-sha inputs before touching git", async () => {
     const { runner, calls } = scriptedGit({});
-    assert.equal(await computeDeltaDiff("not-a-sha", HEAD, "/repo", { runGit: runner }), null);
-    assert.equal(await computeDeltaDiff(PREV, "abc123", "/repo", { runGit: runner }), null);
+    assert.deepEqual(await computeDeltaDiff("not-a-sha", HEAD, "/repo", { runGit: runner }), { error: "unavailable" });
+    assert.deepEqual(await computeDeltaDiff(PREV, "abc123", "/repo", { runGit: runner }), { error: "unavailable" });
     assert.equal(calls.length, 0);
   });
 });
@@ -55,7 +55,7 @@ describe("computeDeltaDiff — git path", () => {
       "merge-base": () => ok(),
       diff: () => ok(DELTA),
     });
-    assert.equal(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), DELTA);
+    assert.deepEqual(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), { diff: DELTA });
     assert.deepEqual(calls[calls.length - 1], [
       "diff",
       "--no-color",
@@ -82,10 +82,10 @@ describe("computeDeltaDiff — git path", () => {
       "merge-base": () => ok(),
       diff: () => ok(DELTA),
     });
-    assert.equal(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), DELTA);
+    assert.deepEqual(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), { diff: DELTA });
     assert.deepEqual(
       calls.find((c) => c[0] === "fetch"),
-      ["fetch", "--no-tags", "origin", PREV, HEAD],
+      ["fetch", "--no-tags", "--filter=blob:none", "origin", PREV, HEAD],
     );
   });
 
@@ -96,7 +96,7 @@ describe("computeDeltaDiff — git path", () => {
       "merge-base": () => ok(),
       diff: () => ok(""),
     });
-    assert.equal(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), "");
+    assert.deepEqual(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), { diff: "" });
   });
 
   it("a non-repo cwd goes to the compare fallback", async () => {
@@ -105,7 +105,7 @@ describe("computeDeltaDiff — git path", () => {
       runGit: runner,
       fetchCompare: async () => "compare-delta",
     });
-    assert.equal(out, "compare-delta");
+    assert.deepEqual(out, { diff: "compare-delta" });
   });
 
   it("a failed fetch, a still-missing object, and a failed diff all fall back", async () => {
@@ -129,20 +129,45 @@ describe("computeDeltaDiff — git path", () => {
     };
     for (const [label, { runner }] of Object.entries(cases)) {
       const viaGit = await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner });
-      assert.equal(viaGit, null, label);
+      assert.deepEqual(viaGit, { error: "unavailable" }, label);
       const viaCompare = await computeDeltaDiff(PREV, HEAD, "/repo", {
         runGit: runner,
         fetchCompare: async () => "compare-delta",
       });
-      assert.equal(viaCompare, "compare-delta", label);
+      assert.deepEqual(viaCompare, { diff: "compare-delta" }, label);
     }
+  });
+});
+
+describe("computeDeltaDiff — partial-clone fetch fallback", () => {
+  it("falls back to a plain fetch when --filter=blob:none is rejected", async () => {
+    let prevLocal = false;
+    const fetches: string[][] = [];
+    const { runner } = scriptedGit({
+      "rev-parse": () => ok(".git"),
+      "cat-file": (args) => {
+        if (args[2]?.startsWith(PREV)) return prevLocal ? ok() : fail("missing");
+        return ok();
+      },
+      fetch: (args) => {
+        fetches.push(args);
+        if (args.includes("--filter=blob:none")) return fail("filter not supported");
+        prevLocal = true;
+        return ok();
+      },
+      "merge-base": () => ok(),
+      diff: () => ok(DELTA),
+    });
+    const out = await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner });
+    assert.deepEqual(out, { diff: DELTA });
+    assert.equal(fetches.length, 2, "blob-less attempt, then plain fetch");
   });
 });
 
 describe("computeDeltaDiff — no fallback configured", () => {
   it("returns null when git fails and no compare API is given", async () => {
     const { runner } = scriptedGit({ "rev-parse": () => fail("no repo") });
-    assert.equal(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), null);
+    assert.deepEqual(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), { error: "unavailable" });
   });
 });
 
@@ -163,7 +188,7 @@ describe("computeDeltaDiff — ancestry gate", () => {
         return "compare-delta";
       },
     });
-    assert.equal(out, null);
+    assert.deepEqual(out, { error: "non-ancestor" });
     assert.equal(compareCalls, 0, "three-dot compare would silently miss reverts — must not run");
     assert.ok(!calls.some((c) => c[0] === "diff"), "no diff computed for a non-ancestor pair");
   });
@@ -179,6 +204,6 @@ describe("computeDeltaDiff — ancestry gate", () => {
       runGit: runner,
       fetchCompare: async () => "compare-delta",
     });
-    assert.equal(out, "compare-delta");
+    assert.deepEqual(out, { diff: "compare-delta" });
   });
 });

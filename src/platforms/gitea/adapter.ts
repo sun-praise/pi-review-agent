@@ -103,15 +103,17 @@ export class GiteaAdapter implements PlatformAdapter {
     if (!options.token) return null;
     const base = `${options.apiBase.replace(/\/+$/, "")}/repos/${options.repository}`;
     try {
-      // Comments + the token's own identity in parallel; the anchor must be
-      // authored by this very login (see review-anchor.ts — a copied
-      // fingerprint in someone else's comment must not steer the delta).
-      const [comments, self] = await Promise.all([
-        giteaFetch<GiteaComment[]>(`${base}/issues/${options.pr}/comments`, options.token),
+      // Comments + the token's own identity; the anchor must be authored by
+      // this very login (see review-anchor.ts — a copied fingerprint in
+      // someone else's comment must not steer the delta). Gitea lists
+      // comments oldest-first with no sort parameter, so walk pages up to
+      // the last one; selection is by id, page order is irrelevant.
+      const [pages, self] = await Promise.all([
+        this.listAnchorCommentPages(base, options),
         giteaFetch<{ login: string | null }>(`${base}/user`, options.token).catch(() => null),
       ]);
       return latestReviewAnchor(
-        comments.map((c) => ({ id: c.id, body: c.body, login: c.user?.login ?? undefined })),
+        pages.map((c) => ({ id: c.id, body: c.body, login: c.user?.login ?? undefined })),
         self?.login ?? undefined,
       );
     } catch (err: unknown) {
@@ -129,6 +131,26 @@ export class GiteaAdapter implements PlatformAdapter {
     // fails, the caller falls back to a full review.
     process.stderr.write("Gitea fetchCompareDiff: unsupported — relying on the git delta path\n");
     return null;
+  }
+
+  /** Up to 5 pages of issue comments (50/page, oldest-first). A short page
+   *  ends the walk; beyond 5 pages the lookup gives up and the caller runs
+   *  a full review (fail-open). */
+  private async listAnchorCommentPages(
+    base: string,
+    options: PrContextOptions,
+  ): Promise<GiteaComment[]> {
+    const out: GiteaComment[] = [];
+    for (let page = 1; page <= 5; page++) {
+      const batch = await giteaFetch<GiteaComment[]>(
+        `${base}/issues/${options.pr}/comments?limit=50&page=${page}`,
+        options.token,
+      );
+      if (!Array.isArray(batch) || batch.length === 0) break;
+      out.push(...batch);
+      if (batch.length < 50) break; // last page
+    }
+    return out;
   }
 
   async postComment(context: PrCommentContext, body: string): Promise<"created" | "updated" | "skipped"> {
