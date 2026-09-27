@@ -4,6 +4,30 @@ import { resolveModelIds } from "./model-ids.js";
 import { DEFAULT_DEEPSEEK_COST, type ModelCostTable } from "./model-cost.js";
 
 /**
+ * Sentinel meaning "do not send max_completion_tokens on the wire". Relies on
+ * pi-ai's falsy skip (`if (options?.maxTokens)`) in the openai-completions
+ * param builder, plus clampMaxTokensToContext returning Math.min(0, positive)
+ * = 0. `Model.maxTokens` is a required number, so the field cannot be deleted;
+ * do NOT change the value either: the danger is exactly this 0 meeting a
+ * pi-ai that stops skipping falsy values — it would send
+ * max_completion_tokens: 0 verbatim and 400 every model family at once (ops
+ * issue #126 shape, wider blast radius). (undefined would today collapse to
+ * NaN via Math.min and still be skipped — but it violates the type and
+ * invites exactly that regression, so keep the explicit 0.)
+ *
+ * Side channel to know about: resolveClampedThinkingBudget falls back to
+ * model.maxTokens as the thinking-budget ceiling, so 0 also disables any
+ * future thinking-token budget. That is moot today (this provider sets no
+ * thinkingTokenBudgetField); if one is ever added per family, revisit this
+ * ceiling.
+ *
+ * The pi dependency versions are pinned exactly in package.json so this
+ * contract can only move through a deliberate upgrade — which the mimo
+ * dogfood leg (fail-on-severity: blocking) then verifies live.
+ */
+export const MAX_TOKENS_OMIT = 0;
+
+/**
  * Provider config for LiteLLM proxying a DeepSeek-shaped model.
  *
  * Why this exact shape:
@@ -94,8 +118,19 @@ export function createLiteLLMDeepSeekProvider(
       // Cost: per-id override if provided, else the DeepSeek-flash estimate
       // (model-cost.ts is the single source for the default table).
       cost: opts.costByModel?.[mid] ?? DEFAULT_DEEPSEEK_COST,
+      // Declared hint for pi-ai's clampMaxTokensToContext. MiMo v2.x: 1M
+      // context (mimo.mi.com docs). Verify per family before relying on it.
       contextWindow: 1_000_000,
-      maxTokens: 384_000,
+      // Omit max_completion_tokens for every family (see MAX_TOKENS_OMIT).
+      // pi-ai >= 0.87 sends model.maxTokens by default, which silently
+      // activated the historical 384000 scaffold metadata in v1.10.0 and
+      // 400'd every MiMo request (family cap 131072, ops issue #126). Not
+      // sending restores the pre-0.87 wire behavior that ran in production
+      // for months: each upstream applies its own default ceiling (MiMo
+      // v2.6 defaults to its full 131072), which is also a tighter cost
+      // guard than any guessed value. If a future model's default truncates
+      // reviews, add a per-model cap THEN, with a verified number.
+      maxTokens: MAX_TOKENS_OMIT,
     })),
     api: openAICompletionsApi(),
   });

@@ -4,8 +4,21 @@ on:
   pull_request:
     branches: [main]
 
+# Cancel in-flight runs for the same ref when a new commit is pushed: a
+# superseded dogfood run races the fresh one for Token Plan quota (observed
+# 2026-09-27 04:35 UTC — two concurrent runs rate-limited each other into a
+# fail-closed red) and can overwrite the standing comment with a stale sha
+# when it finishes late. Mirrors ci.yml.
+concurrency:
+  group: dogfood-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   review:
+    # Fork PRs have no access to LITELLM_URL/LITELLM_API_KEY; without this
+    # guard the armed gate (fail-on-severity: blocking) would fail-closed on
+    # every external contribution and permanently block them (#82 review W5).
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -39,6 +52,28 @@ jobs:
       - name: Run pi-review-agent on this PR
         uses: ./
         with:
+          # The MiMo family carries the tight param contract (completion cap
+          # 131072) — v1.10.0 shipped a value only deepseek tolerated and a
+          # deepseek-primary dogfood stayed green through it (ops issue
+          # #126), so the self-review runs on MiMo.
+          model: "mimo-v2.6-flash"
+          # Disable the mimo-v2.5 fallback: with it, a persistently failing
+          # primary silently degrades and the leg stays green on the wrong
+          # model. The leg name must equal the model actually exercised.
+          fallback-models: ""
+          # Make the leg a real gate: exit 1 on blocking findings (which
+          # includes fail-closed CANNOT MERGE verdicts) instead of always
+          # exiting 0 and leaving only a comment (#82 review).
+          fail-on-severity: "blocking"
+          # Headroom over the 600s default for TIMEOUT-type slowness only:
+          # thinking-on reviews on a loaded shared Token Plan can exceed
+          # 600s per persona and fail-closed with no code fault (observed
+          # 04:36 UTC). This does NOT help 429-type fail-closed failures
+          # (04:20 UTC: concurrent runs rate-limited each other) — those
+          # rerun off-peak, don't raise this again. Real failures still red
+          # via fail-on-severity: blocking; this only tolerates
+          # slow-but-successful reviews.
+          timeout-seconds: 900
           team: "quality:1,security:1,performance:1"
           # This repo must commit dist/index.cjs (the action runs from it), so
           # every src change inflates the diff ~13 MB. Exclude it from the
