@@ -42432,7 +42432,13 @@ function createLiteLLMDeepSeekProvider(opts) {
       // (model-cost.ts is the single source for the default table).
       cost: opts.costByModel?.[mid] ?? DEFAULT_DEEPSEEK_COST,
       contextWindow: 1e6,
-      maxTokens: 384e3
+      // pi-ai >= 0.87 sends max_completion_tokens = model.maxTokens by
+      // default (0.80 omitted it when unset). MiMo caps completion tokens at
+      // 131072 across the v2.x family and 400s above it — declaring 384000
+      // here broke every MiMo consumer for the lifetime of v1.10.0 (ops
+      // issue #126). DeepSeek-shaped ids keep the 384000 ceiling the dogfood
+      // runs already exercised.
+      maxTokens: mid.startsWith("mimo") ? 131072 : 384e3
     })),
     api: openAICompletionsApi()
   });

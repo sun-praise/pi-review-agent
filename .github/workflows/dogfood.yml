@@ -10,6 +10,15 @@ jobs:
     permissions:
       contents: read
       pull-requests: write   # needed to post the review comment
+    strategy:
+      fail-fast: false
+      matrix:
+        # Cover both provider families. v1.10.0 shipped a
+        # max_completion_tokens value only deepseek tolerated (MiMo caps at
+        # 131072 and 400s above it); a deepseek-only dogfood stayed green
+        # through it (ops issue #126). Both legs gate the PR via check
+        # status; the standing comment shows whichever leg finishes last.
+        model: [deepseek-v4-flash, mimo-v2.6-flash]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -39,6 +48,7 @@ jobs:
       - name: Run pi-review-agent on this PR
         uses: ./
         with:
+          model: ${{ matrix.model }}
           team: "quality:1,security:1,performance:1"
           # This repo must commit dist/index.cjs (the action runs from it), so
           # every src change inflates the diff ~13 MB. Exclude it from the

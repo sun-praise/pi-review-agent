@@ -235,3 +235,25 @@ pi-ai/pi-agent-core 0.80.2 → 0.87.1（#79）重建 dist 时体积骤降，diff
 - Source: session_analysis
 - Related Files: package.json, dist/index.cjs, tsup.config.ts
 - Tags: deps, pi-ai, tree-shaking, bundle-size, issue-79
+
+## [LRN-20260927-002] pitfall
+
+**Logged**: 2026-09-27T00:00:00Z
+**Priority**: high
+**Status**: active
+**Area**: ci
+
+### Summary
+`v1` moving tag 让发版**即时全量生效**；pi-ai 0.80→0.87 把「不发 max_completion_tokens」变成「默认发 model.maxTokens」——参数契约变化撞上 MiMo 131072 上限，v1.10.0 上线 ~100 秒后所有 MiMo 消费方 400 全红，而 dogfood 因主模型是 deepseek（容忍 384000）全程绿灯没拦住。
+
+### Details
+ops issue #126：svtter-thesis 三 reviewer 全 400，LiteLLM 报错文案 "Received Model Group=mimo-v2.6-pro" 误导排查方向（真实上游错误藏在 param 字段：max_completion_tokens is too large: 384000 / supports at most 131072）。pi-ai 0.80.2 的 buildBaseOptions 不填默认 maxTokens，0.87.1 改为 `options?.maxTokens ?? model.maxTokens` 且 openai-completions 调用之。发版时间线：03:43:06 release+tag 前移 → 03:44:51 首个 400。处置：v1.10.0 release+tag 删除、v1 拨回 v1.9.0，消费方即刻恢复。
+
+### Suggested Action
+- 判断标志：跨依赖大版本升级 + moving tag 发版 = 先 diff 默认参数行为（本地 capture server 抓 wire），再发版；LiteLLM "Param Incorrect" 报错要看 param 字段原文，别被 Model Group 前缀带偏。
+- 修法：provider per-model maxTokens（mimo 系 131072）；dogfood 加 model matrix 覆盖 deepseek+mimo 两族。
+
+### Metadata
+- Source: incident
+- Related Files: src/provider.ts, .github/workflows/dogfood.yml
+- Tags: moving-tag, release, param-contract, pi-ai-upgrade, mimo, ops-126
