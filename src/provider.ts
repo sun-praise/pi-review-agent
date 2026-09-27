@@ -6,9 +6,21 @@ import { DEFAULT_DEEPSEEK_COST, type ModelCostTable } from "./model-cost.js";
 /**
  * Sentinel meaning "do not send max_completion_tokens on the wire". Relies on
  * pi-ai's falsy skip (`if (options?.maxTokens)`) in the openai-completions
- * param builder. Do NOT change this to `undefined` or remove the field: a
- * pi-ai that ever sends model.maxTokens verbatim would put 0 on the wire and
- * 400 every model family at once (ops issue #126 shape, wider blast radius).
+ * param builder, plus clampMaxTokensToContext returning Math.min(0, positive)
+ * = 0. `Model.maxTokens` is a required number, so the field cannot be deleted;
+ * do NOT change the value either: the danger is exactly this 0 meeting a
+ * pi-ai that stops skipping falsy values — it would send
+ * max_completion_tokens: 0 verbatim and 400 every model family at once (ops
+ * issue #126 shape, wider blast radius). (undefined would today collapse to
+ * NaN via Math.min and still be skipped — but it violates the type and
+ * invites exactly that regression, so keep the explicit 0.)
+ *
+ * Side channel to know about: resolveClampedThinkingBudget falls back to
+ * model.maxTokens as the thinking-budget ceiling, so 0 also disables any
+ * future thinking-token budget. That is moot today (this provider sets no
+ * thinkingTokenBudgetField); if one is ever added per family, revisit this
+ * ceiling.
+ *
  * The pi dependency versions are pinned exactly in package.json so this
  * contract can only move through a deliberate upgrade — which the mimo
  * dogfood leg (fail-on-severity: blocking) then verifies live.

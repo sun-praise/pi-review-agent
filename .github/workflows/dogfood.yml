@@ -15,6 +15,10 @@ concurrency:
 
 jobs:
   review:
+    # Fork PRs have no access to LITELLM_URL/LITELLM_API_KEY; without this
+    # guard the armed gate (fail-on-severity: blocking) would fail-closed on
+    # every external contribution and permanently block them (#82 review W5).
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
