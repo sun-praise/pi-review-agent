@@ -46,7 +46,7 @@ import { buildStatsEvent, recordStats, resolveRunIdentity } from "./stats.js";
 import { checkWorkspace } from "./workspace-check.js";
 import { buildSingleJsonResult, buildTeamJsonResult, type JsonRunResult } from "./json-output.js";
 import { resolveSessionDirName } from "./session-dir.js";
-import { computeDeltaDiff } from "./delta-diff.js";
+import { resolveIncremental } from "./incremental.js";
 
 
 function loadDiff(opts: CliOptions): string {
@@ -257,6 +257,7 @@ async function runSingle(
         coordinator: null,
         verdict: null,
         incrementalSince: opts.incrementalSince || null,
+        incrementalFallback: opts.incrementalFallback || null,
         severity: {
           decision: severity.decision,
           blocking: severity.blockingCount,
@@ -383,6 +384,7 @@ async function runTeam(
           : null,
         verdict: result.verdict,
         incrementalSince: opts.incrementalSince || null,
+        incrementalFallback: opts.incrementalFallback || null,
         severity: {
           decision: result.severity.decision,
           blocking: result.severity.blockingCount,
@@ -475,9 +477,10 @@ async function attachRelatedContext(opts: CliOptions): Promise<void> {
  * along; the verdict is judged on the PR's cumulative state), and the full
  * diff is kept for the verifier's changed-lines check.
  *
- * Fail-open at every layer — no anchor, no git delta, no compare API → full
- * review, exactly the pre-incremental behavior. An empty delta ("") passes
- * through: the run then legitimately reports over an empty change set.
+ * The decision tree lives in incremental.ts (unit-tested there): fail-open
+ * at every layer — no self-authored anchor, non-ancestor anchor
+ * (rebase/force-push), empty delta, unavailable full diff, git and compare
+ * both failing → full review, exactly the pre-incremental behavior.
  *
  * Runs AFTER the stale-tree guard (which checks the full diff's added files)
  * and BEFORE attachRelatedContext (whose blast radius must cover only the
@@ -486,66 +489,31 @@ async function attachRelatedContext(opts: CliOptions): Promise<void> {
  * this point on, same contract as prContext/relatedContext.
  */
 async function applyIncrementalDiff(opts: CliOptions, adapter: PlatformAdapter): Promise<void> {
-  if (opts.forceFull) {
-    process.stderr.write("incremental: force-full set — running a full review\n");
-    return;
-  }
   if (!opts.incremental) return;
-  const prInfo = adapter.resolvePrFromEnv(process.env);
-  if (!prInfo || !prInfo.headSha) {
-    process.stderr.write("incremental: no platform PR identity (pr/head sha) — full review\n");
+  const query = { forceFull: opts.forceFull, pr: opts.pr, cwd: opts.cwd };
+  const outcome = await resolveIncremental(
+    query,
+    adapter,
+    preparedDiffCache.get(opts),
+    process.env,
+  );
+  if (outcome.mode === "full") {
+    // Observability for degradation analysis (stats event): force-full is a
+    // deliberate request, everything else is a fallback worth counting.
+    if (outcome.degraded) opts.incrementalFallback = outcome.reason;
+    process.stderr.write(`incremental: ${outcome.reason} — full review\n`);
     return;
   }
-  const anchor = await adapter.getLastReviewAnchor({
-    apiBase: prInfo.apiBase,
-    repository: prInfo.repository,
-    pr: opts.pr,
-    token: prInfo.token,
-  });
-  if (!anchor) {
-    process.stderr.write("incremental: no prior review anchor — full review\n");
-    return;
-  }
-  if (anchor.sha === prInfo.headSha) {
-    process.stderr.write(
-      "incremental: anchor already at head (re-run of the same commit) — full review\n",
-    );
-    return;
-  }
-  const delta = await computeDeltaDiff(anchor.sha, prInfo.headSha, opts.cwd, {
-    fetchCompare: (base, head) =>
-      adapter.fetchCompareDiff({
-        apiBase: prInfo.apiBase,
-        repository: prInfo.repository,
-        pr: opts.pr,
-        token: prInfo.token,
-        base,
-        head,
-      }),
-  });
-  if (delta === null) {
-    process.stderr.write(
-      `incremental: delta since ${anchor.sha.slice(0, 8)} unavailable (git and compare both failed) — full review\n`,
-    );
-    return;
-  }
-  if (delta.trim() === "") {
-    process.stderr.write(
-      "incremental: delta is empty (nothing reviewable changed since the anchor)\n",
-    );
-  }
-  const full = preparedDiffCache.get(opts);
-  if (full !== undefined) opts.fullDiffForVerify = full;
-  opts.diffInline = delta;
+  opts.fullDiffForVerify = outcome.fullDiff;
+  opts.diffInline = outcome.delta;
   opts.diffFile = undefined;
   preparedDiffCache.delete(opts);
-  opts.incrementalSince = anchor.sha;
-  opts.previousReview = anchor.body;
-  const deltaKb = Math.round(Buffer.byteLength(delta, "utf8") / 1024);
-  const fullNote =
-    full !== undefined ? `, full ${Math.round(Buffer.byteLength(full, "utf8") / 1024)} KB` : "";
+  opts.incrementalSince = outcome.since;
+  opts.previousReview = outcome.previousReview;
+  const deltaKb = Math.round(Buffer.byteLength(outcome.delta, "utf8") / 1024);
+  const fullKb = Math.round(Buffer.byteLength(outcome.fullDiff, "utf8") / 1024);
   process.stderr.write(
-    `incremental: reviewing changes since ${anchor.sha.slice(0, 8)} (delta ${deltaKb} KB${fullNote})\n`,
+    `incremental: reviewing changes since ${outcome.since.slice(0, 8)} (delta ${deltaKb} KB, full ${fullKb} KB)\n`,
   );
 }
 

@@ -115,6 +115,11 @@ export interface CliOptions {
   /** Populated in main() when an incremental delta was applied: the sha the
    *  delta starts from. Empty = full review. */
   incrementalSince: string;
+  /** Populated in main() when incremental was ENABLED but degraded to a
+   *  full review (empty delta, non-ancestor anchor, tool failure...).
+   *  Empty = no attempted-and-degraded run (delta applied, disabled, or
+   *  forced-full by explicit request). Feeds the stats event. */
+  incrementalFallback: string;
   /** Populated in main() together with incrementalSince: the previous
    *  round's posted summary, injected into every reviewer prompt. */
   previousReview: string;
@@ -274,6 +279,7 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     ),
     forceFull: isTruthyFlag(args["force-full"], env.PI_REVIEW_FORCE_FULL),
     incrementalSince: "",
+    incrementalFallback: "",
     previousReview: "",
     fullDiffForVerify: "",
   };

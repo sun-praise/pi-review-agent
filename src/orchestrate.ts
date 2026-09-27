@@ -52,7 +52,11 @@ export interface TeamReviewOptions {
    * Diff for the verifier's changed-lines rule. In incremental runs this is
    * the FULL PR diff: a carry-forward finding may legitimately target a line
    * an earlier round changed, which the delta alone would call a
-   * hallucination and demote. Defaults to `diff` (full-review runs). */
+   * hallucination and demote. Deliberate trade-off — the whitelist then
+   * spans every line the PR ever changed, so a fabricated line number inside
+   * those lines is less likely to be caught; carry-forward completeness
+   * beats that stricter-but-wrong baseline. Defaults to `diff`
+   * (full-review runs, whitelist unchanged). */
   verifyDiff?: string;
   cwd: string;
   sessionsRoot: string;

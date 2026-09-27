@@ -41456,15 +41456,17 @@ function parseAnchorSha(body) {
   const sha = body.slice(shaStart, end).trim();
   return SHA_RE.test(sha) ? sha : null;
 }
-function latestReviewAnchor(comments) {
+function latestReviewAnchor(comments, selfLogin) {
   let bestId = -1;
   let best = null;
   for (const c of comments) {
+    if (!c.body || !c.body.includes(SELF_MARKER)) continue;
     const sha = parseAnchorSha(c.body);
     if (sha === null) continue;
+    if (selfLogin !== void 0 && c.login !== selfLogin) continue;
     if (c.id > bestId) {
       bestId = c.id;
-      best = { sha, body: c.body ?? "" };
+      best = { sha, body: c.body };
     }
   }
   return best;
@@ -41619,6 +41621,37 @@ var init_verifier_agent = __esm({
       '  {"verdict":"uphold","reason":"code matches the claim"}',
       '  {"verdict":"demote","reason":"cited line is a getter, no deleteUser call"}'
     ].join("\n");
+  }
+});
+
+// src/platforms/pagination.ts
+function planGiteaPages(total, limit2, cap = GITEA_ANCHOR_PAGE_CAP) {
+  if (total === null) {
+    const forward = [];
+    for (let page = 2; page <= cap; page++) forward.push(page);
+    return forward;
+  }
+  const pages = Math.max(1, Math.ceil(total / limit2));
+  const start = Math.max(2, pages - (cap - 2));
+  const out = [];
+  for (let page = start; page <= pages; page++) out.push(page);
+  return out;
+}
+function lastPageUrl(link) {
+  if (!link) return null;
+  for (const part of link.split(",")) {
+    if (part.includes('rel="last"')) {
+      const match = part.match(/<([^>]+)>/);
+      if (match) return match[1] ?? null;
+    }
+  }
+  return null;
+}
+var GITEA_ANCHOR_PAGE_CAP;
+var init_pagination2 = __esm({
+  "src/platforms/pagination.ts"() {
+    "use strict";
+    GITEA_ANCHOR_PAGE_CAP = 5;
   }
 });
 
@@ -42104,6 +42137,7 @@ var init_adapter = __esm({
   "src/platforms/github/adapter.ts"() {
     "use strict";
     init_review_anchor();
+    init_pagination2();
     init_github_context();
     init_pr_comment();
     GitHubAdapter = class {
@@ -42112,9 +42146,93 @@ var init_adapter = __esm({
       }
       async getLastReviewAnchor(options) {
         if (!options.token) return null;
-        const url = `${options.apiBase}/repos/${options.repository}/issues/${options.pr}/comments?per_page=100`;
         try {
-          const res = await fetch(url, {
+          const [comments, selfLogin] = await Promise.all([
+            this.listAnchorComments(options),
+            this.resolveSelfLogin(options)
+          ]);
+          if (selfLogin !== null) {
+            const anchor = latestReviewAnchor(comments, selfLogin);
+            if (!anchor) {
+              const fingerprinted = comments.filter(
+                (c) => c.body?.includes("<!-- pi-review-agent-sha:")
+              ).length;
+              if (fingerprinted > 0) {
+                process.stderr.write(
+                  `getLastReviewAnchor: ${fingerprinted} fingerprinted comment(s) exist but none is authored by ${selfLogin} \u2014 no trusted anchor, full review
+`
+                );
+              }
+            }
+            return anchor;
+          }
+          process.stderr.write(
+            "getLastReviewAnchor: token login unresolvable (installation token?); anchor identity check degraded to Bot-type authors\n"
+          );
+          const botComments = comments.filter((c) => c.accountType === "Bot");
+          return latestReviewAnchor(botComments, void 0);
+        } catch (err2) {
+          process.stderr.write(
+            `getLastReviewAnchor: failed (${err2 instanceof Error ? err2.message : String(err2)}); incremental falls back to a full review
+`
+          );
+          return null;
+        }
+      }
+      /** Issue comments for anchor selection: the first page plus — when GitHub
+       *  paginates (Link header) — a direct jump to the LAST page, where the
+       *  newest anchor lives. Selection is by id, so which pages were seen
+       *  doesn't matter as long as the newest one is among them. */
+      async listAnchorComments(options) {
+        const first = await this.fetchCommentPage(options, 1);
+        const comments = [...first.comments];
+        const lastUrl = lastPageUrl(first.linkHeader);
+        if (lastUrl !== null && lastUrl !== first.url) {
+          const last = await this.fetchCommentPage(options, -1, lastUrl);
+          comments.push(...last.comments);
+        }
+        return comments;
+      }
+      /** One page of issue comments. `page < 0` fetches `url` verbatim (a Link
+       *  header target); otherwise the documented per_page/page params. */
+      async fetchCommentPage(options, page, url) {
+        const target = page < 0 && url ? url : `${options.apiBase}/repos/${options.repository}/issues/${options.pr}/comments?per_page=100&page=${page}`;
+        const res = await fetch(target, {
+          headers: {
+            Authorization: `Bearer ${options.token}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28"
+          },
+          signal: AbortSignal.timeout(3e4)
+        });
+        if (!res.ok) {
+          await res.body?.cancel();
+          throw new Error(`GitHub API ${res.status} ${res.statusText}`);
+        }
+        const data = await res.json();
+        const comments = [];
+        if (Array.isArray(data)) {
+          for (const c of data) {
+            if (typeof c !== "object" || c === null) continue;
+            if (!("id" in c && "body" in c && "user" in c)) continue;
+            const user = c.user;
+            const login = typeof user === "object" && user !== null && "login" in user && typeof user.login === "string" ? user.login : void 0;
+            const accountType = typeof user === "object" && user !== null && "type" in user && typeof user.type === "string" ? user.type : void 0;
+            if (typeof c.id === "number" && (typeof c.body === "string" || c.body === null)) {
+              comments.push({ id: c.id, body: c.body, login, accountType });
+            }
+          }
+        }
+        return { url: target, linkHeader: res.headers.get("link"), comments };
+      }
+      /** The token's own login (GET /user) so anchor candidates can be filtered
+       *  by author. Null when unresolvable (403 for installation tokens, e.g.
+       *  the default github.token) — see getLastReviewAnchor for the degraded
+       *  path. A resolved login that matches no comment rejects all anchors:
+       *  the run degrades to a full review (fail-open, logged there). */
+      async resolveSelfLogin(options) {
+        try {
+          const res = await fetch(`${options.apiBase}/user`, {
             headers: {
               Authorization: `Bearer ${options.token}`,
               Accept: "application/vnd.github+json",
@@ -42122,22 +42240,16 @@ var init_adapter = __esm({
             },
             signal: AbortSignal.timeout(3e4)
           });
-          if (!res.ok) throw new Error(`GitHub API ${res.status} ${res.statusText}`);
-          const data = await res.json();
-          if (!Array.isArray(data)) return null;
-          const comments = [];
-          for (const c of data) {
-            if (typeof c !== "object" || c === null) continue;
-            if ("id" in c && "body" in c && typeof c.id === "number" && (typeof c.body === "string" || c.body === null)) {
-              comments.push({ id: c.id, body: c.body });
-            }
+          if (!res.ok) {
+            await res.body?.cancel();
+            return null;
           }
-          return latestReviewAnchor(comments);
-        } catch (err2) {
-          process.stderr.write(
-            `getLastReviewAnchor: failed (${err2 instanceof Error ? err2.message : String(err2)}); incremental falls back to a full review
-`
-          );
+          const data = await res.json();
+          if (typeof data === "object" && data !== null && "login" in data && typeof data.login === "string") {
+            return data.login;
+          }
+          return null;
+        } catch {
           return null;
         }
       }
@@ -42155,7 +42267,10 @@ var init_adapter = __esm({
             },
             signal: AbortSignal.timeout(3e4)
           });
-          if (!res.ok) return null;
+          if (!res.ok) {
+            await res.body?.cancel();
+            return null;
+          }
           return await res.text();
         } catch {
           return null;
@@ -42220,6 +42335,7 @@ var init_adapter2 = __esm({
   "src/platforms/gitea/adapter.ts"() {
     "use strict";
     init_review_anchor();
+    init_pagination2();
     init_retry3();
     FETCH_TIMEOUT_MS2 = 3e4;
     GiteaAdapter = class {
@@ -42245,12 +42361,32 @@ var init_adapter2 = __esm({
       async getLastReviewAnchor(options) {
         if (!options.token) return null;
         const base = `${options.apiBase.replace(/\/+$/, "")}/repos/${options.repository}`;
+        const userUrl = `${options.apiBase.replace(/\/+$/, "")}/user`;
         try {
-          const comments = await giteaFetch(
-            `${base}/issues/${options.pr}/comments`,
-            options.token
-          );
-          return latestReviewAnchor(comments);
+          const [pages, self] = await Promise.all([
+            this.listAnchorCommentPages(base, options),
+            giteaFetch(userUrl, options.token)
+          ]);
+          if (!self?.login) {
+            process.stderr.write(
+              "Gitea getLastReviewAnchor: could not resolve the token's own login (/user failed); no trusted anchor \u2014 incremental falls back to a full review\n"
+            );
+            return null;
+          }
+          const candidates = pages.map((c) => ({
+            id: c.id,
+            body: c.body,
+            login: c.user?.login ?? void 0
+          }));
+          const fingerprinted = candidates.filter((c) => c.body?.includes("<!-- pi-review-agent-sha:")).length;
+          const anchor = latestReviewAnchor(candidates, self.login);
+          if (!anchor && fingerprinted > 0) {
+            process.stderr.write(
+              `Gitea getLastReviewAnchor: ${fingerprinted} fingerprinted comment(s) exist but none is authored by ${self.login}; no trusted anchor \u2014 full review
+`
+            );
+          }
+          return anchor;
         } catch (err2) {
           process.stderr.write(
             `Gitea getLastReviewAnchor: failed (${err2 instanceof Error ? err2.message : String(err2)}); incremental falls back to a full review
@@ -42262,6 +42398,51 @@ var init_adapter2 = __esm({
       async fetchCompareDiff(_options) {
         process.stderr.write("Gitea fetchCompareDiff: unsupported \u2014 relying on the git delta path\n");
         return null;
+      }
+      /** Issue-comment pages (50/page, oldest-first). With X-Total-Count the
+       *  plan jumps to the NEWEST window (planGiteaPages); without it, a
+       *  forward walk stops at the first short page — reaching the true end
+       *  only within the cap, beyond which the lookup misses and the caller
+       *  runs a full review (fail-open). */
+      async listAnchorCommentPages(base, options) {
+        const limit2 = 50;
+        const first = await this.fetchCommentPage(base, options, 1, limit2);
+        const out = [...first.batch];
+        if (first.total === null) {
+          for (const page of planGiteaPages(null, limit2)) {
+            const { batch } = await this.fetchCommentPage(base, options, page, limit2);
+            if (batch.length === 0) break;
+            out.push(...batch);
+            if (batch.length < limit2) break;
+          }
+          return out;
+        }
+        for (const page of planGiteaPages(first.total, limit2)) {
+          const { batch } = await this.fetchCommentPage(base, options, page, limit2);
+          if (batch.length === 0) break;
+          out.push(...batch);
+        }
+        return out;
+      }
+      /** One page of issue comments plus its X-Total-Count (null when absent). */
+      async fetchCommentPage(base, options, page, limit2) {
+        const res = await fetchWithTimeout2(
+          `${base}/issues/${options.pr}/comments?limit=${limit2}&page=${page}`,
+          {
+            headers: {
+              Authorization: `Bearer ${options.token}`,
+              Accept: "application/json"
+            }
+          }
+        );
+        if (!res.ok) {
+          await res.text().catch(() => "");
+          throw new Error(`Gitea API ${res.status}: GET issue comments failed`);
+        }
+        const totalRaw = res.headers.get("x-total-count");
+        const total = totalRaw !== null && /^\d+$/.test(totalRaw) ? Number(totalRaw) : null;
+        const batch = await res.json();
+        return { batch: Array.isArray(batch) ? batch : [], total };
       }
       async postComment(context, body) {
         if (!context.token) {
@@ -42688,6 +42869,7 @@ function parseArgs(argv, env = process.env) {
     ),
     forceFull: isTruthyFlag(args["force-full"], env.PI_REVIEW_FORCE_FULL),
     incrementalSince: "",
+    incrementalFallback: "",
     previousReview: "",
     fullDiffForVerify: ""
   };
@@ -46644,6 +46826,7 @@ function buildStatsEvent(input) {
     personas,
     verdict: input.verdict,
     incrementalSince: input.incrementalSince ?? null,
+    incrementalFallback: input.incrementalFallback ?? null,
     severity: input.severity,
     usage,
     costTotal,
@@ -46825,27 +47008,93 @@ var defaultRunGit = (args, cwd, timeoutMs) => {
   return promise;
 };
 async function computeDeltaDiff(prev, head, cwd, deps = {}) {
-  if (!SHA_RE2.test(prev) || !SHA_RE2.test(head)) return null;
+  const unavailable = { error: "unavailable" };
+  if (!SHA_RE2.test(prev) || !SHA_RE2.test(head)) return unavailable;
   const runGit = deps.runGit ?? defaultRunGit;
   const timeoutMs = deps.timeoutMs ?? 6e4;
-  const hasCommit = async (sha) => (await runGit(["cat-file", "-e", `${sha}^{commit}`], cwd, timeoutMs)).code === 0;
-  const fromGit = async () => {
-    if ((await runGit(["rev-parse", "--git-dir"], cwd, timeoutMs)).code !== 0) return null;
-    if (!await hasCommit(prev) || !await hasCommit(head)) {
-      const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
-      if (fetched.code !== 0) return null;
-      if (!await hasCommit(prev) || !await hasCommit(head)) return null;
-    }
-    const diff = await runGit(
-      ["diff", "--no-color", "--no-textconv", "--no-ext-diff", prev, head],
-      cwd,
-      timeoutMs
-    );
-    return diff.code === 0 ? diff.stdout : null;
+  const compare = async () => {
+    if (!deps.fetchCompare) return unavailable;
+    const viaApi = await deps.fetchCompare(prev, head);
+    return viaApi === null ? unavailable : { diff: viaApi };
   };
-  const delta = await fromGit();
-  if (delta !== null) return delta;
-  return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
+  const hasCommit = async (sha) => (await runGit(["cat-file", "-e", `${sha}^{commit}`], cwd, timeoutMs)).code === 0;
+  if ((await runGit(["rev-parse", "--git-dir"], cwd, timeoutMs)).code !== 0) {
+    return compare();
+  }
+  if (!await hasCommit(prev) || !await hasCommit(head)) {
+    const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
+    if (fetched.code !== 0) return compare();
+    if (!await hasCommit(prev) || !await hasCommit(head)) return compare();
+  }
+  const ancestry = await runGit(["merge-base", "--is-ancestor", prev, head], cwd, timeoutMs);
+  if (ancestry.code === 1) return { error: "non-ancestor" };
+  if (ancestry.code !== 0) return compare();
+  const diff = await runGit(
+    ["diff", "--no-color", "--no-textconv", "--no-ext-diff", prev, head],
+    cwd,
+    timeoutMs
+  );
+  if (diff.code !== 0) return compare();
+  return { diff: diff.stdout };
+}
+
+// src/incremental.ts
+async function resolveIncremental(query, adapter, fullDiff, env, deps = {}) {
+  if (query.forceFull) {
+    return { mode: "full", reason: "force-full set" };
+  }
+  if (fullDiff === void 0) {
+    return { mode: "full", reason: "full diff unavailable \u2014 incremental swap skipped" };
+  }
+  const prInfo = adapter.resolvePrFromEnv(env);
+  if (!prInfo || !prInfo.headSha) {
+    return { mode: "full", reason: "no platform PR identity (pr/head sha)" };
+  }
+  const anchorOptions = {
+    apiBase: prInfo.apiBase,
+    repository: prInfo.repository,
+    pr: query.pr,
+    token: prInfo.token
+  };
+  const anchor = await adapter.getLastReviewAnchor(anchorOptions);
+  if (!anchor) {
+    return { mode: "full", reason: "no prior review anchor" };
+  }
+  if (anchor.sha === prInfo.headSha) {
+    return { mode: "full", reason: "anchor already at head (re-run of the same commit)" };
+  }
+  const compute = deps.computeDelta ?? computeDeltaDiff;
+  const result = await compute(anchor.sha, prInfo.headSha, query.cwd, {
+    fetchCompare: (base, head) => adapter.fetchCompareDiff({ ...anchorOptions, base, head })
+  });
+  if (result.error === "non-ancestor") {
+    return {
+      mode: "full",
+      degraded: true,
+      reason: `anchor ${anchor.sha.slice(0, 8)} is not an ancestor of head (rebase/force-push) \u2014 full review`
+    };
+  }
+  if (result.error === "unavailable") {
+    return {
+      mode: "full",
+      degraded: true,
+      reason: `delta since ${anchor.sha.slice(0, 8)} unavailable (git and compare both failed) \u2014 full review`
+    };
+  }
+  if (result.diff.trim() === "") {
+    return {
+      mode: "full",
+      degraded: true,
+      reason: "delta is empty (nothing changed since the anchor; e.g. rebase/amend-only)"
+    };
+  }
+  return {
+    mode: "delta",
+    since: anchor.sha,
+    previousReview: anchor.body,
+    delta: result.diff,
+    fullDiff
+  };
 }
 
 // src/index.ts
@@ -47023,6 +47272,7 @@ async function runSingle(opts, adapter, platform) {
         coordinator: null,
         verdict: null,
         incrementalSince: opts.incrementalSince || null,
+        incrementalFallback: opts.incrementalFallback || null,
         severity: {
           decision: severity.decision,
           blocking: severity.blockingCount,
@@ -47135,6 +47385,7 @@ async function runTeam(opts, adapter, platform) {
         coordinator: result.coordinator ? { name: "coordinator", usage: result.coordinator.usage, resumed: result.coordinator.resumed } : null,
         verdict: result.verdict,
         incrementalSince: opts.incrementalSince || null,
+        incrementalFallback: opts.incrementalFallback || null,
         severity: {
           decision: result.severity.decision,
           blocking: result.severity.blockingCount,
@@ -47214,65 +47465,30 @@ async function attachRelatedContext(opts) {
   }
 }
 async function applyIncrementalDiff(opts, adapter) {
-  if (opts.forceFull) {
-    process.stderr.write("incremental: force-full set \u2014 running a full review\n");
-    return;
-  }
   if (!opts.incremental) return;
-  const prInfo = adapter.resolvePrFromEnv(process.env);
-  if (!prInfo || !prInfo.headSha) {
-    process.stderr.write("incremental: no platform PR identity (pr/head sha) \u2014 full review\n");
+  const query = { forceFull: opts.forceFull, pr: opts.pr, cwd: opts.cwd };
+  const outcome = await resolveIncremental(
+    query,
+    adapter,
+    preparedDiffCache.get(opts),
+    process.env
+  );
+  if (outcome.mode === "full") {
+    if (outcome.degraded) opts.incrementalFallback = outcome.reason;
+    process.stderr.write(`incremental: ${outcome.reason} \u2014 full review
+`);
     return;
   }
-  const anchor = await adapter.getLastReviewAnchor({
-    apiBase: prInfo.apiBase,
-    repository: prInfo.repository,
-    pr: opts.pr,
-    token: prInfo.token
-  });
-  if (!anchor) {
-    process.stderr.write("incremental: no prior review anchor \u2014 full review\n");
-    return;
-  }
-  if (anchor.sha === prInfo.headSha) {
-    process.stderr.write(
-      "incremental: anchor already at head (re-run of the same commit) \u2014 full review\n"
-    );
-    return;
-  }
-  const delta = await computeDeltaDiff(anchor.sha, prInfo.headSha, opts.cwd, {
-    fetchCompare: (base, head) => adapter.fetchCompareDiff({
-      apiBase: prInfo.apiBase,
-      repository: prInfo.repository,
-      pr: opts.pr,
-      token: prInfo.token,
-      base,
-      head
-    })
-  });
-  if (delta === null) {
-    process.stderr.write(
-      `incremental: delta since ${anchor.sha.slice(0, 8)} unavailable (git and compare both failed) \u2014 full review
-`
-    );
-    return;
-  }
-  if (delta.trim() === "") {
-    process.stderr.write(
-      "incremental: delta is empty (nothing reviewable changed since the anchor)\n"
-    );
-  }
-  const full = preparedDiffCache.get(opts);
-  if (full !== void 0) opts.fullDiffForVerify = full;
-  opts.diffInline = delta;
+  opts.fullDiffForVerify = outcome.fullDiff;
+  opts.diffInline = outcome.delta;
   opts.diffFile = void 0;
   preparedDiffCache.delete(opts);
-  opts.incrementalSince = anchor.sha;
-  opts.previousReview = anchor.body;
-  const deltaKb = Math.round(Buffer.byteLength(delta, "utf8") / 1024);
-  const fullNote = full !== void 0 ? `, full ${Math.round(Buffer.byteLength(full, "utf8") / 1024)} KB` : "";
+  opts.incrementalSince = outcome.since;
+  opts.previousReview = outcome.previousReview;
+  const deltaKb = Math.round(Buffer.byteLength(outcome.delta, "utf8") / 1024);
+  const fullKb = Math.round(Buffer.byteLength(outcome.fullDiff, "utf8") / 1024);
   process.stderr.write(
-    `incremental: reviewing changes since ${anchor.sha.slice(0, 8)} (delta ${deltaKb} KB${fullNote})
+    `incremental: reviewing changes since ${outcome.since.slice(0, 8)} (delta ${deltaKb} KB, full ${fullKb} KB)
 `
   );
 }
