@@ -103,11 +103,17 @@ export class GiteaAdapter implements PlatformAdapter {
     if (!options.token) return null;
     const base = `${options.apiBase.replace(/\/+$/, "")}/repos/${options.repository}`;
     try {
-      const comments = await giteaFetch<GiteaComment[]>(
-        `${base}/issues/${options.pr}/comments`,
-        options.token,
+      // Comments + the token's own identity in parallel; the anchor must be
+      // authored by this very login (see review-anchor.ts — a copied
+      // fingerprint in someone else's comment must not steer the delta).
+      const [comments, self] = await Promise.all([
+        giteaFetch<GiteaComment[]>(`${base}/issues/${options.pr}/comments`, options.token),
+        giteaFetch<{ login: string | null }>(`${base}/user`, options.token).catch(() => null),
+      ]);
+      return latestReviewAnchor(
+        comments.map((c) => ({ id: c.id, body: c.body, login: c.user?.login ?? undefined })),
+        self?.login ?? undefined,
       );
-      return latestReviewAnchor(comments);
     } catch (err: unknown) {
       process.stderr.write(
         `Gitea getLastReviewAnchor: failed (${err instanceof Error ? err.message : String(err)}); incremental falls back to a full review\n`,

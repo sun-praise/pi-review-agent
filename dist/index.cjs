@@ -41456,15 +41456,17 @@ function parseAnchorSha(body) {
   const sha = body.slice(shaStart, end).trim();
   return SHA_RE.test(sha) ? sha : null;
 }
-function latestReviewAnchor(comments) {
+function latestReviewAnchor(comments, selfLogin) {
   let bestId = -1;
   let best = null;
   for (const c of comments) {
+    if (!c.body || !c.body.includes(SELF_MARKER)) continue;
     const sha = parseAnchorSha(c.body);
     if (sha === null) continue;
+    if (selfLogin !== void 0 && c.login !== selfLogin) continue;
     if (c.id > bestId) {
       bestId = c.id;
-      best = { sha, body: c.body ?? "" };
+      best = { sha, body: c.body };
     }
   }
   return best;
@@ -42112,9 +42114,56 @@ var init_adapter = __esm({
       }
       async getLastReviewAnchor(options) {
         if (!options.token) return null;
-        const url = `${options.apiBase}/repos/${options.repository}/issues/${options.pr}/comments?per_page=100`;
         try {
-          const res = await fetch(url, {
+          const [comments, selfLogin] = await Promise.all([
+            this.listAnchorComments(options),
+            this.resolveSelfLogin(options)
+          ]);
+          return latestReviewAnchor(comments, selfLogin ?? void 0);
+        } catch (err2) {
+          process.stderr.write(
+            `getLastReviewAnchor: failed (${err2 instanceof Error ? err2.message : String(err2)}); incremental falls back to a full review
+`
+          );
+          return null;
+        }
+      }
+      /** One desc-ordered page of issue comments, narrowed to the fields the
+       *  anchor selection needs (id, body, author login). */
+      async listAnchorComments(options) {
+        const url = `${options.apiBase}/repos/${options.repository}/issues/${options.pr}/comments?per_page=100&sort=created&direction=desc`;
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${options.token}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28"
+          },
+          signal: AbortSignal.timeout(3e4)
+        });
+        if (!res.ok) {
+          await res.body?.cancel();
+          throw new Error(`GitHub API ${res.status} ${res.statusText}`);
+        }
+        const data = await res.json();
+        if (!Array.isArray(data)) return [];
+        const comments = [];
+        for (const c of data) {
+          if (typeof c !== "object" || c === null) continue;
+          if (!("id" in c && "body" in c && "user" in c)) continue;
+          const user = c.user;
+          const login = typeof user === "object" && user !== null && "login" in user && typeof user.login === "string" ? user.login : void 0;
+          if (typeof c.id === "number" && (typeof c.body === "string" || c.body === null)) {
+            comments.push({ id: c.id, body: c.body, login });
+          }
+        }
+        return comments;
+      }
+      /** The token's own login (GET /user) so anchor candidates can be filtered
+       *  by author. Null when unresolvable — selection then degrades to
+       *  marker+fingerprint (see review-anchor.ts). */
+      async resolveSelfLogin(options) {
+        try {
+          const res = await fetch(`${options.apiBase}/user`, {
             headers: {
               Authorization: `Bearer ${options.token}`,
               Accept: "application/vnd.github+json",
@@ -42122,22 +42171,20 @@ var init_adapter = __esm({
             },
             signal: AbortSignal.timeout(3e4)
           });
-          if (!res.ok) throw new Error(`GitHub API ${res.status} ${res.statusText}`);
-          const data = await res.json();
-          if (!Array.isArray(data)) return null;
-          const comments = [];
-          for (const c of data) {
-            if (typeof c !== "object" || c === null) continue;
-            if ("id" in c && "body" in c && typeof c.id === "number" && (typeof c.body === "string" || c.body === null)) {
-              comments.push({ id: c.id, body: c.body });
-            }
-          }
-          return latestReviewAnchor(comments);
-        } catch (err2) {
-          process.stderr.write(
-            `getLastReviewAnchor: failed (${err2 instanceof Error ? err2.message : String(err2)}); incremental falls back to a full review
+          if (!res.ok) {
+            await res.body?.cancel();
+            process.stderr.write(
+              `getLastReviewAnchor: /user returned ${res.status}; anchor identity check degrades to marker+fingerprint
 `
-          );
+            );
+            return null;
+          }
+          const data = await res.json();
+          if (typeof data === "object" && data !== null && "login" in data && typeof data.login === "string") {
+            return data.login;
+          }
+          return null;
+        } catch {
           return null;
         }
       }
@@ -42155,7 +42202,10 @@ var init_adapter = __esm({
             },
             signal: AbortSignal.timeout(3e4)
           });
-          if (!res.ok) return null;
+          if (!res.ok) {
+            await res.body?.cancel();
+            return null;
+          }
           return await res.text();
         } catch {
           return null;
@@ -42246,11 +42296,14 @@ var init_adapter2 = __esm({
         if (!options.token) return null;
         const base = `${options.apiBase.replace(/\/+$/, "")}/repos/${options.repository}`;
         try {
-          const comments = await giteaFetch(
-            `${base}/issues/${options.pr}/comments`,
-            options.token
+          const [comments, self] = await Promise.all([
+            giteaFetch(`${base}/issues/${options.pr}/comments`, options.token),
+            giteaFetch(`${base}/user`, options.token).catch(() => null)
+          ]);
+          return latestReviewAnchor(
+            comments.map((c) => ({ id: c.id, body: c.body, login: c.user?.login ?? void 0 })),
+            self?.login ?? void 0
           );
-          return latestReviewAnchor(comments);
         } catch (err2) {
           process.stderr.write(
             `Gitea getLastReviewAnchor: failed (${err2 instanceof Error ? err2.message : String(err2)}); incremental falls back to a full review
@@ -46829,23 +46882,76 @@ async function computeDeltaDiff(prev, head, cwd, deps = {}) {
   const runGit = deps.runGit ?? defaultRunGit;
   const timeoutMs = deps.timeoutMs ?? 6e4;
   const hasCommit = async (sha) => (await runGit(["cat-file", "-e", `${sha}^{commit}`], cwd, timeoutMs)).code === 0;
-  const fromGit = async () => {
-    if ((await runGit(["rev-parse", "--git-dir"], cwd, timeoutMs)).code !== 0) return null;
+  if ((await runGit(["rev-parse", "--git-dir"], cwd, timeoutMs)).code !== 0) {
+    return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
+  }
+  if (!await hasCommit(prev) || !await hasCommit(head)) {
+    const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
+    if (fetched.code !== 0) return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
     if (!await hasCommit(prev) || !await hasCommit(head)) {
-      const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
-      if (fetched.code !== 0) return null;
-      if (!await hasCommit(prev) || !await hasCommit(head)) return null;
+      return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
     }
-    const diff = await runGit(
-      ["diff", "--no-color", "--no-textconv", "--no-ext-diff", prev, head],
-      cwd,
-      timeoutMs
-    );
-    return diff.code === 0 ? diff.stdout : null;
+  }
+  const ancestry = await runGit(["merge-base", "--is-ancestor", prev, head], cwd, timeoutMs);
+  if (ancestry.code === 1) return null;
+  if (ancestry.code !== 0) return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
+  const diff = await runGit(
+    ["diff", "--no-color", "--no-textconv", "--no-ext-diff", prev, head],
+    cwd,
+    timeoutMs
+  );
+  if (diff.code !== 0) return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
+  return diff.stdout;
+}
+
+// src/incremental.ts
+async function resolveIncremental(query, adapter, fullDiff, env, deps = {}) {
+  if (query.forceFull) {
+    return { mode: "full", reason: "force-full set" };
+  }
+  const prInfo = adapter.resolvePrFromEnv(env);
+  if (!prInfo || !prInfo.headSha) {
+    return { mode: "full", reason: "no platform PR identity (pr/head sha)" };
+  }
+  const anchorOptions = {
+    apiBase: prInfo.apiBase,
+    repository: prInfo.repository,
+    pr: query.pr,
+    token: prInfo.token
   };
-  const delta = await fromGit();
-  if (delta !== null) return delta;
-  return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
+  const anchor = await adapter.getLastReviewAnchor(anchorOptions);
+  if (!anchor) {
+    return { mode: "full", reason: "no prior review anchor" };
+  }
+  if (anchor.sha === prInfo.headSha) {
+    return { mode: "full", reason: "anchor already at head (re-run of the same commit)" };
+  }
+  const compute = deps.computeDelta ?? computeDeltaDiff;
+  const delta = await compute(anchor.sha, prInfo.headSha, query.cwd, {
+    fetchCompare: (base, head) => adapter.fetchCompareDiff({ ...anchorOptions, base, head })
+  });
+  if (delta === null) {
+    return {
+      mode: "full",
+      reason: `delta since ${anchor.sha.slice(0, 8)} unavailable (git and compare both failed, or the anchor is not an ancestor of head)`
+    };
+  }
+  if (delta.trim() === "") {
+    return {
+      mode: "full",
+      reason: "delta is empty (nothing changed since the anchor; e.g. rebase/amend-only)"
+    };
+  }
+  if (fullDiff === void 0) {
+    return { mode: "full", reason: "full diff unavailable \u2014 incremental swap skipped" };
+  }
+  return {
+    mode: "delta",
+    since: anchor.sha,
+    previousReview: anchor.body,
+    delta,
+    fullDiff
+  };
 }
 
 // src/index.ts
@@ -47214,65 +47320,28 @@ async function attachRelatedContext(opts) {
   }
 }
 async function applyIncrementalDiff(opts, adapter) {
-  if (opts.forceFull) {
-    process.stderr.write("incremental: force-full set \u2014 running a full review\n");
-    return;
-  }
   if (!opts.incremental) return;
-  const prInfo = adapter.resolvePrFromEnv(process.env);
-  if (!prInfo || !prInfo.headSha) {
-    process.stderr.write("incremental: no platform PR identity (pr/head sha) \u2014 full review\n");
+  const outcome = await resolveIncremental(
+    { forceFull: opts.forceFull, pr: opts.pr, cwd: opts.cwd },
+    adapter,
+    preparedDiffCache.get(opts),
+    process.env
+  );
+  if (outcome.mode === "full") {
+    process.stderr.write(`incremental: ${outcome.reason} \u2014 full review
+`);
     return;
   }
-  const anchor = await adapter.getLastReviewAnchor({
-    apiBase: prInfo.apiBase,
-    repository: prInfo.repository,
-    pr: opts.pr,
-    token: prInfo.token
-  });
-  if (!anchor) {
-    process.stderr.write("incremental: no prior review anchor \u2014 full review\n");
-    return;
-  }
-  if (anchor.sha === prInfo.headSha) {
-    process.stderr.write(
-      "incremental: anchor already at head (re-run of the same commit) \u2014 full review\n"
-    );
-    return;
-  }
-  const delta = await computeDeltaDiff(anchor.sha, prInfo.headSha, opts.cwd, {
-    fetchCompare: (base, head) => adapter.fetchCompareDiff({
-      apiBase: prInfo.apiBase,
-      repository: prInfo.repository,
-      pr: opts.pr,
-      token: prInfo.token,
-      base,
-      head
-    })
-  });
-  if (delta === null) {
-    process.stderr.write(
-      `incremental: delta since ${anchor.sha.slice(0, 8)} unavailable (git and compare both failed) \u2014 full review
-`
-    );
-    return;
-  }
-  if (delta.trim() === "") {
-    process.stderr.write(
-      "incremental: delta is empty (nothing reviewable changed since the anchor)\n"
-    );
-  }
-  const full = preparedDiffCache.get(opts);
-  if (full !== void 0) opts.fullDiffForVerify = full;
-  opts.diffInline = delta;
+  opts.fullDiffForVerify = outcome.fullDiff;
+  opts.diffInline = outcome.delta;
   opts.diffFile = void 0;
   preparedDiffCache.delete(opts);
-  opts.incrementalSince = anchor.sha;
-  opts.previousReview = anchor.body;
-  const deltaKb = Math.round(Buffer.byteLength(delta, "utf8") / 1024);
-  const fullNote = full !== void 0 ? `, full ${Math.round(Buffer.byteLength(full, "utf8") / 1024)} KB` : "";
+  opts.incrementalSince = outcome.since;
+  opts.previousReview = outcome.previousReview;
+  const deltaKb = Math.round(Buffer.byteLength(outcome.delta, "utf8") / 1024);
+  const fullKb = Math.round(Buffer.byteLength(outcome.fullDiff, "utf8") / 1024);
   process.stderr.write(
-    `incremental: reviewing changes since ${anchor.sha.slice(0, 8)} (delta ${deltaKb} KB${fullNote})
+    `incremental: reviewing changes since ${outcome.since.slice(0, 8)} (delta ${deltaKb} KB, full ${fullKb} KB)
 `
   );
 }

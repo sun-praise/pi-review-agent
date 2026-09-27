@@ -208,17 +208,25 @@ How a delta run works:
 
 - delta = `git diff <anchor-sha>..<head>`, computed from the git object
   database (working-tree state is never read; missing commits are fetched
-  from `origin` by SHA first). If git can't deliver (no checkout, SHA wants
-  disabled, force-push with an unreachable anchor), the GitHub compare API
-  is tried; failing that, the run silently falls back to a **full review** —
-  incremental is strictly an optimization.
+  from `origin` by SHA first). The anchor must be an **ancestor** of head —
+  a rebase or force-push makes the pair non-ancestor and the run falls back
+  to a full review (a two-dot diff would misread the divergence as new
+  changes). If git can't deliver for other reasons (no checkout, SHA wants
+  disabled), the GitHub compare API is tried; failing that, the run silently
+  falls back to a **full review** — incremental is strictly an optimization.
+- Anchor selection is identity-checked: candidates must carry the agent's
+  marker AND be authored by the token's own login, so a copied fingerprint
+  in someone else's comment cannot steer the delta.
 - The previous round's summary is injected into every reviewer prompt
   (unresolved findings ride along) and the verdict is judged on the PR's
   **cumulative state** — an incremental run can still say CANNOT MERGE over
   an unresolved earlier finding.
 - The verifier keeps the full diff as its changed-lines baseline, so a
   carried-forward finding pinned to a line an earlier round changed is not
-  demoted as a hallucination.
+  demoted as a hallucination. Trade-off: the whitelist then spans every line
+  the PR ever changed, so the rule layer's hallucination guard is looser on
+  those lines than in a full review — deliberate, in favor of carry-forward
+  completeness.
 - The PR comment and the stats event (`incrementalSince` field) both mark the
   run as incremental.
 

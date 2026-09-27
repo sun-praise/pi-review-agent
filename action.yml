@@ -216,8 +216,10 @@ inputs:
   force-full:
     description: >
       Force a full review this run even when an incremental anchor exists.
-      Wire it to a label/command trigger (e.g. contains(github.event.label.
-      name, 'full-review')) for on-demand full re-reviews.
+      Wire it to a label/command trigger for on-demand full re-reviews
+      (expression kept on one line — folded scalars would otherwise
+      inject a space mid-token):
+      contains(github.event.label.name, 'full-review')
     required: false
     default: "false"
   style-guide:

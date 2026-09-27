@@ -52,6 +52,7 @@ describe("computeDeltaDiff — git path", () => {
     const { runner, calls } = scriptedGit({
       "rev-parse": () => ok(".git"),
       "cat-file": catFileOk,
+      "merge-base": () => ok(),
       diff: () => ok(DELTA),
     });
     assert.equal(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), DELTA);
@@ -78,6 +79,7 @@ describe("computeDeltaDiff — git path", () => {
         prevLocal = true;
         return ok();
       },
+      "merge-base": () => ok(),
       diff: () => ok(DELTA),
     });
     assert.equal(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), DELTA);
@@ -91,6 +93,7 @@ describe("computeDeltaDiff — git path", () => {
     const { runner } = scriptedGit({
       "rev-parse": () => ok(".git"),
       "cat-file": catFileOk,
+      "merge-base": () => ok(),
       diff: () => ok(""),
     });
     assert.equal(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), "");
@@ -120,6 +123,7 @@ describe("computeDeltaDiff — git path", () => {
       "diff exits non-zero": scriptedGit({
         "rev-parse": () => ok(".git"),
         "cat-file": catFileOk,
+        "merge-base": () => ok(),
         diff: () => fail("fatal: bad object"),
       }),
     };
@@ -139,5 +143,42 @@ describe("computeDeltaDiff — no fallback configured", () => {
   it("returns null when git fails and no compare API is given", async () => {
     const { runner } = scriptedGit({ "rev-parse": () => fail("no repo") });
     assert.equal(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), null);
+  });
+});
+
+describe("computeDeltaDiff — ancestry gate", () => {
+  it("a non-ancestor pair (rebase/force-push) returns null WITHOUT the compare fallback", async () => {
+    const { runner, calls } = scriptedGit({
+      "rev-parse": () => ok(".git"),
+      "cat-file": catFileOk,
+      // exit 1 = prev is NOT an ancestor of head
+      "merge-base": () => ({ code: 1, stdout: "", stderr: "" }),
+      diff: () => ok(DELTA),
+    });
+    let compareCalls = 0;
+    const out = await computeDeltaDiff(PREV, HEAD, "/repo", {
+      runGit: runner,
+      fetchCompare: async () => {
+        compareCalls += 1;
+        return "compare-delta";
+      },
+    });
+    assert.equal(out, null);
+    assert.equal(compareCalls, 0, "three-dot compare would silently miss reverts — must not run");
+    assert.ok(!calls.some((c) => c[0] === "diff"), "no diff computed for a non-ancestor pair");
+  });
+
+  it("a git error during the ancestry check still falls back to compare", async () => {
+    const { runner } = scriptedGit({
+      "rev-parse": () => ok(".git"),
+      "cat-file": catFileOk,
+      // exit >1 = git error, not a definite non-ancestor verdict
+      "merge-base": () => ({ code: 128, stdout: "", stderr: "fatal" }),
+    });
+    const out = await computeDeltaDiff(PREV, HEAD, "/repo", {
+      runGit: runner,
+      fetchCompare: async () => "compare-delta",
+    });
+    assert.equal(out, "compare-delta");
   });
 });

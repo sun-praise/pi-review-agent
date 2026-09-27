@@ -5,12 +5,24 @@
  * Primary path is git: `git diff <prev> <head>` reads ONLY the object
  * database, never the working tree, so a stale checkout cannot skew the
  * delta. Runners check out with depth 1, so the previous head usually isn't
- * local yet — missing commits are fetched from `origin` by SHA first
- * (GitHub enables SHA wants; Gitea depends on server config). If git can't
- * deliver (no repo, unreachable origin, SHA wants disabled), an injectable
- * platform compare API is tried, and failing that the caller falls back to
- * the full-diff review: incremental is an optimization and must never fail
- * a run (fail-open, like every other optional layer in this agent).
+ * local yet — missing commits are fetched from `origin` by SHA first, with
+ * FULL history (no --depth): the ancestry check below has to walk the commit
+ * chain between the two SHAs, and a tree-to-tree diff of two dangling
+ * commits would silently pass it. GitHub enables SHA wants; Gitea depends on
+ * server config.
+ *
+ * Ancestry gate: if `prev` is NOT an ancestor of `head` (rebase, force
+ * push), the two-dot diff would present the whole fork-point divergence as
+ * "new changes" and the compare fallback (three-dot from the merge base)
+ * would silently MISS the reverted/replayed commits — both semantics are
+ * wrong for "what changed since the last review". Non-ancestor therefore
+ * returns null WITHOUT the compare fallback, and the caller runs a full
+ * review.
+ *
+ * Other git failures (no repo, unreachable origin, SHA wants disabled) fall
+ * through to the compare fallback, and failing that the caller falls back to
+ * the full-diff review: incremental is an optimization and must never fail a
+ * run (fail-open, like every other optional layer in this agent).
  *
  * The git runner is injectable so tests drive the decision tree without a
  * repository; the compare fallback is a plain async function for the same
@@ -29,10 +41,8 @@ export type GitRunner = (args: string[], cwd: string, timeoutMs: number) => Prom
 export interface DeltaDiffDeps {
   runGit?: GitRunner;
   /** Platform compare fallback (GitHub REST, diff media type). Returns null
-   *  when unsupported (Gitea) or failed. Note: GitHub's compare endpoint is
-   *  three-dot (merge-base..head), so on a force-push its delta differs from
-   *  the two-dot git path — acceptable for a fallback whose next stop is a
-   *  full review anyway. */
+   *  when unsupported (Gitea) or failed. Only reached when git itself could
+   *  not produce a delta — never for a non-ancestor pair (see above). */
   fetchCompare?: (base: string, head: string) => Promise<string | null>;
   /** Per-call timeout for git invocations. Default 60s. */
   timeoutMs?: number;
@@ -81,26 +91,32 @@ export async function computeDeltaDiff(
   const hasCommit = async (sha: string): Promise<boolean> =>
     (await runGit(["cat-file", "-e", `${sha}^{commit}`], cwd, timeoutMs)).code === 0;
 
-  const fromGit = async (): Promise<string | null> => {
-    // A usable repo must exist (runners without a checkout step, bare dirs).
-    if ((await runGit(["rev-parse", "--git-dir"], cwd, timeoutMs)).code !== 0) return null;
-    // Depth-1 checkouts don't carry the anchor commit; fetch both SHAs from
-    // origin. A failure here (no origin, SHA wants disabled) exits to the
-    // compare fallback.
+  // A usable repo must exist (runners without a checkout step, bare dirs).
+  if ((await runGit(["rev-parse", "--git-dir"], cwd, timeoutMs)).code !== 0) {
+    return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
+  }
+  // Depth-1 checkouts don't carry the anchor commit; fetch both SHAs from
+  // origin with full history (see the module comment for why not --depth).
+  // A failure here (no origin, SHA wants disabled) exits to the compare
+  // fallback.
+  if (!(await hasCommit(prev)) || !(await hasCommit(head))) {
+    const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
+    if (fetched.code !== 0) return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
     if (!(await hasCommit(prev)) || !(await hasCommit(head))) {
-      const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
-      if (fetched.code !== 0) return null;
-      if (!(await hasCommit(prev)) || !(await hasCommit(head))) return null;
+      return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
     }
-    const diff = await runGit(
-      ["diff", "--no-color", "--no-textconv", "--no-ext-diff", prev, head],
-      cwd,
-      timeoutMs,
-    );
-    return diff.code === 0 ? diff.stdout : null;
-  };
-
-  const delta = await fromGit();
-  if (delta !== null) return delta;
-  return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
+  }
+  // Ancestry gate: exit 0 = ancestor (safe two-dot delta), exit 1 = NOT an
+  // ancestor (rebase/force-push) → full review, deliberately skipping the
+  // compare fallback. Any other exit is a git error → compare fallback.
+  const ancestry = await runGit(["merge-base", "--is-ancestor", prev, head], cwd, timeoutMs);
+  if (ancestry.code === 1) return null;
+  if (ancestry.code !== 0) return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
+  const diff = await runGit(
+    ["diff", "--no-color", "--no-textconv", "--no-ext-diff", prev, head],
+    cwd,
+    timeoutMs,
+  );
+  if (diff.code !== 0) return deps.fetchCompare ? deps.fetchCompare(prev, head) : null;
+  return diff.stdout;
 }
