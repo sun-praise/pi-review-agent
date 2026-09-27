@@ -251,7 +251,7 @@ ops issue #126：svtter-thesis 三 reviewer 全 400，LiteLLM 报错文案 "Rece
 
 ### Suggested Action
 - 判断标志：跨依赖大版本升级 + moving tag 发版 = 先 diff 默认参数行为（本地 capture server 抓 wire），再发版；LiteLLM "Param Incorrect" 报错要看 param 字段原文，别被 Model Group 前缀带偏。
-- 修法：provider per-model maxTokens（mimo 系 131072）；dogfood 加 model matrix 覆盖 deepseek+mimo 两族。
+- 修法：provider 按**归一化模型族**分桶 maxTokens（mimo 系 131072 / deepseek 系 384000 / **未验证族 0=不发**，`toLowerCase` + `/` 命名空间前缀——裸 `startsWith` 漏判 `MiMo-`/`openrouter/mimo-`，与 LRN-20260716-003 同一陷阱族）；dogfood 跑 mimo 族 + `fail-on-severity: "blocking"` + `fallback-models: ""`——注意：**不设 fail-on-severity 时 reviewer 全灭 check 依然绿**（exit 0），dogfood 只是评论信号不是门禁；matrix 多腿会共享 session cache key（不含 model 维度）跨模型污染 transcript，故单腿。
 
 ### Metadata
 - Source: incident
