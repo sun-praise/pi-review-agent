@@ -196,6 +196,62 @@ The action:
 
 `pull-requests: write` permission is required for comment posting.
 
+### Incremental review
+
+On a re-run of the same PR (new push), the review payload defaults to the
+**delta since the last reviewed commit**, not the full PR diff. The anchor is
+the hidden sha fingerprint this agent already embeds in every standing
+comment (`<!-- pi-review-agent-sha:<sha> -->`) — no extra state, no extra
+storage.
+
+How a delta run works:
+
+- delta = `git diff <anchor-sha>..<head>`, computed from the git object
+  database (working-tree state is never read; missing commits are fetched
+  from `origin` by SHA first). The anchor must be an **ancestor** of head —
+  a rebase or force-push makes the pair non-ancestor and the run falls back
+  to a full review (a two-dot diff would misread the divergence as new
+  changes). If git can't deliver for other reasons (no checkout, SHA wants
+  disabled), the GitHub compare API is tried; failing that, the run silently
+  falls back to a **full review** — incremental is strictly an optimization.
+- Anchor selection is identity-checked, per platform:
+  - **GitHub, PAT / any token whose `GET /user` resolves**: exact login
+    match against the anchor comment's author.
+  - **GitHub, default `github.token`** (installation token — `/user` 403s):
+    Bot-type author required; human commenters cannot author Bot comments,
+    so a copied fingerprint in a human comment cannot steer the delta.
+  - **Gitea**: exact login match, and the check fails CLOSED — if the
+    token's own login cannot be resolved, there is no trusted anchor and
+    the run does a full review (Gitea has no Bot-type marker to fall back
+    on).
+- The previous round's summary is injected into every reviewer prompt
+  (unresolved findings ride along) and the verdict is judged on the PR's
+  **cumulative state** — an incremental run can still say CANNOT MERGE over
+  an unresolved earlier finding.
+- The verifier keeps the full diff as its changed-lines baseline, so a
+  carried-forward finding pinned to a line an earlier round changed is not
+  demoted as a hallucination. Trade-off: the whitelist then spans every line
+  the PR ever changed, so the rule layer's hallucination guard is looser on
+  those lines than in a full review — deliberate, in favor of carry-forward
+  completeness.
+- The PR comment and the stats event (`incrementalSince` field) both mark the
+  run as incremental.
+
+Configuration:
+
+```yaml
+- uses: sun-praise/pi-review-agent@v1
+  with:
+    team: "quality:1,security:1"
+    incremental: "true"   # default; "false" → always full diff
+    force-full: "false"   # force one full re-review, e.g. via a label:
+    # force-full: ${{ contains(github.event.label.name, 'full-review') }}
+```
+
+Env equivalents: `PI_REVIEW_INCREMENTAL=0` disables; `PI_REVIEW_FORCE_FULL=1`
+forces a full review this run. On Gitea the delta comes from the git path
+only (no compare-API fallback); everything else is identical.
+
 ### Run statistics
 
 Every completed review (single or team) emits one stats event: review count, per-persona and total token usage (`input` / `output` / `cacheRead` / `cacheWrite`), cost, verdict, and duration. The event is always appended locally to `<sessions-root>/stats.jsonl`, and — when `stats-url` is set — POSTed to a central dashboard for cross-repo aggregation. Emission is fail-open: an unreachable dashboard never fails a review.

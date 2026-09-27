@@ -257,3 +257,29 @@ ops issue #126：svtter-thesis 三 reviewer 全 400，LiteLLM 报错文案 "Rece
 - Source: incident
 - Related Files: src/provider.ts, .github/workflows/dogfood.yml
 - Tags: moving-tag, release, param-contract, pi-ai-upgrade, mimo, ops-126
+
+---
+
+## [LRN-20260927-005] pitfall
+
+**Logged**: 2026-09-27T00:00:00Z
+**Priority**: high
+**Status**: active
+**Area**: ci
+
+### Summary
+dogfood review 的 CI job 状态与评审 verdict 是两回事：`fail-on-severity` 默认 `none`，所以 review job 即使打出 **CANNOT MERGE** 也以 exit 0 通过。只看 `gh pr checks` 全绿就合并，等于跳过了自家 reviewer 的 blocking 意见。
+
+### Details
+PR #81（incremental review）合并时只确认了 `gh pr checks` 两个 job 都 pass。其中 review job 实际 verdict 是 CANNOT MERGE（9 条 finding，2 条 blocking：空 delta 崩溃 + 锚点伪造），但因为 dogfood workflow 的 `fail-on-severity` 是默认值 none，job 状态与 verdict 解耦，CI 绿灯掩盖了 blocking 结论。合并后只能再开修复 PR（#82）补课。
+
+### Suggested Action
+合并 dogfood 自审的 PR 前，除了 `gh pr checks`，必须读 verdict：
+`gh pr view <n> --json reviews --jq '.reviews[].body'`（首行即 verdict），blocking finding 未处理不合并。或者给 dogfood workflow 配 `fail-on-severity: blocking`，让 job 状态与 verdict 绑定（有误报风险，先人工观察一段时间再开）。
+
+### Metadata
+- Source: session_analysis
+- Related Files: .github/workflows/dogfood.yml, action.yml, src/severity.ts
+- Tags: ci, dogfood, merge-gate, verdict, process
+
+---

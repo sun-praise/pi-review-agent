@@ -41445,6 +41445,43 @@ var init_transient_error = __esm({
   }
 });
 
+// src/review-anchor.ts
+function parseAnchorSha(body) {
+  if (!body) return null;
+  const start = body.indexOf(SHA_LINE_PREFIX);
+  if (start < 0) return null;
+  const shaStart = start + SHA_LINE_PREFIX.length;
+  const end = body.indexOf(SHA_LINE_SUFFIX, shaStart);
+  if (end < 0) return null;
+  const sha = body.slice(shaStart, end).trim();
+  return SHA_RE.test(sha) ? sha : null;
+}
+function latestReviewAnchor(comments, selfLogin) {
+  let bestId = -1;
+  let best = null;
+  for (const c of comments) {
+    if (!c.body || !c.body.includes(SELF_MARKER)) continue;
+    const sha = parseAnchorSha(c.body);
+    if (sha === null) continue;
+    if (selfLogin !== void 0 && c.login !== selfLogin) continue;
+    if (c.id > bestId) {
+      bestId = c.id;
+      best = { sha, body: c.body };
+    }
+  }
+  return best;
+}
+var SELF_MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX, SHA_RE;
+var init_review_anchor = __esm({
+  "src/review-anchor.ts"() {
+    "use strict";
+    SELF_MARKER = "<!-- pi-review-agent -->";
+    SHA_LINE_PREFIX = "<!-- pi-review-agent-sha:";
+    SHA_LINE_SUFFIX = " -->";
+    SHA_RE = /^[0-9a-f]{7,40}$/i;
+  }
+});
+
 // src/verifier-agent.ts
 var verifier_agent_exports = {};
 __export(verifier_agent_exports, {
@@ -41587,9 +41624,40 @@ var init_verifier_agent = __esm({
   }
 });
 
+// src/platforms/pagination.ts
+function planGiteaPages(total, limit2, cap = GITEA_ANCHOR_PAGE_CAP) {
+  if (total === null) {
+    const forward = [];
+    for (let page = 2; page <= cap; page++) forward.push(page);
+    return forward;
+  }
+  const pages = Math.max(1, Math.ceil(total / limit2));
+  const start = Math.max(2, pages - (cap - 2));
+  const out = [];
+  for (let page = start; page <= pages; page++) out.push(page);
+  return out;
+}
+function lastPageUrl(link) {
+  if (!link) return null;
+  for (const part of link.split(",")) {
+    if (part.includes('rel="last"')) {
+      const match = part.match(/<([^>]+)>/);
+      if (match) return match[1] ?? null;
+    }
+  }
+  return null;
+}
+var GITEA_ANCHOR_PAGE_CAP;
+var init_pagination2 = __esm({
+  "src/platforms/pagination.ts"() {
+    "use strict";
+    GITEA_ANCHOR_PAGE_CAP = 5;
+  }
+});
+
 // src/github-context.ts
 function isSelfBody(body) {
-  return body !== null && body.includes(SELF_MARKER);
+  return body !== null && body.includes(SELF_MARKER2);
 }
 async function getJson(url, token) {
   const res = await fetch(url, {
@@ -41816,11 +41884,11 @@ function githubAuthFromEnv(env) {
     token
   };
 }
-var SELF_MARKER, FILE_CAP, COMMENT_CAP, REVIEW_CAP, REVIEW_COMMENT_CAP, BODY_BYTE_CAP, PER_PAGE, MAX_PAGES, MAX_PER_ENDPOINT;
+var SELF_MARKER2, FILE_CAP, COMMENT_CAP, REVIEW_CAP, REVIEW_COMMENT_CAP, BODY_BYTE_CAP, PER_PAGE, MAX_PAGES, MAX_PER_ENDPOINT;
 var init_github_context = __esm({
   "src/github-context.ts"() {
     "use strict";
-    SELF_MARKER = "<!-- pi-review-agent -->";
+    SELF_MARKER2 = "<!-- pi-review-agent -->";
     FILE_CAP = 50;
     COMMENT_CAP = 30;
     REVIEW_CAP = 20;
@@ -41877,7 +41945,7 @@ async function fetchJson(url, init) {
 function findUpdatable(comments, sha) {
   const target = `${SHA_LINE_PREFIX}${sha}${SHA_LINE_SUFFIX}`;
   for (const c of comments) {
-    if (c.body !== null && c.body.includes(MARKER) && c.body.includes(target)) {
+    if (c.body !== null && c.body.includes(SELF_MARKER) && c.body.includes(target)) {
       return c.id;
     }
   }
@@ -41925,8 +41993,8 @@ async function postPrComment(ctx, body) {
     process.stderr.write("postPrComment: no GITHUB_TOKEN; skipping\n");
     return "skipped";
   }
-  const head = ctx.headSha ? `${MARKER}
-${SHA_LINE_PREFIX}${ctx.headSha}${SHA_LINE_SUFFIX}` : MARKER;
+  const head = ctx.headSha ? `${SELF_MARKER}
+${SHA_LINE_PREFIX}${ctx.headSha}${SHA_LINE_SUFFIX}` : SELF_MARKER;
   const payload = `${head}
 ${body}`;
   try {
@@ -42039,10 +42107,11 @@ async function postPrReview(ctx, summary, comments, commentFallback) {
   }
   return postPrComment(ctx, commentFallback ?? summary);
 }
-var FETCH_TIMEOUT_MS, SEVERITY_EMOJI, VERIFY_EMOJI, MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX;
+var FETCH_TIMEOUT_MS, SEVERITY_EMOJI, VERIFY_EMOJI;
 var init_pr_comment = __esm({
   "src/pr-comment.ts"() {
     "use strict";
+    init_review_anchor();
     init_retry3();
     init_transient_error();
     FETCH_TIMEOUT_MS = 3e4;
@@ -42055,9 +42124,6 @@ var init_pr_comment = __esm({
       verified: "\u2705",
       demoted: "\u26A0\uFE0F"
     };
-    MARKER = "<!-- pi-review-agent -->";
-    SHA_LINE_PREFIX = "<!-- pi-review-agent-sha:";
-    SHA_LINE_SUFFIX = " -->";
   }
 });
 
@@ -42070,11 +42136,145 @@ var GitHubAdapter;
 var init_adapter = __esm({
   "src/platforms/github/adapter.ts"() {
     "use strict";
+    init_review_anchor();
+    init_pagination2();
     init_github_context();
     init_pr_comment();
     GitHubAdapter = class {
       async fetchPrContext(options) {
         return fetchPrContext(options);
+      }
+      async getLastReviewAnchor(options) {
+        if (!options.token) return null;
+        try {
+          const [comments, selfLogin] = await Promise.all([
+            this.listAnchorComments(options),
+            this.resolveSelfLogin(options)
+          ]);
+          if (selfLogin !== null) {
+            const anchor = latestReviewAnchor(comments, selfLogin);
+            if (!anchor) {
+              const fingerprinted = comments.filter(
+                (c) => c.body?.includes("<!-- pi-review-agent-sha:")
+              ).length;
+              if (fingerprinted > 0) {
+                process.stderr.write(
+                  `getLastReviewAnchor: ${fingerprinted} fingerprinted comment(s) exist but none is authored by ${selfLogin} \u2014 no trusted anchor, full review
+`
+                );
+              }
+            }
+            return anchor;
+          }
+          process.stderr.write(
+            "getLastReviewAnchor: token login unresolvable (installation token?); anchor identity check degraded to Bot-type authors\n"
+          );
+          const botComments = comments.filter((c) => c.accountType === "Bot");
+          return latestReviewAnchor(botComments, void 0);
+        } catch (err2) {
+          process.stderr.write(
+            `getLastReviewAnchor: failed (${err2 instanceof Error ? err2.message : String(err2)}); incremental falls back to a full review
+`
+          );
+          return null;
+        }
+      }
+      /** Issue comments for anchor selection: the first page plus — when GitHub
+       *  paginates (Link header) — a direct jump to the LAST page, where the
+       *  newest anchor lives. Selection is by id, so which pages were seen
+       *  doesn't matter as long as the newest one is among them. */
+      async listAnchorComments(options) {
+        const first = await this.fetchCommentPage(options, 1);
+        const comments = [...first.comments];
+        const lastUrl = lastPageUrl(first.linkHeader);
+        if (lastUrl !== null && lastUrl !== first.url) {
+          const last = await this.fetchCommentPage(options, -1, lastUrl);
+          comments.push(...last.comments);
+        }
+        return comments;
+      }
+      /** One page of issue comments. `page < 0` fetches `url` verbatim (a Link
+       *  header target); otherwise the documented per_page/page params. */
+      async fetchCommentPage(options, page, url) {
+        const target = page < 0 && url ? url : `${options.apiBase}/repos/${options.repository}/issues/${options.pr}/comments?per_page=100&page=${page}`;
+        const res = await fetch(target, {
+          headers: {
+            Authorization: `Bearer ${options.token}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28"
+          },
+          signal: AbortSignal.timeout(3e4)
+        });
+        if (!res.ok) {
+          await res.body?.cancel();
+          throw new Error(`GitHub API ${res.status} ${res.statusText}`);
+        }
+        const data = await res.json();
+        const comments = [];
+        if (Array.isArray(data)) {
+          for (const c of data) {
+            if (typeof c !== "object" || c === null) continue;
+            if (!("id" in c && "body" in c && "user" in c)) continue;
+            const user = c.user;
+            const login = typeof user === "object" && user !== null && "login" in user && typeof user.login === "string" ? user.login : void 0;
+            const accountType = typeof user === "object" && user !== null && "type" in user && typeof user.type === "string" ? user.type : void 0;
+            if (typeof c.id === "number" && (typeof c.body === "string" || c.body === null)) {
+              comments.push({ id: c.id, body: c.body, login, accountType });
+            }
+          }
+        }
+        return { url: target, linkHeader: res.headers.get("link"), comments };
+      }
+      /** The token's own login (GET /user) so anchor candidates can be filtered
+       *  by author. Null when unresolvable (403 for installation tokens, e.g.
+       *  the default github.token) — see getLastReviewAnchor for the degraded
+       *  path. A resolved login that matches no comment rejects all anchors:
+       *  the run degrades to a full review (fail-open, logged there). */
+      async resolveSelfLogin(options) {
+        try {
+          const res = await fetch(`${options.apiBase}/user`, {
+            headers: {
+              Authorization: `Bearer ${options.token}`,
+              Accept: "application/vnd.github+json",
+              "X-GitHub-Api-Version": "2022-11-28"
+            },
+            signal: AbortSignal.timeout(3e4)
+          });
+          if (!res.ok) {
+            await res.body?.cancel();
+            return null;
+          }
+          const data = await res.json();
+          if (typeof data === "object" && data !== null && "login" in data && typeof data.login === "string") {
+            return data.login;
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      }
+      async fetchCompareDiff(options) {
+        if (!options.token) return null;
+        const url = `${options.apiBase}/repos/${options.repository}/compare/${options.base}...${options.head}`;
+        try {
+          const res = await fetch(url, {
+            headers: {
+              Authorization: `Bearer ${options.token}`,
+              // Diff media type on the compare endpoint: the JSON shape carries
+              // per-file patches that would need lossy reassembly.
+              Accept: "application/vnd.github.v3.diff",
+              "X-GitHub-Api-Version": "2022-11-28"
+            },
+            signal: AbortSignal.timeout(3e4)
+          });
+          if (!res.ok) {
+            await res.body?.cancel();
+            return null;
+          }
+          return await res.text();
+        } catch {
+          return null;
+        }
       }
       async postComment(context, body) {
         return postPrComment(context, body);
@@ -42128,16 +42328,15 @@ function loginOf2(user) {
   return user?.login ?? "unknown";
 }
 function isSelfBody2(body) {
-  return body !== null && body.includes(SELF_MARKER2);
+  return body !== null && body.includes(SELF_MARKER);
 }
-var SELF_MARKER2, SHA_LINE_PREFIX2, SHA_LINE_SUFFIX2, FETCH_TIMEOUT_MS2, GiteaAdapter;
+var FETCH_TIMEOUT_MS2, GiteaAdapter;
 var init_adapter2 = __esm({
   "src/platforms/gitea/adapter.ts"() {
     "use strict";
+    init_review_anchor();
+    init_pagination2();
     init_retry3();
-    SELF_MARKER2 = "<!-- pi-review-agent -->";
-    SHA_LINE_PREFIX2 = "<!-- pi-review-agent-sha:";
-    SHA_LINE_SUFFIX2 = " -->";
     FETCH_TIMEOUT_MS2 = 3e4;
     GiteaAdapter = class {
       async fetchPrContext(options) {
@@ -42159,14 +42358,100 @@ var init_adapter2 = __esm({
           return "";
         }
       }
+      async getLastReviewAnchor(options) {
+        if (!options.token) return null;
+        const base = `${options.apiBase.replace(/\/+$/, "")}/repos/${options.repository}`;
+        const userUrl = `${options.apiBase.replace(/\/+$/, "")}/user`;
+        try {
+          const [pages, self] = await Promise.all([
+            this.listAnchorCommentPages(base, options),
+            giteaFetch(userUrl, options.token)
+          ]);
+          if (!self?.login) {
+            process.stderr.write(
+              "Gitea getLastReviewAnchor: could not resolve the token's own login (/user failed); no trusted anchor \u2014 incremental falls back to a full review\n"
+            );
+            return null;
+          }
+          const candidates = pages.map((c) => ({
+            id: c.id,
+            body: c.body,
+            login: c.user?.login ?? void 0
+          }));
+          const fingerprinted = candidates.filter((c) => c.body?.includes("<!-- pi-review-agent-sha:")).length;
+          const anchor = latestReviewAnchor(candidates, self.login);
+          if (!anchor && fingerprinted > 0) {
+            process.stderr.write(
+              `Gitea getLastReviewAnchor: ${fingerprinted} fingerprinted comment(s) exist but none is authored by ${self.login}; no trusted anchor \u2014 full review
+`
+            );
+          }
+          return anchor;
+        } catch (err2) {
+          process.stderr.write(
+            `Gitea getLastReviewAnchor: failed (${err2 instanceof Error ? err2.message : String(err2)}); incremental falls back to a full review
+`
+          );
+          return null;
+        }
+      }
+      async fetchCompareDiff(_options) {
+        process.stderr.write("Gitea fetchCompareDiff: unsupported \u2014 relying on the git delta path\n");
+        return null;
+      }
+      /** Issue-comment pages (50/page, oldest-first). With X-Total-Count the
+       *  plan jumps to the NEWEST window (planGiteaPages); without it, a
+       *  forward walk stops at the first short page — reaching the true end
+       *  only within the cap, beyond which the lookup misses and the caller
+       *  runs a full review (fail-open). */
+      async listAnchorCommentPages(base, options) {
+        const limit2 = 50;
+        const first = await this.fetchCommentPage(base, options, 1, limit2);
+        const out = [...first.batch];
+        if (first.total === null) {
+          for (const page of planGiteaPages(null, limit2)) {
+            const { batch } = await this.fetchCommentPage(base, options, page, limit2);
+            if (batch.length === 0) break;
+            out.push(...batch);
+            if (batch.length < limit2) break;
+          }
+          return out;
+        }
+        for (const page of planGiteaPages(first.total, limit2)) {
+          const { batch } = await this.fetchCommentPage(base, options, page, limit2);
+          if (batch.length === 0) break;
+          out.push(...batch);
+        }
+        return out;
+      }
+      /** One page of issue comments plus its X-Total-Count (null when absent). */
+      async fetchCommentPage(base, options, page, limit2) {
+        const res = await fetchWithTimeout2(
+          `${base}/issues/${options.pr}/comments?limit=${limit2}&page=${page}`,
+          {
+            headers: {
+              Authorization: `Bearer ${options.token}`,
+              Accept: "application/json"
+            }
+          }
+        );
+        if (!res.ok) {
+          await res.text().catch(() => "");
+          throw new Error(`Gitea API ${res.status}: GET issue comments failed`);
+        }
+        const totalRaw = res.headers.get("x-total-count");
+        const total = totalRaw !== null && /^\d+$/.test(totalRaw) ? Number(totalRaw) : null;
+        const batch = await res.json();
+        return { batch: Array.isArray(batch) ? batch : [], total };
+      }
       async postComment(context, body) {
         if (!context.token) {
           process.stderr.write("Gitea postComment: no GITEA_TOKEN; skipping\n");
           return "skipped";
         }
         const base = `${context.apiBase.replace(/\/+$/, "")}/repos/${context.repository}`;
-        const head = context.headSha ? `${SELF_MARKER2}
-${SHA_LINE_PREFIX2}${context.headSha}${SHA_LINE_SUFFIX2}` : SELF_MARKER2;
+        const head = context.headSha ? `${SELF_MARKER}
+${SHA_LINE_PREFIX}${context.headSha}${SHA_LINE_SUFFIX}` : SELF_MARKER;
         const payload = `${head}
 ${body}`;
         try {
@@ -42286,9 +42571,9 @@ ${inlineSummary}`;
         return lines.join("\n");
       }
       findUpdatable(comments, sha) {
-        const target = `${SHA_LINE_PREFIX2}${sha}${SHA_LINE_SUFFIX2}`;
+        const target = `${SHA_LINE_PREFIX}${sha}${SHA_LINE_SUFFIX}`;
         for (const c of comments) {
-          if (c.body !== null && c.body.includes(SELF_MARKER2) && c.body.includes(target)) {
+          if (c.body !== null && c.body.includes(SELF_MARKER) && c.body.includes(target)) {
             return c.id;
           }
         }
@@ -42588,7 +42873,17 @@ function parseArgs(argv, env = process.env) {
     // and no key gets a random bench-* key so unrelated instances never
     // share sessions/0/; an explicit key opts into deliberate resume.
     // randomUUID keeps this module free of fs/env side effects.
-    sessionKey: sessionKeyInput ?? (format === "json" && pr <= 0 ? `bench-${(0, import_node_crypto.randomUUID)()}` : void 0)
+    sessionKey: sessionKeyInput ?? (format === "json" && pr <= 0 ? `bench-${(0, import_node_crypto.randomUUID)()}` : void 0),
+    // Default-ON flag: the same negated-regex pattern as include-pr-context,
+    // so GitHub Actions' literal "false" string disables rather than enables.
+    incremental: !/^(0|false|no|off)$/i.test(
+      optionalString(args.incremental, env.PI_REVIEW_INCREMENTAL) ?? "true"
+    ),
+    forceFull: isTruthyFlag(args["force-full"], env.PI_REVIEW_FORCE_FULL),
+    incrementalSince: "",
+    incrementalFallback: "",
+    previousReview: "",
+    fullDiffForVerify: ""
   };
 }
 function parseFormat(raw) {
@@ -42697,6 +42992,53 @@ function fnv1aHex(input) {
   return hash.toString(16).padStart(8, "0");
 }
 
+// src/review-request.ts
+init_review_anchor();
+var MAX_PREVIOUS_REVIEW_CHARS = 6e3;
+function stripMarkers(body) {
+  return body.split("\n").filter((line) => line.trim() !== SELF_MARKER && !line.trim().startsWith(SHA_LINE_PREFIX)).join("\n").trim();
+}
+function renderPreviousReview(body) {
+  const stripped = stripMarkers(body);
+  if (stripped.length <= MAX_PREVIOUS_REVIEW_CHARS) return stripped;
+  return stripped.slice(0, MAX_PREVIOUS_REVIEW_CHARS) + `
+[previous review truncated at ${MAX_PREVIOUS_REVIEW_CHARS} chars]`;
+}
+function buildReviewRequest(input) {
+  const blocks = [];
+  if (input.prContext && input.prContext.trim()) blocks.push(input.prContext);
+  if (input.relatedContext && input.relatedContext.trim()) blocks.push(input.relatedContext);
+  if (input.incrementalSince && input.previousReview && input.previousReview.trim()) {
+    blocks.push(
+      `<previous_review>
+Summary posted by the previous review round, which reviewed commit ${input.incrementalSince}. The diff below contains only the changes since that commit: check the findings below against the new changes before repeating or dismissing them \u2014 an unresolved finding still applies and may still block the merge.
+
+` + renderPreviousReview(input.previousReview) + "\n</previous_review>"
+    );
+  }
+  const prefix = blocks.join("\n\n");
+  if (input.incrementalSince) {
+    const request = `=== Review request ===
+Incremental review: the diff below contains ONLY the changes since ${input.incrementalSince}, the last reviewed commit. Focus on those changes, but judge the verdict on the PR's cumulative state \u2014 unresolved findings from the previous round may still block the merge.
+
+New changes since ${input.incrementalSince}:
+
+${input.diff}`;
+    return prefix ? `${prefix}
+
+${request}` : request;
+  }
+  if (!prefix) return `Review this diff:
+
+${input.diff}`;
+  return `${prefix}
+
+=== Review request ===
+Review this diff:
+
+${input.diff}`;
+}
+
 // src/review.ts
 function defaultSystemPrompt(persona) {
   const padded = "You are a senior code reviewer. Cite file:line for each finding, classify as blocker / warning / suggestion, and prefer specific concrete remedies over generic advice. Do not invent issues if the diff is fine. " + "Focus on correctness, then security, then clarity, in that order. ".repeat(40);
@@ -42798,15 +43140,13 @@ async function runModelAttempt(opts, modelId, file, transcript, resumed, systemP
         streamFn: async (m, ctx, streamOpts) => models.streamSimple(m, ctx, streamOpts ?? {})
       });
       const done = collectFromAgent(agent, newMessages);
-      const prefix = [opts.prContext, opts.relatedContext].filter((s) => Boolean(s && s.trim())).join("\n\n");
-      const userMessage = prefix ? `${prefix}
-
-=== Review request ===
-Review this diff:
-
-${opts.diff}` : `Review this diff:
-
-${opts.diff}`;
+      const userMessage = buildReviewRequest({
+        diff: opts.diff,
+        prContext: opts.prContext,
+        relatedContext: opts.relatedContext,
+        incrementalSince: opts.incrementalSince,
+        previousReview: opts.previousReview
+      });
       const promptP = agent.prompt(userMessage);
       await (timeoutMs > 0 ? withTimeout(promptP, timeoutMs, opts.persona) : promptP);
       const collected = await done;
@@ -45721,6 +46061,12 @@ function renderTeamComment(result, opts = {}) {
   const lines = [];
   lines.push(`${verdictIcon(result.verdict)} ${result.verdict}`);
   lines.push("");
+  if (opts.incrementalSince) {
+    lines.push(
+      `> \u{1F501} **Incremental review** \u2014 covers the changes since \`${opts.incrementalSince.slice(0, 8)}\`; the previous round's unresolved findings were carried into the review context.`
+    );
+    lines.push("");
+  }
   if (result.verification && result.verification.total > 0) {
     const v = result.verification;
     lines.push(
@@ -45975,6 +46321,8 @@ async function runTeamReview(opts) {
           diff: opts.diff,
           prContext: opts.prContext,
           relatedContext: opts.relatedContext,
+          incrementalSince: opts.incrementalSince,
+          previousReview: opts.previousReview,
           sessionsRoot: opts.sessionsRoot,
           sessionKey: opts.sessionKey,
           cwd: opts.cwd,
@@ -46048,7 +46396,7 @@ async function runTeamReview(opts) {
   let verification;
   let blockingAllDemoted;
   if (rawComments.length > 0 && !opts.skipVerify) {
-    const changedLines = parseChangedLines(opts.diff);
+    const changedLines = parseChangedLines(opts.verifyDiff ?? opts.diff);
     const { buildVerifierAgent: buildVerifierAgent2 } = await Promise.resolve().then(() => (init_verifier_agent(), verifier_agent_exports));
     const llmVerify = opts.skipLlmVerify ? void 0 : buildVerifierAgent2(opts.provider, {
       cwd: opts.cwd,
@@ -46489,6 +46837,8 @@ function buildStatsEvent(input) {
     mode: input.mode,
     personas,
     verdict: input.verdict,
+    incrementalSince: input.incrementalSince ?? null,
+    incrementalFallback: input.incrementalFallback ?? null,
     severity: input.severity,
     usage,
     costTotal,
@@ -46648,6 +46998,117 @@ function buildTeamJsonResult(args) {
   return payload;
 }
 
+// src/delta-diff.ts
+var import_node_child_process2 = require("child_process");
+var SHA_RE2 = /^[0-9a-f]{7,40}$/i;
+var defaultRunGit = (args, cwd, timeoutMs) => {
+  const { promise, resolve } = Promise.withResolvers();
+  (0, import_node_child_process2.execFile)(
+    "git",
+    ["-C", cwd, ...args],
+    {
+      timeout: timeoutMs,
+      maxBuffer: 64 * 1024 * 1024,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }
+    },
+    (err2, stdout, stderr) => {
+      let code = 0;
+      if (err2) code = "code" in err2 && typeof err2.code === "number" ? err2.code : 1;
+      resolve({ code, stdout, stderr });
+    }
+  );
+  return promise;
+};
+async function computeDeltaDiff(prev, head, cwd, deps = {}) {
+  const unavailable = { error: "unavailable" };
+  if (!SHA_RE2.test(prev) || !SHA_RE2.test(head)) return unavailable;
+  const runGit = deps.runGit ?? defaultRunGit;
+  const timeoutMs = deps.timeoutMs ?? 6e4;
+  const compare = async () => {
+    if (!deps.fetchCompare) return unavailable;
+    const viaApi = await deps.fetchCompare(prev, head);
+    return viaApi === null ? unavailable : { diff: viaApi };
+  };
+  const hasCommit = async (sha) => (await runGit(["cat-file", "-e", `${sha}^{commit}`], cwd, timeoutMs)).code === 0;
+  if ((await runGit(["rev-parse", "--git-dir"], cwd, timeoutMs)).code !== 0) {
+    return compare();
+  }
+  if (!await hasCommit(prev) || !await hasCommit(head)) {
+    const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
+    if (fetched.code !== 0) return compare();
+    if (!await hasCommit(prev) || !await hasCommit(head)) return compare();
+  }
+  const ancestry = await runGit(["merge-base", "--is-ancestor", prev, head], cwd, timeoutMs);
+  if (ancestry.code === 1) return { error: "non-ancestor" };
+  if (ancestry.code !== 0) return compare();
+  const diff = await runGit(
+    ["diff", "--no-color", "--no-textconv", "--no-ext-diff", prev, head],
+    cwd,
+    timeoutMs
+  );
+  if (diff.code !== 0) return compare();
+  return { diff: diff.stdout };
+}
+
+// src/incremental.ts
+async function resolveIncremental(query, adapter, fullDiff, env, deps = {}) {
+  if (query.forceFull) {
+    return { mode: "full", reason: "force-full set" };
+  }
+  if (fullDiff === void 0) {
+    return { mode: "full", reason: "full diff unavailable \u2014 incremental swap skipped" };
+  }
+  const prInfo = adapter.resolvePrFromEnv(env);
+  if (!prInfo || !prInfo.headSha) {
+    return { mode: "full", reason: "no platform PR identity (pr/head sha)" };
+  }
+  const anchorOptions = {
+    apiBase: prInfo.apiBase,
+    repository: prInfo.repository,
+    pr: query.pr,
+    token: prInfo.token
+  };
+  const anchor = await adapter.getLastReviewAnchor(anchorOptions);
+  if (!anchor) {
+    return { mode: "full", reason: "no prior review anchor" };
+  }
+  if (anchor.sha === prInfo.headSha) {
+    return { mode: "full", reason: "anchor already at head (re-run of the same commit)" };
+  }
+  const compute = deps.computeDelta ?? computeDeltaDiff;
+  const result = await compute(anchor.sha, prInfo.headSha, query.cwd, {
+    fetchCompare: (base, head) => adapter.fetchCompareDiff({ ...anchorOptions, base, head })
+  });
+  if (result.error === "non-ancestor") {
+    return {
+      mode: "full",
+      degraded: true,
+      reason: `anchor ${anchor.sha.slice(0, 8)} is not an ancestor of head (rebase/force-push) \u2014 full review`
+    };
+  }
+  if (result.error === "unavailable") {
+    return {
+      mode: "full",
+      degraded: true,
+      reason: `delta since ${anchor.sha.slice(0, 8)} unavailable (git and compare both failed) \u2014 full review`
+    };
+  }
+  if (result.diff.trim() === "") {
+    return {
+      mode: "full",
+      degraded: true,
+      reason: "delta is empty (nothing changed since the anchor; e.g. rebase/amend-only)"
+    };
+  }
+  return {
+    mode: "delta",
+    since: anchor.sha,
+    previousReview: anchor.body,
+    delta: result.diff,
+    fullDiff
+  };
+}
+
 // src/index.ts
 function loadDiff(opts) {
   if (opts.diffInline) return opts.diffInline;
@@ -46794,6 +47255,8 @@ async function runSingle(opts, adapter, platform) {
     diff,
     prContext: opts.prContext,
     relatedContext: opts.relatedContext,
+    incrementalSince: opts.incrementalSince || void 0,
+    previousReview: opts.previousReview || void 0,
     sessionsRoot: opts.sessionsRoot,
     sessionKey: opts.sessionKey,
     cwd: opts.cwd,
@@ -46820,6 +47283,8 @@ async function runSingle(opts, adapter, platform) {
         personas: [{ name: personaName, usage: result.usage, resumed: result.resumed }],
         coordinator: null,
         verdict: null,
+        incrementalSince: opts.incrementalSince || null,
+        incrementalFallback: opts.incrementalFallback || null,
         severity: {
           decision: severity.decision,
           blocking: severity.blockingCount,
@@ -46890,6 +47355,9 @@ async function runTeam(opts, adapter, platform) {
     diff,
     prContext: opts.prContext,
     relatedContext: opts.relatedContext,
+    incrementalSince: opts.incrementalSince || void 0,
+    previousReview: opts.previousReview || void 0,
+    verifyDiff: opts.fullDiffForVerify || void 0,
     cwd: opts.cwd,
     sessionsRoot: opts.sessionsRoot,
     sessionKey: opts.sessionKey,
@@ -46928,6 +47396,8 @@ async function runTeam(opts, adapter, platform) {
         })),
         coordinator: result.coordinator ? { name: "coordinator", usage: result.coordinator.usage, resumed: result.coordinator.resumed } : null,
         verdict: result.verdict,
+        incrementalSince: opts.incrementalSince || null,
+        incrementalFallback: opts.incrementalFallback || null,
         severity: {
           decision: result.severity.decision,
           blocking: result.severity.blockingCount,
@@ -46971,7 +47441,10 @@ ${result.coordinator.content}
 ${r.result.content}
 `);
   }
-  const commentBody = renderTeamComment(result, { currency: opts.displayCurrency });
+  const commentBody = renderTeamComment(result, {
+    currency: opts.displayCurrency,
+    incrementalSince: opts.incrementalSince || void 0
+  });
   writeTeamSummary(result, opts.displayCurrency, commentBody);
   if (prInfo && adapter) {
     const reviewBody = renderTeamReviewBody(result, { currency: opts.displayCurrency });
@@ -47003,6 +47476,34 @@ async function attachRelatedContext(opts) {
     );
   }
 }
+async function applyIncrementalDiff(opts, adapter) {
+  if (!opts.incremental) return;
+  const query = { forceFull: opts.forceFull, pr: opts.pr, cwd: opts.cwd };
+  const outcome = await resolveIncremental(
+    query,
+    adapter,
+    preparedDiffCache.get(opts),
+    process.env
+  );
+  if (outcome.mode === "full") {
+    if (outcome.degraded) opts.incrementalFallback = outcome.reason;
+    process.stderr.write(`incremental: ${outcome.reason} \u2014 full review
+`);
+    return;
+  }
+  opts.fullDiffForVerify = outcome.fullDiff;
+  opts.diffInline = outcome.delta;
+  opts.diffFile = void 0;
+  preparedDiffCache.delete(opts);
+  opts.incrementalSince = outcome.since;
+  opts.previousReview = outcome.previousReview;
+  const deltaKb = Math.round(Buffer.byteLength(outcome.delta, "utf8") / 1024);
+  const fullKb = Math.round(Buffer.byteLength(outcome.fullDiff, "utf8") / 1024);
+  process.stderr.write(
+    `incremental: reviewing changes since ${outcome.since.slice(0, 8)} (delta ${deltaKb} KB, full ${fullKb} KB)
+`
+  );
+}
 async function main() {
   const opts = parseArgs(process.argv);
   if (opts.statsUrl && !opts.statsEnabled) {
@@ -47028,8 +47529,8 @@ Reviewing anyway would feed reviewers and the verifier a stale tree (issue #67).
       );
     }
   }
-  await attachRelatedContext(opts);
   if (opts.format === "json") {
+    await attachRelatedContext(opts);
     return opts.team ? runTeam(opts, null, "none") : runSingle(opts, null, "none");
   }
   const { adapter, platform } = await createAdapterFromEnv(process.env, opts.platform);
@@ -47050,6 +47551,8 @@ Reviewing anyway would feed reviewers and the verifier a stale tree (issue #67).
       );
     }
   }
+  await applyIncrementalDiff(opts, adapter);
+  await attachRelatedContext(opts);
   return opts.team ? runTeam(opts, adapter, platform) : runSingle(opts, adapter, platform);
 }
 main().then((code) => process.exit(code)).catch((err2) => {

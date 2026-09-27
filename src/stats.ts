@@ -45,6 +45,14 @@ export interface StatsEvent {
   /** Coordinator verdict (team mode). Null in single mode — a lone reviewer
    *  emits severity only, there is nothing to synthesize. */
   verdict: string | null;
+  /** Anchor commit of an incremental run (the reviewed delta started there).
+   *  Null = full review. Additive field: pre-incremental events lack it. */
+  incrementalSince: string | null;
+  /** Why an ENABLED incremental run that FOUND an anchor still degraded to
+   *  a full review (empty delta, non-ancestor anchor, tool failure). Null =
+   *  delta ran, or no delta was attempted (first review, no identity,
+   *  disabled, force-full). Additive field. */
+  incrementalFallback: string | null;
   severity: { decision: string; blocking: number; warning: number; fallback: boolean };
   usage: { input: number; output: number; cacheRead: number; cacheWrite: number };
   costTotal: number;
@@ -71,6 +79,10 @@ export interface BuildStatsEventInput {
   personas: StatsPersonaInput[];
   coordinator: StatsPersonaInput | null;
   verdict: string | null;
+  /** See StatsEvent.incrementalSince. Optional: omitted → null (full review). */
+  incrementalSince?: string | null;
+  /** See StatsEvent.incrementalFallback. Optional: omitted → null. */
+  incrementalFallback?: string | null;
   severity: StatsEvent["severity"];
   durationMs: number | null;
 }
@@ -107,6 +119,8 @@ export function buildStatsEvent(input: BuildStatsEventInput): StatsEvent {
     mode: input.mode,
     personas,
     verdict: input.verdict,
+    incrementalSince: input.incrementalSince ?? null,
+    incrementalFallback: input.incrementalFallback ?? null,
     severity: input.severity,
     usage,
     costTotal,

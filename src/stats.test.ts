@@ -70,6 +70,54 @@ describe("buildStatsEvent", () => {
     assert.equal(event.verdict, null);
     assert.equal(event.durationMs, null);
   });
+
+  it("carries the incremental anchor (null for full reviews, sha when set)", () => {
+    const full = buildStatsEvent({
+      platform: "github",
+      repository: "owner/repo",
+      pr: 7,
+      runId: "42",
+      attempt: 1,
+      mode: "team",
+      personas: [persona({ name: "quality" })],
+      coordinator: null,
+      verdict: "CAN MERGE",
+      severity,
+      durationMs: 100,
+    });
+    assert.equal(full.incrementalSince, null);
+    assert.equal(full.incrementalFallback, null);
+    const incremental = buildStatsEvent({
+      platform: "github",
+      repository: "owner/repo",
+      pr: 7,
+      runId: "43",
+      attempt: 1,
+      mode: "team",
+      personas: [persona({ name: "quality" })],
+      coordinator: null,
+      verdict: "CAN MERGE",
+      incrementalSince: "0123456789abcdef0123456789abcdef01234567",
+      severity,
+      durationMs: 100,
+    });
+    assert.equal(incremental.incrementalSince, "0123456789abcdef0123456789abcdef01234567");
+    const degraded = buildStatsEvent({
+      platform: "github",
+      repository: "owner/repo",
+      pr: 7,
+      runId: "44",
+      attempt: 1,
+      mode: "team",
+      personas: [persona({ name: "quality" })],
+      coordinator: null,
+      verdict: "CAN MERGE",
+      incrementalFallback: "delta is empty (nothing changed since the anchor)",
+      severity,
+      durationMs: 100,
+    });
+    assert.equal(degraded.incrementalFallback, "delta is empty (nothing changed since the anchor)");
+  });
 });
 
 describe("resolveRunIdentity", () => {

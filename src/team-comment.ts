@@ -37,6 +37,10 @@ export interface CommentTeamView {
  *  accounting stays USD — this is display-layer only. */
 export interface CommentRenderOptions {
   currency?: CurrencyOptions;
+  /** Anchor commit of an incremental run: renders a "covers changes since
+   *  <sha>" line so humans see the review's scope at a glance. Undefined =
+   *  full review, no line. */
+  incrementalSince?: string;
 }
 
 function verdictIcon(verdict: Verdict): string {
@@ -58,6 +62,14 @@ export function renderTeamComment(
   const lines: string[] = [];
   lines.push(`${verdictIcon(result.verdict)} ${result.verdict}`);
   lines.push("");
+
+  if (opts.incrementalSince) {
+    lines.push(
+      `> 🔁 **Incremental review** — covers the changes since \`${opts.incrementalSince.slice(0, 8)}\`; ` +
+        "the previous round's unresolved findings were carried into the review context.",
+    );
+    lines.push("");
+  }
 
   if (result.verification && result.verification.total > 0) {
     const v = result.verification;

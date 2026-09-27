@@ -103,6 +103,30 @@ export interface CliOptions {
    *  Replaces the PR number as the session directory so headless runs
    *  (benchmarks) get isolated sessions; a stable value opts into resume. */
   sessionKey: string | undefined;
+  /** Incremental review (--incremental / PI_REVIEW_INCREMENTAL). Default
+   *  true: on a re-review, review only the delta since the last reviewed
+   *  commit (the anchor = sha fingerprint in the standing comment) and fall
+   *  back to a full review whenever no anchor or no delta can be resolved.
+   *  Disable with 0/false/no/off — including the action.yml literal "false". */
+  incremental: boolean;
+  /** Force a full review this run even when an incremental anchor exists
+   *  (--force-full / PI_REVIEW_FORCE_FULL). Default false. */
+  forceFull: boolean;
+  /** Populated in main() when an incremental delta was applied: the sha the
+   *  delta starts from. Empty = full review. */
+  incrementalSince: string;
+  /** Populated in main() when incremental was ENABLED but degraded to a
+   *  full review (empty delta, non-ancestor anchor, tool failure...).
+   *  Empty = no attempted-and-degraded run (delta applied, disabled, or
+   *  forced-full by explicit request). Feeds the stats event. */
+  incrementalFallback: string;
+  /** Populated in main() together with incrementalSince: the previous
+   *  round's posted summary, injected into every reviewer prompt. */
+  previousReview: string;
+  /** Populated in main() when incremental applied: the full filtered diff,
+   *  kept as the verifier's changed-lines baseline (a carry-forward finding
+   *  may legitimately target a line an earlier round changed). */
+  fullDiffForVerify: string;
 }
 
 /**
@@ -248,6 +272,16 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     sessionKey:
       sessionKeyInput ??
       (format === "json" && pr <= 0 ? `bench-${randomUUID()}` : undefined),
+    // Default-ON flag: the same negated-regex pattern as include-pr-context,
+    // so GitHub Actions' literal "false" string disables rather than enables.
+    incremental: !/^(0|false|no|off)$/i.test(
+      optionalString(args.incremental, env.PI_REVIEW_INCREMENTAL) ?? "true",
+    ),
+    forceFull: isTruthyFlag(args["force-full"], env.PI_REVIEW_FORCE_FULL),
+    incrementalSince: "",
+    incrementalFallback: "",
+    previousReview: "",
+    fullDiffForVerify: "",
   };
 }
 
