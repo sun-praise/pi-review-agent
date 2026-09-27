@@ -6,9 +6,11 @@
  * database, never the working tree, so a stale checkout cannot skew the
  * delta. Runners check out with depth 1, so the previous head usually isn't
  * local yet — missing commits are fetched from `origin` by SHA first, with
- * FULL history (no --depth): the ancestry check below has to walk the commit
- * chain between the two SHAs, and a tree-to-tree diff of two dangling
- * commits would silently pass it. GitHub enables SHA wants; Gitea depends on
+ * FULL history (no --depth, no --filter): the ancestry gate below has to
+ * walk the commit chain between the two SHAs, a fetch into a shallow clone
+ * still brings the complete chain for the requested SHAs, and a promisor
+ * (partial) clone would leave later diffs dependent on lazy blob fetches
+ * against runner credentials. GitHub enables SHA wants; Gitea depends on
  * server config.
  *
  * Ancestry gate: if `prev` is NOT an ancestor of `head` (rebase, force
@@ -16,8 +18,8 @@
  * "new changes" and the compare fallback (three-dot from the merge base)
  * would silently MISS the reverted/replayed commits — both semantics are
  * wrong for "what changed since the last review". Non-ancestor therefore
- * returns null WITHOUT the compare fallback, and the caller runs a full
- * review.
+ * returns `{ error: "non-ancestor" }` WITHOUT the compare fallback, and the
+ * caller runs a full review.
  *
  * Other git failures (no repo, unreachable origin, SHA wants disabled) fall
  * through to the compare fallback, and failing that the caller falls back to
@@ -111,20 +113,12 @@ export async function computeDeltaDiff(
     return compare();
   }
   // Depth-1 checkouts don't carry the anchor commit; fetch both SHAs from
-  // origin. Blob-less first (commit graph only — cheap, and the ancestry
-  // gate may reject the pair right after), plain full fetch as the fallback
-  // where the server lacks partial-clone support (Gitea). Blobs for the
-  // diff arrive lazily on partial clones, or with the plain fetch.
+  // origin with full history (see the module comment for why no --depth /
+  // --filter). A failure here (no origin, SHA wants disabled) exits to the
+  // compare fallback.
   if (!(await hasCommit(prev)) || !(await hasCommit(head))) {
-    const blobless = await runGit(
-      ["fetch", "--no-tags", "--filter=blob:none", "origin", prev, head],
-      cwd,
-      timeoutMs,
-    );
-    if (blobless.code !== 0) {
-      const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
-      if (fetched.code !== 0) return compare();
-    }
+    const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
+    if (fetched.code !== 0) return compare();
     if (!(await hasCommit(prev)) || !(await hasCommit(head))) return compare();
   }
   // Ancestry gate: exit 0 = ancestor (safe two-dot delta), exit 1 = NOT an

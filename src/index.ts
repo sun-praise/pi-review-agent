@@ -500,7 +500,7 @@ async function applyIncrementalDiff(opts: CliOptions, adapter: PlatformAdapter):
   if (outcome.mode === "full") {
     // Observability for degradation analysis (stats event): force-full is a
     // deliberate request, everything else is a fallback worth counting.
-    if (!query.forceFull) opts.incrementalFallback = outcome.reason;
+    if (outcome.degraded) opts.incrementalFallback = outcome.reason;
     process.stderr.write(`incremental: ${outcome.reason} — full review\n`);
     return;
   }

@@ -35,7 +35,11 @@ export interface IncrementalQuery {
 }
 
 export type IncrementalOutcome =
-  | { mode: "full"; reason: string }
+  | { mode: "full"; reason: string; degraded?: undefined }
+  /** Post-anchor failures: a delta was ATTEMPTED and could not run. Flagged
+   *  for the stats event (`incrementalFallback`) so degradation rates aren't
+   *  diluted by normal full reviews (first review, no identity, re-run). */
+  | { mode: "full"; reason: string; degraded: true }
   | {
       mode: "delta";
       /** The anchor commit — delta starts here; also the previous round's sha. */
@@ -88,12 +92,14 @@ export async function resolveIncremental(
   if (result.error === "non-ancestor") {
     return {
       mode: "full",
+      degraded: true,
       reason: `anchor ${anchor.sha.slice(0, 8)} is not an ancestor of head (rebase/force-push) — full review`,
     };
   }
   if (result.error === "unavailable") {
     return {
       mode: "full",
+      degraded: true,
       reason: `delta since ${anchor.sha.slice(0, 8)} unavailable (git and compare both failed) — full review`,
     };
   }
@@ -104,6 +110,7 @@ export async function resolveIncremental(
     // — a full review is the safe degradation.
     return {
       mode: "full",
+      degraded: true,
       reason: "delta is empty (nothing changed since the anchor; e.g. rebase/amend-only)",
     };
   }

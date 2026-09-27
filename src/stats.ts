@@ -48,9 +48,10 @@ export interface StatsEvent {
   /** Anchor commit of an incremental run (the reviewed delta started there).
    *  Null = full review. Additive field: pre-incremental events lack it. */
   incrementalSince: string | null;
-  /** Why an ENABLED incremental run degraded to a full review (empty delta,
-   *  non-ancestor anchor, tool failure). Null = delta ran, incremental was
-   *  off, or force-full was explicitly requested. Additive field. */
+  /** Why an ENABLED incremental run that FOUND an anchor still degraded to
+   *  a full review (empty delta, non-ancestor anchor, tool failure). Null =
+   *  delta ran, or no delta was attempted (first review, no identity,
+   *  disabled, force-full). Additive field. */
   incrementalFallback: string | null;
   severity: { decision: string; blocking: number; warning: number; fallback: boolean };
   usage: { input: number; output: number; cacheRead: number; cacheWrite: number };

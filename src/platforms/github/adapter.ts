@@ -9,9 +9,17 @@ import { latestReviewAnchor } from "../../review-anchor.js";
 import { fetchPrContext, githubAuthFromEnv } from "../../github-context.js";
 import { postPrComment, postPrReview } from "../../pr-comment.js";
 
-/** Comment pages walked per anchor lookup. 5 × 100 covers busy PRs; beyond
- *  that the lookup gives up and the run falls back to a full review. */
-const ANCHOR_PAGES = 5;
+/** Extract the rel="last" target from a Link header, if present. */
+function lastPageUrl(link: string | null): string | null {
+  if (!link) return null;
+  for (const part of link.split(",")) {
+    if (part.includes('rel="last"')) {
+      const match = part.match(/<([^>]+)>/);
+      if (match) return match[1] ?? null;
+    }
+  }
+  return null;
+}
 
 export class GitHubAdapter implements PlatformAdapter {
   async fetchPrContext(options: PrContextOptions): Promise<string> {
@@ -27,7 +35,18 @@ export class GitHubAdapter implements PlatformAdapter {
       ]);
       if (selfLogin !== null) {
         // Strict identity: only comments authored by the token's own login.
-        return latestReviewAnchor(comments, selfLogin);
+        const anchor = latestReviewAnchor(comments, selfLogin);
+        if (!anchor) {
+          const fingerprinted = comments.filter(
+            (c) => c.body?.includes("<!-- pi-review-agent-sha:"),
+          ).length;
+          if (fingerprinted > 0) {
+            process.stderr.write(
+              `getLastReviewAnchor: ${fingerprinted} fingerprinted comment(s) exist but none is authored by ${selfLogin} — no trusted anchor, full review\n`,
+            );
+          }
+        }
+        return anchor;
       }
       // Degraded identity — the typical case for the default github.token:
       // installation tokens get 403 from GET /user. Require a Bot author
@@ -35,6 +54,10 @@ export class GitHubAdapter implements PlatformAdapter {
       // and human PR authors cannot author Bot-type comments. Not as strict
       // as a login match (another installed app could forge), but a far
       // higher bar than marker+fingerprint alone.
+      process.stderr.write(
+        "getLastReviewAnchor: token login unresolvable (installation token?); " +
+          "anchor identity check degraded to Bot-type authors\n",
+      );
       const botComments = comments.filter((c) => c.accountType === "Bot");
       return latestReviewAnchor(botComments, undefined);
     } catch (err: unknown) {
@@ -45,28 +68,47 @@ export class GitHubAdapter implements PlatformAdapter {
     }
   }
 
-  /** Up to ANCHOR_PAGES pages of issue comments (documented params only —
-   *  sort/direction are not in the endpoint spec), newest reached by walking
-   *  to the last page; selection is by id, so page order is irrelevant. */
+  /** Issue comments for anchor selection: the first page plus — when GitHub
+   *  paginates (Link header) — a direct jump to the LAST page, where the
+   *  newest anchor lives. Selection is by id, so which pages were seen
+   *  doesn't matter as long as the newest one is among them. */
   private async listAnchorComments(options: PrContextOptions): Promise<ReviewAnchorComment[]> {
+    const first = await this.fetchCommentPage(options, 1);
+    const comments = [...first.comments];
+    const lastUrl = lastPageUrl(first.linkHeader);
+    if (lastUrl !== null && lastUrl !== first.url) {
+      const last = await this.fetchCommentPage(options, -1, lastUrl);
+      comments.push(...last.comments);
+    }
+    return comments;
+  }
+
+  /** One page of issue comments. `page < 0` fetches `url` verbatim (a Link
+   *  header target); otherwise the documented per_page/page params. */
+  private async fetchCommentPage(
+    options: PrContextOptions,
+    page: number,
+    url?: string,
+  ): Promise<{ url: string; linkHeader: string | null; comments: ReviewAnchorComment[] }> {
+    const target =
+      page < 0 && url
+        ? url
+        : `${options.apiBase}/repos/${options.repository}/issues/${options.pr}/comments?per_page=100&page=${page}`;
+    const res = await fetch(target, {
+      headers: {
+        Authorization: `Bearer ${options.token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) {
+      await res.body?.cancel();
+      throw new Error(`GitHub API ${res.status} ${res.statusText}`);
+    }
+    const data: unknown = await res.json();
     const comments: ReviewAnchorComment[] = [];
-    for (let page = 1; page <= ANCHOR_PAGES; page++) {
-      const url =
-        `${options.apiBase}/repos/${options.repository}/issues/${options.pr}/comments?per_page=100&page=${page}`;
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${options.token}`,
-          Accept: "application/vnd.github+json",
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-        signal: AbortSignal.timeout(30_000),
-      });
-      if (!res.ok) {
-        await res.body?.cancel();
-        throw new Error(`GitHub API ${res.status} ${res.statusText}`);
-      }
-      const data: unknown = await res.json();
-      if (!Array.isArray(data) || data.length === 0) break;
+    if (Array.isArray(data)) {
       for (const c of data) {
         if (typeof c !== "object" || c === null) continue;
         if (!("id" in c && "body" in c && "user" in c)) continue;
@@ -83,9 +125,8 @@ export class GitHubAdapter implements PlatformAdapter {
           comments.push({ id: c.id, body: c.body, login, accountType });
         }
       }
-      if (data.length < 100) break; // last page
     }
-    return comments;
+    return { url: target, linkHeader: res.headers.get("link"), comments };
   }
 
   /** The token's own login (GET /user) so anchor candidates can be filtered

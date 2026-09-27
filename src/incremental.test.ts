@@ -118,6 +118,39 @@ describe("resolveIncremental — full-review fallbacks", () => {
     assert.match(out.mode === "full" ? out.reason : "", /not an ancestor of head/);
   });
 
+  it("degraded flag marks only attempted-and-failed deltas, not normal full reviews", async () => {
+    const attempted = [
+      await resolveIncremental(QUERY, fakeAdapter(), FULL_DIFF, {}, {
+        computeDelta: fakeCompute({ error: "non-ancestor" }).fn,
+      }),
+      await resolveIncremental(QUERY, fakeAdapter(), FULL_DIFF, {}, {
+        computeDelta: fakeCompute({ error: "unavailable" }).fn,
+      }),
+      await resolveIncremental(QUERY, fakeAdapter(), FULL_DIFF, {}, {
+        computeDelta: fakeCompute({ diff: "" }).fn,
+      }),
+    ];
+    for (const out of attempted) {
+      assert.equal(out.mode, "full");
+      assert.equal(out.degraded, true, out.reason);
+    }
+    const normal = [
+      await resolveIncremental({ ...QUERY, forceFull: true }, fakeAdapter(), FULL_DIFF, {}, {
+        computeDelta: fakeCompute({ diff: DELTA }).fn,
+      }),
+      await resolveIncremental(QUERY, fakeAdapter({ anchor: null }), FULL_DIFF, {}, {
+        computeDelta: fakeCompute({ diff: DELTA }).fn,
+      }),
+      await resolveIncremental(QUERY, fakeAdapter(), undefined, {}, {
+        computeDelta: fakeCompute({ diff: DELTA }).fn,
+      }),
+    ];
+    for (const out of normal) {
+      assert.equal(out.mode, "full");
+      assert.equal(out.degraded, undefined, out.reason);
+    }
+  });
+
   it("EMPTY delta → full review, not an empty-diff run (regression: loadDiff crash)", async () => {
     const out = await resolveIncremental(QUERY, fakeAdapter(), FULL_DIFF, {}, {
       computeDelta: fakeCompute({ diff: "" }).fn,

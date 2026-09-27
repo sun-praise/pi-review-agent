@@ -85,7 +85,7 @@ describe("computeDeltaDiff — git path", () => {
     assert.deepEqual(await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner }), { diff: DELTA });
     assert.deepEqual(
       calls.find((c) => c[0] === "fetch"),
-      ["fetch", "--no-tags", "--filter=blob:none", "origin", PREV, HEAD],
+      ["fetch", "--no-tags", "origin", PREV, HEAD],
     );
   });
 
@@ -136,31 +136,6 @@ describe("computeDeltaDiff — git path", () => {
       });
       assert.deepEqual(viaCompare, { diff: "compare-delta" }, label);
     }
-  });
-});
-
-describe("computeDeltaDiff — partial-clone fetch fallback", () => {
-  it("falls back to a plain fetch when --filter=blob:none is rejected", async () => {
-    let prevLocal = false;
-    const fetches: string[][] = [];
-    const { runner } = scriptedGit({
-      "rev-parse": () => ok(".git"),
-      "cat-file": (args) => {
-        if (args[2]?.startsWith(PREV)) return prevLocal ? ok() : fail("missing");
-        return ok();
-      },
-      fetch: (args) => {
-        fetches.push(args);
-        if (args.includes("--filter=blob:none")) return fail("filter not supported");
-        prevLocal = true;
-        return ok();
-      },
-      "merge-base": () => ok(),
-      diff: () => ok(DELTA),
-    });
-    const out = await computeDeltaDiff(PREV, HEAD, "/repo", { runGit: runner });
-    assert.deepEqual(out, { diff: DELTA });
-    assert.equal(fetches.length, 2, "blob-less attempt, then plain fetch");
   });
 });
 

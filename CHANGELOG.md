@@ -21,17 +21,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   verdict is judged on the PR's cumulative state. The verifier keeps the
   full diff as its changed-lines baseline so a carry-forward finding on a
   line an earlier round changed is not demoted as a hallucination.
-  Anchors are identity-checked (agent marker + self authorship: exact login
-  match when GET /user resolves, Bot-type author when it 403s — the default
-  github.token is an installation token and cannot resolve /user) so a
-  copied fingerprint in someone else's comment cannot steer the delta;
+  Anchors are identity-checked (agent marker + self authorship: GitHub does
+  an exact login match when GET /user resolves and requires a Bot-type
+  author when it 403s — the default github.token is an installation token;
+  Gitea requires the login match and fails closed when its token's identity
+  cannot be resolved) so a copied fingerprint in someone else's comment
+  cannot steer the delta;
   non-ancestor anchors (rebase/force-push) fall
   back to a full review via a `merge-base --is-ancestor` gate — the compare
   fallback is deliberately skipped there, since three-dot diff would
   silently miss reverted commits. Empty deltas (rebase squash, amend-only)
   also fall back to a full review instead of crashing the run on the
-  falsy diff-source check, and the degradation reason is recorded in the
-  stats event (`incrementalFallback`) alongside `incrementalSince`. Fail-open at every layer: first review, no
+  falsy diff-source check, and attempted-but-failed deltas record their
+  reason in the stats event (`incrementalFallback`) alongside
+  `incrementalSince`. Anchor listings paginate (GitHub via the Link
+  header's last page; Gitea via X-Total-Count) so the newest anchor is
+  reachable on busy PRs. Fail-open at every layer: first review, no
   checkout, API failure → full review, exactly the previous behavior. Opt-out via `incremental: false` (`PI_REVIEW_INCREMENTAL=0`);
   on-demand full re-review via `force-full: true` (`PI_REVIEW_FORCE_FULL=1`,
   e.g. wired to a `full-review` label). Stats events carry a new additive

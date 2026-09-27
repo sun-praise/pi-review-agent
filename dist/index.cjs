@@ -42101,14 +42101,23 @@ var adapter_exports = {};
 __export(adapter_exports, {
   GitHubAdapter: () => GitHubAdapter
 });
-var ANCHOR_PAGES, GitHubAdapter;
+function lastPageUrl(link) {
+  if (!link) return null;
+  for (const part of link.split(",")) {
+    if (part.includes('rel="last"')) {
+      const match = part.match(/<([^>]+)>/);
+      if (match) return match[1] ?? null;
+    }
+  }
+  return null;
+}
+var GitHubAdapter;
 var init_adapter = __esm({
   "src/platforms/github/adapter.ts"() {
     "use strict";
     init_review_anchor();
     init_github_context();
     init_pr_comment();
-    ANCHOR_PAGES = 5;
     GitHubAdapter = class {
       async fetchPrContext(options) {
         return fetchPrContext(options);
@@ -42121,8 +42130,23 @@ var init_adapter = __esm({
             this.resolveSelfLogin(options)
           ]);
           if (selfLogin !== null) {
-            return latestReviewAnchor(comments, selfLogin);
+            const anchor = latestReviewAnchor(comments, selfLogin);
+            if (!anchor) {
+              const fingerprinted = comments.filter(
+                (c) => c.body?.includes("<!-- pi-review-agent-sha:")
+              ).length;
+              if (fingerprinted > 0) {
+                process.stderr.write(
+                  `getLastReviewAnchor: ${fingerprinted} fingerprinted comment(s) exist but none is authored by ${selfLogin} \u2014 no trusted anchor, full review
+`
+                );
+              }
+            }
+            return anchor;
           }
+          process.stderr.write(
+            "getLastReviewAnchor: token login unresolvable (installation token?); anchor identity check degraded to Bot-type authors\n"
+          );
           const botComments = comments.filter((c) => c.accountType === "Bot");
           return latestReviewAnchor(botComments, void 0);
         } catch (err2) {
@@ -42133,27 +42157,39 @@ var init_adapter = __esm({
           return null;
         }
       }
-      /** Up to ANCHOR_PAGES pages of issue comments (documented params only —
-       *  sort/direction are not in the endpoint spec), newest reached by walking
-       *  to the last page; selection is by id, so page order is irrelevant. */
+      /** Issue comments for anchor selection: the first page plus — when GitHub
+       *  paginates (Link header) — a direct jump to the LAST page, where the
+       *  newest anchor lives. Selection is by id, so which pages were seen
+       *  doesn't matter as long as the newest one is among them. */
       async listAnchorComments(options) {
+        const first = await this.fetchCommentPage(options, 1);
+        const comments = [...first.comments];
+        const lastUrl = lastPageUrl(first.linkHeader);
+        if (lastUrl !== null && lastUrl !== first.url) {
+          const last = await this.fetchCommentPage(options, -1, lastUrl);
+          comments.push(...last.comments);
+        }
+        return comments;
+      }
+      /** One page of issue comments. `page < 0` fetches `url` verbatim (a Link
+       *  header target); otherwise the documented per_page/page params. */
+      async fetchCommentPage(options, page, url) {
+        const target = page < 0 && url ? url : `${options.apiBase}/repos/${options.repository}/issues/${options.pr}/comments?per_page=100&page=${page}`;
+        const res = await fetch(target, {
+          headers: {
+            Authorization: `Bearer ${options.token}`,
+            Accept: "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28"
+          },
+          signal: AbortSignal.timeout(3e4)
+        });
+        if (!res.ok) {
+          await res.body?.cancel();
+          throw new Error(`GitHub API ${res.status} ${res.statusText}`);
+        }
+        const data = await res.json();
         const comments = [];
-        for (let page = 1; page <= ANCHOR_PAGES; page++) {
-          const url = `${options.apiBase}/repos/${options.repository}/issues/${options.pr}/comments?per_page=100&page=${page}`;
-          const res = await fetch(url, {
-            headers: {
-              Authorization: `Bearer ${options.token}`,
-              Accept: "application/vnd.github+json",
-              "X-GitHub-Api-Version": "2022-11-28"
-            },
-            signal: AbortSignal.timeout(3e4)
-          });
-          if (!res.ok) {
-            await res.body?.cancel();
-            throw new Error(`GitHub API ${res.status} ${res.statusText}`);
-          }
-          const data = await res.json();
-          if (!Array.isArray(data) || data.length === 0) break;
+        if (Array.isArray(data)) {
           for (const c of data) {
             if (typeof c !== "object" || c === null) continue;
             if (!("id" in c && "body" in c && "user" in c)) continue;
@@ -42164,9 +42200,8 @@ var init_adapter = __esm({
               comments.push({ id: c.id, body: c.body, login, accountType });
             }
           }
-          if (data.length < 100) break;
         }
-        return comments;
+        return { url: target, linkHeader: res.headers.get("link"), comments };
       }
       /** The token's own login (GET /user) so anchor candidates can be filtered
        *  by author. Null when unresolvable (403 for installation tokens, e.g.
@@ -42303,15 +42338,32 @@ var init_adapter2 = __esm({
       async getLastReviewAnchor(options) {
         if (!options.token) return null;
         const base = `${options.apiBase.replace(/\/+$/, "")}/repos/${options.repository}`;
+        const userUrl = `${options.apiBase.replace(/\/+$/, "")}/user`;
         try {
           const [pages, self] = await Promise.all([
             this.listAnchorCommentPages(base, options),
-            giteaFetch(`${base}/user`, options.token).catch(() => null)
+            giteaFetch(userUrl, options.token)
           ]);
-          return latestReviewAnchor(
-            pages.map((c) => ({ id: c.id, body: c.body, login: c.user?.login ?? void 0 })),
-            self?.login ?? void 0
-          );
+          if (!self?.login) {
+            process.stderr.write(
+              "Gitea getLastReviewAnchor: could not resolve the token's own login (/user failed); no trusted anchor \u2014 incremental falls back to a full review\n"
+            );
+            return null;
+          }
+          const candidates = pages.map((c) => ({
+            id: c.id,
+            body: c.body,
+            login: c.user?.login ?? void 0
+          }));
+          const fingerprinted = candidates.filter((c) => c.body?.includes("<!-- pi-review-agent-sha:")).length;
+          const anchor = latestReviewAnchor(candidates, self.login);
+          if (!anchor && fingerprinted > 0) {
+            process.stderr.write(
+              `Gitea getLastReviewAnchor: ${fingerprinted} fingerprinted comment(s) exist but none is authored by ${self.login}; no trusted anchor \u2014 full review
+`
+            );
+          }
+          return anchor;
         } catch (err2) {
           process.stderr.write(
             `Gitea getLastReviewAnchor: failed (${err2 instanceof Error ? err2.message : String(err2)}); incremental falls back to a full review
@@ -42324,21 +42376,42 @@ var init_adapter2 = __esm({
         process.stderr.write("Gitea fetchCompareDiff: unsupported \u2014 relying on the git delta path\n");
         return null;
       }
-      /** Up to 5 pages of issue comments (50/page, oldest-first). A short page
-       *  ends the walk; beyond 5 pages the lookup gives up and the caller runs
-       *  a full review (fail-open). */
+      /** Issue-comment pages (50/page, oldest-first). Continuation prefers the
+       *  documented X-Total-Count header (immune to a server shrinking `limit`);
+       *  a short page is the heuristic fallback. Beyond 5 pages the lookup gives
+       *  up and the caller runs a full review (fail-open). */
       async listAnchorCommentPages(base, options) {
-        const out = [];
-        for (let page = 1; page <= 5; page++) {
-          const batch = await giteaFetch(
-            `${base}/issues/${options.pr}/comments?limit=50&page=${page}`,
-            options.token
-          );
-          if (!Array.isArray(batch) || batch.length === 0) break;
+        const limit2 = 50;
+        const first = await this.fetchCommentPage(base, options, 1, limit2);
+        if (first.batch.length === 0 || first.total === null) return first.batch;
+        const lastPage = Math.min(Math.ceil(first.total / limit2), 5);
+        const out = [...first.batch];
+        for (let page = 2; page <= lastPage; page++) {
+          const { batch } = await this.fetchCommentPage(base, options, page, limit2);
+          if (batch.length === 0) break;
           out.push(...batch);
-          if (batch.length < 50) break;
         }
         return out;
+      }
+      /** One page of issue comments plus its X-Total-Count (null when absent). */
+      async fetchCommentPage(base, options, page, limit2) {
+        const res = await fetchWithTimeout2(
+          `${base}/issues/${options.pr}/comments?limit=${limit2}&page=${page}`,
+          {
+            headers: {
+              Authorization: `Bearer ${options.token}`,
+              Accept: "application/json"
+            }
+          }
+        );
+        if (!res.ok) {
+          await res.text().catch(() => "");
+          throw new Error(`Gitea API ${res.status}: GET issue comments failed`);
+        }
+        const totalRaw = res.headers.get("x-total-count");
+        const total = totalRaw !== null && /^\d+$/.test(totalRaw) ? Number(totalRaw) : null;
+        const batch = await res.json();
+        return { batch: Array.isArray(batch) ? batch : [], total };
       }
       async postComment(context, body) {
         if (!context.token) {
@@ -46918,15 +46991,8 @@ async function computeDeltaDiff(prev, head, cwd, deps = {}) {
     return compare();
   }
   if (!await hasCommit(prev) || !await hasCommit(head)) {
-    const blobless = await runGit(
-      ["fetch", "--no-tags", "--filter=blob:none", "origin", prev, head],
-      cwd,
-      timeoutMs
-    );
-    if (blobless.code !== 0) {
-      const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
-      if (fetched.code !== 0) return compare();
-    }
+    const fetched = await runGit(["fetch", "--no-tags", "origin", prev, head], cwd, timeoutMs);
+    if (fetched.code !== 0) return compare();
     if (!await hasCommit(prev) || !await hasCommit(head)) return compare();
   }
   const ancestry = await runGit(["merge-base", "--is-ancestor", prev, head], cwd, timeoutMs);
@@ -46973,18 +47039,21 @@ async function resolveIncremental(query, adapter, fullDiff, env, deps = {}) {
   if (result.error === "non-ancestor") {
     return {
       mode: "full",
+      degraded: true,
       reason: `anchor ${anchor.sha.slice(0, 8)} is not an ancestor of head (rebase/force-push) \u2014 full review`
     };
   }
   if (result.error === "unavailable") {
     return {
       mode: "full",
+      degraded: true,
       reason: `delta since ${anchor.sha.slice(0, 8)} unavailable (git and compare both failed) \u2014 full review`
     };
   }
   if (result.diff.trim() === "") {
     return {
       mode: "full",
+      degraded: true,
       reason: "delta is empty (nothing changed since the anchor; e.g. rebase/amend-only)"
     };
   }
@@ -47374,7 +47443,7 @@ async function applyIncrementalDiff(opts, adapter) {
     process.env
   );
   if (outcome.mode === "full") {
-    if (!query.forceFull) opts.incrementalFallback = outcome.reason;
+    if (outcome.degraded) opts.incrementalFallback = outcome.reason;
     process.stderr.write(`incremental: ${outcome.reason} \u2014 full review
 `);
     return;

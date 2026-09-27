@@ -102,20 +102,42 @@ export class GiteaAdapter implements PlatformAdapter {
   async getLastReviewAnchor(options: PrContextOptions): Promise<ReviewAnchor | null> {
     if (!options.token) return null;
     const base = `${options.apiBase.replace(/\/+$/, "")}/repos/${options.repository}`;
+    // The current-user endpoint hangs off the API root, not the repo:
+    // {apiBase}/user, NOT {apiBase}/repos/{o}/{r}/user (that 404s and used
+    // to silently disable the identity check).
+    const userUrl = `${options.apiBase.replace(/\/+$/, "")}/user`;
     try {
       // Comments + the token's own identity; the anchor must be authored by
       // this very login (see review-anchor.ts — a copied fingerprint in
-      // someone else's comment must not steer the delta). Gitea lists
-      // comments oldest-first with no sort parameter, so walk pages up to
-      // the last one; selection is by id, page order is irrelevant.
+      // someone else's comment must not steer the delta).
       const [pages, self] = await Promise.all([
         this.listAnchorCommentPages(base, options),
-        giteaFetch<{ login: string | null }>(`${base}/user`, options.token).catch(() => null),
+        giteaFetch<{ login: string | null }>(userUrl, options.token),
       ]);
-      return latestReviewAnchor(
-        pages.map((c) => ({ id: c.id, body: c.body, login: c.user?.login ?? undefined })),
-        self?.login ?? undefined,
-      );
+      if (!self?.login) {
+        // Gitea has no Bot-type marker to fall back on (GitHub's degraded
+        // mode): an unresolvable identity means the strict check cannot run,
+        // so fail CLOSED — no anchor, full review — rather than silently
+        // accepting marker+fingerprint from anyone.
+        process.stderr.write(
+          "Gitea getLastReviewAnchor: could not resolve the token's own login (/user failed); " +
+            "no trusted anchor — incremental falls back to a full review\n",
+        );
+        return null;
+      }
+      const candidates = pages.map((c) => ({
+        id: c.id,
+        body: c.body,
+        login: c.user?.login ?? undefined,
+      }));
+      const fingerprinted = candidates.filter((c) => c.body?.includes("<!-- pi-review-agent-sha:")).length;
+      const anchor = latestReviewAnchor(candidates, self.login);
+      if (!anchor && fingerprinted > 0) {
+        process.stderr.write(
+          `Gitea getLastReviewAnchor: ${fingerprinted} fingerprinted comment(s) exist but none is authored by ${self.login}; no trusted anchor — full review\n`,
+        );
+      }
+      return anchor;
     } catch (err: unknown) {
       process.stderr.write(
         `Gitea getLastReviewAnchor: failed (${err instanceof Error ? err.message : String(err)}); incremental falls back to a full review\n`,
@@ -133,24 +155,51 @@ export class GiteaAdapter implements PlatformAdapter {
     return null;
   }
 
-  /** Up to 5 pages of issue comments (50/page, oldest-first). A short page
-   *  ends the walk; beyond 5 pages the lookup gives up and the caller runs
-   *  a full review (fail-open). */
+  /** Issue-comment pages (50/page, oldest-first). Continuation prefers the
+   *  documented X-Total-Count header (immune to a server shrinking `limit`);
+   *  a short page is the heuristic fallback. Beyond 5 pages the lookup gives
+   *  up and the caller runs a full review (fail-open). */
   private async listAnchorCommentPages(
     base: string,
     options: PrContextOptions,
   ): Promise<GiteaComment[]> {
-    const out: GiteaComment[] = [];
-    for (let page = 1; page <= 5; page++) {
-      const batch = await giteaFetch<GiteaComment[]>(
-        `${base}/issues/${options.pr}/comments?limit=50&page=${page}`,
-        options.token,
-      );
-      if (!Array.isArray(batch) || batch.length === 0) break;
+    const limit = 50;
+    const first = await this.fetchCommentPage(base, options, 1, limit);
+    if (first.batch.length === 0 || first.total === null) return first.batch;
+    const lastPage = Math.min(Math.ceil(first.total / limit), 5);
+    const out = [...first.batch];
+    for (let page = 2; page <= lastPage; page++) {
+      const { batch } = await this.fetchCommentPage(base, options, page, limit);
+      if (batch.length === 0) break;
       out.push(...batch);
-      if (batch.length < 50) break; // last page
     }
     return out;
+  }
+
+  /** One page of issue comments plus its X-Total-Count (null when absent). */
+  private async fetchCommentPage(
+    base: string,
+    options: PrContextOptions,
+    page: number,
+    limit: number,
+  ): Promise<{ batch: GiteaComment[]; total: number | null }> {
+    const res = await fetchWithTimeout(
+      `${base}/issues/${options.pr}/comments?limit=${limit}&page=${page}`,
+      {
+        headers: {
+          Authorization: `Bearer ${options.token}`,
+          Accept: "application/json",
+        },
+      },
+    );
+    if (!res.ok) {
+      await res.text().catch(() => "");
+      throw new Error(`Gitea API ${res.status}: GET issue comments failed`);
+    }
+    const totalRaw = res.headers.get("x-total-count");
+    const total = totalRaw !== null && /^\d+$/.test(totalRaw) ? Number(totalRaw) : null;
+    const batch = (await res.json()) as GiteaComment[];
+    return { batch: Array.isArray(batch) ? batch : [], total };
   }
 
   async postComment(context: PrCommentContext, body: string): Promise<"created" | "updated" | "skipped"> {
