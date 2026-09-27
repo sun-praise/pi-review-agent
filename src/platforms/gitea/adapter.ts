@@ -6,6 +6,7 @@
 import type { PlatformAdapter, PrContextOptions, PrCommentContext, PrInfo, InlineComment, PostReviewResult, CompareDiffOptions } from "../types.js";
 import type { ReviewAnchor } from "../../review-anchor.js";
 import { SELF_MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX, latestReviewAnchor } from "../../review-anchor.js";
+import { planGiteaPages } from "../pagination.js";
 import { withTransientRetry } from "../../retry.js";
 
 /** Fetch timeout in milliseconds. */
@@ -155,20 +156,28 @@ export class GiteaAdapter implements PlatformAdapter {
     return null;
   }
 
-  /** Issue-comment pages (50/page, oldest-first). Continuation prefers the
-   *  documented X-Total-Count header (immune to a server shrinking `limit`);
-   *  a short page is the heuristic fallback. Beyond 5 pages the lookup gives
-   *  up and the caller runs a full review (fail-open). */
+  /** Issue-comment pages (50/page, oldest-first). With X-Total-Count the
+   *  plan jumps to the NEWEST window (planGiteaPages); without it, a
+   *  forward walk stops at the first short page — reaching the true end
+   *  only within the cap, beyond which the lookup misses and the caller
+   *  runs a full review (fail-open). */
   private async listAnchorCommentPages(
     base: string,
     options: PrContextOptions,
   ): Promise<GiteaComment[]> {
     const limit = 50;
     const first = await this.fetchCommentPage(base, options, 1, limit);
-    if (first.batch.length === 0 || first.total === null) return first.batch;
-    const lastPage = Math.min(Math.ceil(first.total / limit), 5);
     const out = [...first.batch];
-    for (let page = 2; page <= lastPage; page++) {
+    if (first.total === null) {
+      for (const page of planGiteaPages(null, limit)) {
+        const { batch } = await this.fetchCommentPage(base, options, page, limit);
+        if (batch.length === 0) break;
+        out.push(...batch);
+        if (batch.length < limit) break;
+      }
+      return out;
+    }
+    for (const page of planGiteaPages(first.total, limit)) {
       const { batch } = await this.fetchCommentPage(base, options, page, limit);
       if (batch.length === 0) break;
       out.push(...batch);

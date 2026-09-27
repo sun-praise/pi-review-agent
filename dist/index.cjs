@@ -41624,6 +41624,37 @@ var init_verifier_agent = __esm({
   }
 });
 
+// src/platforms/pagination.ts
+function planGiteaPages(total, limit2, cap = GITEA_ANCHOR_PAGE_CAP) {
+  if (total === null) {
+    const forward = [];
+    for (let page = 2; page <= cap; page++) forward.push(page);
+    return forward;
+  }
+  const pages = Math.max(1, Math.ceil(total / limit2));
+  const start = Math.max(2, pages - (cap - 2));
+  const out = [];
+  for (let page = start; page <= pages; page++) out.push(page);
+  return out;
+}
+function lastPageUrl(link) {
+  if (!link) return null;
+  for (const part of link.split(",")) {
+    if (part.includes('rel="last"')) {
+      const match = part.match(/<([^>]+)>/);
+      if (match) return match[1] ?? null;
+    }
+  }
+  return null;
+}
+var GITEA_ANCHOR_PAGE_CAP;
+var init_pagination2 = __esm({
+  "src/platforms/pagination.ts"() {
+    "use strict";
+    GITEA_ANCHOR_PAGE_CAP = 5;
+  }
+});
+
 // src/github-context.ts
 function isSelfBody(body) {
   return body !== null && body.includes(SELF_MARKER2);
@@ -42101,21 +42132,12 @@ var adapter_exports = {};
 __export(adapter_exports, {
   GitHubAdapter: () => GitHubAdapter
 });
-function lastPageUrl(link) {
-  if (!link) return null;
-  for (const part of link.split(",")) {
-    if (part.includes('rel="last"')) {
-      const match = part.match(/<([^>]+)>/);
-      if (match) return match[1] ?? null;
-    }
-  }
-  return null;
-}
 var GitHubAdapter;
 var init_adapter = __esm({
   "src/platforms/github/adapter.ts"() {
     "use strict";
     init_review_anchor();
+    init_pagination2();
     init_github_context();
     init_pr_comment();
     GitHubAdapter = class {
@@ -42313,6 +42335,7 @@ var init_adapter2 = __esm({
   "src/platforms/gitea/adapter.ts"() {
     "use strict";
     init_review_anchor();
+    init_pagination2();
     init_retry3();
     FETCH_TIMEOUT_MS2 = 3e4;
     GiteaAdapter = class {
@@ -42376,17 +42399,25 @@ var init_adapter2 = __esm({
         process.stderr.write("Gitea fetchCompareDiff: unsupported \u2014 relying on the git delta path\n");
         return null;
       }
-      /** Issue-comment pages (50/page, oldest-first). Continuation prefers the
-       *  documented X-Total-Count header (immune to a server shrinking `limit`);
-       *  a short page is the heuristic fallback. Beyond 5 pages the lookup gives
-       *  up and the caller runs a full review (fail-open). */
+      /** Issue-comment pages (50/page, oldest-first). With X-Total-Count the
+       *  plan jumps to the NEWEST window (planGiteaPages); without it, a
+       *  forward walk stops at the first short page — reaching the true end
+       *  only within the cap, beyond which the lookup misses and the caller
+       *  runs a full review (fail-open). */
       async listAnchorCommentPages(base, options) {
         const limit2 = 50;
         const first = await this.fetchCommentPage(base, options, 1, limit2);
-        if (first.batch.length === 0 || first.total === null) return first.batch;
-        const lastPage = Math.min(Math.ceil(first.total / limit2), 5);
         const out = [...first.batch];
-        for (let page = 2; page <= lastPage; page++) {
+        if (first.total === null) {
+          for (const page of planGiteaPages(null, limit2)) {
+            const { batch } = await this.fetchCommentPage(base, options, page, limit2);
+            if (batch.length === 0) break;
+            out.push(...batch);
+            if (batch.length < limit2) break;
+          }
+          return out;
+        }
+        for (const page of planGiteaPages(first.total, limit2)) {
           const { batch } = await this.fetchCommentPage(base, options, page, limit2);
           if (batch.length === 0) break;
           out.push(...batch);

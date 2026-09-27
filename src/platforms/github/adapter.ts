@@ -6,20 +6,9 @@
 import type { PlatformAdapter, PrContextOptions, PrCommentContext, PrInfo, InlineComment, PostReviewResult, CompareDiffOptions } from "../types.js";
 import type { ReviewAnchor, ReviewAnchorComment } from "../../review-anchor.js";
 import { latestReviewAnchor } from "../../review-anchor.js";
+import { lastPageUrl } from "../pagination.js";
 import { fetchPrContext, githubAuthFromEnv } from "../../github-context.js";
 import { postPrComment, postPrReview } from "../../pr-comment.js";
-
-/** Extract the rel="last" target from a Link header, if present. */
-function lastPageUrl(link: string | null): string | null {
-  if (!link) return null;
-  for (const part of link.split(",")) {
-    if (part.includes('rel="last"')) {
-      const match = part.match(/<([^>]+)>/);
-      if (match) return match[1] ?? null;
-    }
-  }
-  return null;
-}
 
 export class GitHubAdapter implements PlatformAdapter {
   async fetchPrContext(options: PrContextOptions): Promise<string> {
