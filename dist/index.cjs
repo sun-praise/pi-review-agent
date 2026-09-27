@@ -41539,7 +41539,7 @@ function buildVerifierAgent(provider, opts) {
         initialState: {
           systemPrompt: VERIFIER_SYSTEM,
           model,
-          thinkingLevel: "off",
+          thinkingLevel: "high",
           tools,
           messages: []
         },
@@ -42778,7 +42778,7 @@ async function runModelAttempt(opts, modelId, file, transcript, resumed, systemP
         initialState: {
           systemPrompt,
           model,
-          thinkingLevel: "off",
+          thinkingLevel: "high",
           tools,
           messages: transcript
         },

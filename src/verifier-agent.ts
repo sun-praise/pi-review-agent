@@ -159,7 +159,7 @@ export function buildVerifierAgent(provider: Provider<"openai-completions">, opt
         initialState: {
           systemPrompt: VERIFIER_SYSTEM,
           model: model as Model<Api>,
-          thinkingLevel: "off",
+          thinkingLevel: "high",
           tools,
           messages: [],
         },

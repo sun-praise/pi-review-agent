@@ -235,7 +235,7 @@ async function runModelAttempt(
         initialState: {
           systemPrompt,
           model: model as Model<Api>,
-          thinkingLevel: "off",
+          thinkingLevel: "high",
           tools,
           messages: transcript,
         },
