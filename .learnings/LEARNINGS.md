@@ -251,7 +251,7 @@ ops issue #126：svtter-thesis 三 reviewer 全 400，LiteLLM 报错文案 "Rece
 
 ### Suggested Action
 - 判断标志：跨依赖大版本升级 + moving tag 发版 = 先 diff 默认参数行为（本地 capture server 抓 wire），再发版；LiteLLM "Param Incorrect" 报错要看 param 字段原文，别被 Model Group 前缀带偏。
-- 修法：provider 按**归一化模型族**分桶 maxTokens（mimo 系 131072 / deepseek 系 384000 / **未验证族 0=不发**，`toLowerCase` + `/` 命名空间前缀——裸 `startsWith` 漏判 `MiMo-`/`openrouter/mimo-`，与 LRN-20260716-003 同一陷阱族）；dogfood 跑 mimo 族 + `fail-on-severity: "blocking"` + `fallback-models: ""`——注意：**不设 fail-on-severity 时 reviewer 全灭 check 依然绿**（exit 0），dogfood 只是评论信号不是门禁；matrix 多腿会共享 session cache key（不含 model 维度）跨模型污染 transcript，故单腿。
+- 修法：**全族 `maxTokens: 0` = 一律不发 max_completion_tokens**（pi-ai 对 falsy maxTokens 跳过该参数），恢复 0.80 时代跑了三个月的线上行为，让各上游用自家默认上限（MiMo v2.6 默认即满 131072；发 384000 给 deepseek 反而是放松 PAYG 成本护栏）。历史包袱根因：scaffold 期声明的 384000 在 0.80 是死元数据，依赖升级把它激活成线上参数——「声明过的元数据」≠「打算发的参数」。未来某模型默认上限截断评审时，**拿到验证过的数字**再加 per-model cap。dogfood 跑 mimo 族 + `fail-on-severity: "blocking"` + `fallback-models: ""`——注意：**不设 fail-on-severity 时 reviewer 全灭 check 依然绿**（exit 0），dogfood 只是评论信号不是门禁；matrix 多腿会共享 session cache key（不含 model 维度）跨模型污染 transcript，故单腿。`startsWith` 判模型族漏判 `MiMo-`/`openrouter/mimo-`（LRN-20260716-003 同族陷阱），本方案直接消掉族判断。
 
 ### Metadata
 - Source: incident

@@ -42407,50 +42407,46 @@ function createLiteLLMDeepSeekProvider(opts) {
     name: `LiteLLM DeepSeek (${id})`,
     baseUrl: baseURL,
     auth: { apiKey: envApiKeyAuth("LiteLLM API key", [envVar]) },
-    models: modelIds.map((mid) => {
-      const lower = mid.toLowerCase();
-      const familyCap = lower.startsWith("mimo") || lower.includes("/mimo") ? 131072 : lower.startsWith("deepseek") || lower.includes("/deepseek") ? 384e3 : 0;
-      return {
-        id: mid,
-        name: mid,
-        api: "openai-completions",
-        provider: id,
-        baseUrl: baseURL,
-        compat: {
-          supportsStore: false,
-          supportsDeveloperRole: false,
-          requiresReasoningContentOnAssistantMessages: true,
-          thinkingFormat: "deepseek"
-        },
-        reasoning: true,
-        thinkingLevelMap: {
-          minimal: null,
-          low: null,
-          medium: null,
-          high: "high",
-          xhigh: "max"
-        },
-        input: ["text"],
-        // Cost: per-id override if provided, else the DeepSeek-flash estimate
-        // (model-cost.ts is the single source for the default table).
-        cost: opts.costByModel?.[mid] ?? DEFAULT_DEEPSEEK_COST,
-        // MiMo v2.x: 1M context, completion hard cap 131072 (mimo.mi.com
-        // docs); DeepSeek-shaped ids are the provider's native family and
-        // tolerate the 384000 ceiling the dogfood runs already exercised.
-        // Context is only a declared hint for pi-ai's
-        // clampMaxTokensToContext — verify per family before relying on it.
-        contextWindow: 1e6,
-        // pi-ai >= 0.87 sends max_completion_tokens = model.maxTokens by
-        // default (0.80 omitted it when unset), so this value goes on the
-        // wire as-is. Declaring a ceiling the upstream rejects 400s every
-        // request — v1.10.0 declared 384000 for a MiMo model (cap 131072)
-        // and broke every MiMo consumer (ops issue #126). Known caps for
-        // mimo/deepseek; 0 (= omit the parameter, the pre-0.87 wire
-        // behavior) for any family whose cap we have NOT verified — a
-        // guessed ceiling is exactly the ops#126 failure shape.
-        maxTokens: familyCap
-      };
-    }),
+    models: modelIds.map((mid) => ({
+      id: mid,
+      name: mid,
+      api: "openai-completions",
+      provider: id,
+      baseUrl: baseURL,
+      compat: {
+        supportsStore: false,
+        supportsDeveloperRole: false,
+        requiresReasoningContentOnAssistantMessages: true,
+        thinkingFormat: "deepseek"
+      },
+      reasoning: true,
+      thinkingLevelMap: {
+        minimal: null,
+        low: null,
+        medium: null,
+        high: "high",
+        xhigh: "max"
+      },
+      input: ["text"],
+      // Cost: per-id override if provided, else the DeepSeek-flash estimate
+      // (model-cost.ts is the single source for the default table).
+      cost: opts.costByModel?.[mid] ?? DEFAULT_DEEPSEEK_COST,
+      // Declared hint for pi-ai's clampMaxTokensToContext. MiMo v2.x: 1M
+      // context (mimo.mi.com docs). Verify per family before relying on it.
+      contextWindow: 1e6,
+      // Deliberately 0 = omit max_completion_tokens on the wire (pi-ai skips
+      // falsy maxTokens), for every family. pi-ai >= 0.87 sends
+      // model.maxTokens by default, which silently activated the historical
+      // 384000 scaffold metadata in v1.10.0 and 400'd every MiMo request
+      // (family cap 131072, ops issue #126). Not sending restores the
+      // pre-0.87 wire behavior that ran in production for months: each
+      // upstream applies its own default ceiling (MiMo v2.6 defaults to its
+      // full 131072), which is also a tighter cost guard than any guessed
+      // value. If a future model's default truncates reviews, add a
+      // per-model cap THEN, with a verified number — a guessed ceiling is
+      // exactly the ops#126 failure shape.
+      maxTokens: 0
+    })),
     api: openAICompletionsApi()
   });
 }
