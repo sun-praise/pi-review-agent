@@ -201,6 +201,25 @@ inputs:
       (the default github.token has it). Set "false" to disable.
     required: false
     default: "true"
+  incremental:
+    description: >
+      Incremental review: on a re-run of the same PR, review only the
+      changes since the last reviewed commit (the anchor is the hidden sha
+      fingerprint in the agent's standing comment). The previous round's
+      summary is injected into reviewer prompts, and the verdict is judged
+      on the PR's cumulative state. Falls back to a full review whenever
+      no anchor or no delta can be resolved (first review, force-push,
+      no checkout). Default "true". Set "false" to always review the
+      full diff.
+    required: false
+    default: "true"
+  force-full:
+    description: >
+      Force a full review this run even when an incremental anchor exists.
+      Wire it to a label/command trigger (e.g. contains(github.event.label.
+      name, 'full-review')) for on-demand full re-reviews.
+    required: false
+    default: "false"
   style-guide:
     description: >
       Path to a repository style-guide file. When set, this file is used
@@ -339,6 +358,8 @@ runs:
         PI_REVIEW_EXCHANGE_RATE: ${{ inputs.exchange-rate }}
         PI_REVIEW_LANGUAGE: ${{ inputs.language }}
         PI_REVIEW_INCLUDE_PR_CONTEXT: ${{ inputs.include-pr-context }}
+        PI_REVIEW_INCREMENTAL: ${{ inputs.incremental }}
+        PI_REVIEW_FORCE_FULL: ${{ inputs.force-full }}
         PI_REVIEW_SESSIONS_ROOT: ${{ inputs.sessions-root != '' && inputs.sessions-root || format('{0}/.pi-review-sessions', runner.temp) }}
         LITELLM_BASE_URL: ${{ inputs.litellm-url }}
         LITELLM_API_KEY: ${{ inputs.litellm-api-key }}

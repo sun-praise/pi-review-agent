@@ -46,6 +46,7 @@ import { buildStatsEvent, recordStats, resolveRunIdentity } from "./stats.js";
 import { checkWorkspace } from "./workspace-check.js";
 import { buildSingleJsonResult, buildTeamJsonResult, type JsonRunResult } from "./json-output.js";
 import { resolveSessionDirName } from "./session-dir.js";
+import { computeDeltaDiff } from "./delta-diff.js";
 
 
 function loadDiff(opts: CliOptions): string {
@@ -221,6 +222,8 @@ async function runSingle(
     diff,
     prContext: opts.prContext,
     relatedContext: opts.relatedContext,
+    incrementalSince: opts.incrementalSince || undefined,
+    previousReview: opts.previousReview || undefined,
     sessionsRoot: opts.sessionsRoot,
     sessionKey: opts.sessionKey,
     cwd: opts.cwd,
@@ -253,6 +256,7 @@ async function runSingle(
         personas: [{ name: personaName, usage: result.usage, resumed: result.resumed }],
         coordinator: null,
         verdict: null,
+        incrementalSince: opts.incrementalSince || null,
         severity: {
           decision: severity.decision,
           blocking: severity.blockingCount,
@@ -331,6 +335,9 @@ async function runTeam(
     diff,
     prContext: opts.prContext,
     relatedContext: opts.relatedContext,
+    incrementalSince: opts.incrementalSince || undefined,
+    previousReview: opts.previousReview || undefined,
+    verifyDiff: opts.fullDiffForVerify || undefined,
     cwd: opts.cwd,
     sessionsRoot: opts.sessionsRoot,
     sessionKey: opts.sessionKey,
@@ -375,6 +382,7 @@ async function runTeam(
           ? { name: "coordinator", usage: result.coordinator.usage, resumed: result.coordinator.resumed }
           : null,
         verdict: result.verdict,
+        incrementalSince: opts.incrementalSince || null,
         severity: {
           decision: result.severity.decision,
           blocking: result.severity.blockingCount,
@@ -417,7 +425,10 @@ async function runTeam(
   for (const r of result.personas) {
     process.stdout.write(`\n--- ${r.persona} ---\n${r.result.content}\n`);
   }
-  const commentBody = renderTeamComment(result, { currency: opts.displayCurrency });
+  const commentBody = renderTeamComment(result, {
+    currency: opts.displayCurrency,
+    incrementalSince: opts.incrementalSince || undefined,
+  });
   writeTeamSummary(result, opts.displayCurrency, commentBody);
 
   // Post PR results using platform adapter
@@ -454,6 +465,88 @@ async function attachRelatedContext(opts: CliOptions): Promise<void> {
       `related context: failed (${err instanceof Error ? err.message : String(err)}); skipping\n`,
     );
   }
+}
+
+/**
+ * Incremental review: when a prior run left a standing comment carrying the
+ * reviewed head SHA (the anchor fingerprint), swap the review payload from
+ * the full PR diff to the delta since that commit. The previous round's
+ * summary is injected into every reviewer prompt (unresolved findings ride
+ * along; the verdict is judged on the PR's cumulative state), and the full
+ * diff is kept for the verifier's changed-lines check.
+ *
+ * Fail-open at every layer — no anchor, no git delta, no compare API → full
+ * review, exactly the pre-incremental behavior. An empty delta ("") passes
+ * through: the run then legitimately reports over an empty change set.
+ *
+ * Runs AFTER the stale-tree guard (which checks the full diff's added files)
+ * and BEFORE attachRelatedContext (whose blast radius must cover only the
+ * delta's files). Swaps the diff source by overwriting opts.diffInline and
+ * dropping the memoized full diff — CliOptions is treated as immutable from
+ * this point on, same contract as prContext/relatedContext.
+ */
+async function applyIncrementalDiff(opts: CliOptions, adapter: PlatformAdapter): Promise<void> {
+  if (opts.forceFull) {
+    process.stderr.write("incremental: force-full set — running a full review\n");
+    return;
+  }
+  if (!opts.incremental) return;
+  const prInfo = adapter.resolvePrFromEnv(process.env);
+  if (!prInfo || !prInfo.headSha) {
+    process.stderr.write("incremental: no platform PR identity (pr/head sha) — full review\n");
+    return;
+  }
+  const anchor = await adapter.getLastReviewAnchor({
+    apiBase: prInfo.apiBase,
+    repository: prInfo.repository,
+    pr: opts.pr,
+    token: prInfo.token,
+  });
+  if (!anchor) {
+    process.stderr.write("incremental: no prior review anchor — full review\n");
+    return;
+  }
+  if (anchor.sha === prInfo.headSha) {
+    process.stderr.write(
+      "incremental: anchor already at head (re-run of the same commit) — full review\n",
+    );
+    return;
+  }
+  const delta = await computeDeltaDiff(anchor.sha, prInfo.headSha, opts.cwd, {
+    fetchCompare: (base, head) =>
+      adapter.fetchCompareDiff({
+        apiBase: prInfo.apiBase,
+        repository: prInfo.repository,
+        pr: opts.pr,
+        token: prInfo.token,
+        base,
+        head,
+      }),
+  });
+  if (delta === null) {
+    process.stderr.write(
+      `incremental: delta since ${anchor.sha.slice(0, 8)} unavailable (git and compare both failed) — full review\n`,
+    );
+    return;
+  }
+  if (delta.trim() === "") {
+    process.stderr.write(
+      "incremental: delta is empty (nothing reviewable changed since the anchor)\n",
+    );
+  }
+  const full = preparedDiffCache.get(opts);
+  if (full !== undefined) opts.fullDiffForVerify = full;
+  opts.diffInline = delta;
+  opts.diffFile = undefined;
+  preparedDiffCache.delete(opts);
+  opts.incrementalSince = anchor.sha;
+  opts.previousReview = anchor.body;
+  const deltaKb = Math.round(Buffer.byteLength(delta, "utf8") / 1024);
+  const fullNote =
+    full !== undefined ? `, full ${Math.round(Buffer.byteLength(full, "utf8") / 1024)} KB` : "";
+  process.stderr.write(
+    `incremental: reviewing changes since ${anchor.sha.slice(0, 8)} (delta ${deltaKb} KB${fullNote})\n`,
+  );
 }
 
 async function main(): Promise<number> {
@@ -506,16 +599,15 @@ async function main(): Promise<number> {
     }
   }
 
-  // Related context is local-fs only (no platform), so it serves both the
-  // text and the headless json path — compute it once, before the split.
-  await attachRelatedContext(opts);
-
   // Headless json mode: no platform adapter is created (and none may be
   // detectable — bench harnesses run outside GitHub/Gitea env), no PR
-  // context is fetched, no comment is posted. Bench isolation (random
-  // bench-* session key when no pr/key given) is resolved in parseArgs, so
+  // context is fetched, no comment is posted, incremental never applies
+  // (there is no platform anchor). Related context is local-fs only, so it
+  // serves this path from the full diff. Bench isolation (random bench-*
+  // session key when no pr/key given) is resolved in parseArgs, so
   // CliOptions stays immutable from construction on.
   if (opts.format === "json") {
+    await attachRelatedContext(opts);
     return opts.team ? runTeam(opts, null, "none") : runSingle(opts, null, "none");
   }
 
@@ -538,6 +630,12 @@ async function main(): Promise<number> {
       );
     }
   }
+
+  // Incremental payload swap (may replace the diff source with the delta
+  // since the anchor commit) must precede the related-context build: the
+  // blast radius of a delta run covers only the delta's files.
+  await applyIncrementalDiff(opts, adapter);
+  await attachRelatedContext(opts);
   return opts.team ? runTeam(opts, adapter, platform) : runSingle(opts, adapter, platform);
 }
 

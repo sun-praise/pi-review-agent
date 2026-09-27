@@ -196,6 +196,47 @@ The action:
 
 `pull-requests: write` permission is required for comment posting.
 
+### Incremental review
+
+On a re-run of the same PR (new push), the review payload defaults to the
+**delta since the last reviewed commit**, not the full PR diff. The anchor is
+the hidden sha fingerprint this agent already embeds in every standing
+comment (`<!-- pi-review-agent-sha:<sha> -->`) — no extra state, no extra
+storage.
+
+How a delta run works:
+
+- delta = `git diff <anchor-sha>..<head>`, computed from the git object
+  database (working-tree state is never read; missing commits are fetched
+  from `origin` by SHA first). If git can't deliver (no checkout, SHA wants
+  disabled, force-push with an unreachable anchor), the GitHub compare API
+  is tried; failing that, the run silently falls back to a **full review** —
+  incremental is strictly an optimization.
+- The previous round's summary is injected into every reviewer prompt
+  (unresolved findings ride along) and the verdict is judged on the PR's
+  **cumulative state** — an incremental run can still say CANNOT MERGE over
+  an unresolved earlier finding.
+- The verifier keeps the full diff as its changed-lines baseline, so a
+  carried-forward finding pinned to a line an earlier round changed is not
+  demoted as a hallucination.
+- The PR comment and the stats event (`incrementalSince` field) both mark the
+  run as incremental.
+
+Configuration:
+
+```yaml
+- uses: sun-praise/pi-review-agent@v1
+  with:
+    team: "quality:1,security:1"
+    incremental: "true"   # default; "false" → always full diff
+    force-full: "false"   # force one full re-review, e.g. via a label:
+    # force-full: ${{ contains(github.event.label.name, 'full-review') }}
+```
+
+Env equivalents: `PI_REVIEW_INCREMENTAL=0` disables; `PI_REVIEW_FORCE_FULL=1`
+forces a full review this run. On Gitea the delta comes from the git path
+only (no compare-API fallback); everything else is identical.
+
 ### Run statistics
 
 Every completed review (single or team) emits one stats event: review count, per-persona and total token usage (`input` / `output` / `cacheRead` / `cacheWrite`), cost, verdict, and duration. The event is always appended locally to `<sessions-root>/stats.jsonl`, and — when `stats-url` is set — POSTed to a central dashboard for cross-repo aggregation. Emission is fail-open: an unreachable dashboard never fails a review.

@@ -212,3 +212,29 @@ describe("parseArgs --format json (headless bench mode)", () => {
     assert.equal(parse([...JSON_MIN, "--pr", "9"]).sessionKey, undefined);
   });
 });
+
+describe("parseArgs incremental review", () => {
+  it("defaults to incremental on, force-full off, runtime fields empty", () => {
+    const opts = parse(MIN);
+    assert.equal(opts.incremental, true);
+    assert.equal(opts.forceFull, false);
+    assert.equal(opts.incrementalSince, "");
+    assert.equal(opts.previousReview, "");
+    assert.equal(opts.fullDiffForVerify, "");
+  });
+
+  it("GitHub's literal 'false' string disables incremental (env or CLI)", () => {
+    assert.equal(parse(MIN, { PI_REVIEW_INCREMENTAL: "false" }).incremental, false);
+    assert.equal(parse(MIN, { PI_REVIEW_INCREMENTAL: "0" }).incremental, false);
+    assert.equal(parse([...MIN, "--incremental", "false"]).incremental, false);
+    // GH injects empty strings for unset optional inputs — must stay enabled.
+    assert.equal(parse(MIN, { PI_REVIEW_INCREMENTAL: "" }).incremental, true);
+  });
+
+  it("force-full resolves from CLI and env with the truthy-flag convention", () => {
+    assert.equal(parse(MIN, { PI_REVIEW_FORCE_FULL: "true" }).forceFull, true);
+    assert.equal(parse(MIN, { PI_REVIEW_FORCE_FULL: "1" }).forceFull, true);
+    assert.equal(parse([...MIN, "--force-full", "true"]).forceFull, true);
+    assert.equal(parse(MIN, { PI_REVIEW_FORCE_FULL: "false" }).forceFull, false);
+  });
+});
