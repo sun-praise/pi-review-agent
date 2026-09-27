@@ -5,7 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.10.1] - 2026-09-27
+
+### Fixed
+
+- **MiMo consumers 400 on every request — v1.10.0 pulled within 15 minutes**
+  (ops issue Svtter/ops#126): pi-ai >= 0.87 sends
+  `max_completion_tokens = model.maxTokens` by default (0.80 omitted it), so
+  the provider's historical `maxTokens: 384000` scaffold metadata — inert
+  under 0.80 — went on the wire and hit MiMo's 131072 completion cap on
+  every request, breaking all MiMo consumers ~100s after the `v1` moving
+  tag moved. The fix omits the parameter for every family
+  (`maxTokens: MAX_TOKENS_OMIT` sentinel; each upstream applies its own
+  default ceiling — MiMo v2.6 defaults to its full 131072), the pi deps are
+  pinned to exact 0.87.1 so the falsy-skip contract only moves through a
+  deliberate upgrade, and the dogfood workflow becomes a real gate: single
+  mimo-v2.6-flash leg, `fail-on-severity: "blocking"`, no fallback,
+  `concurrency` group, 900s timeout headroom, and a fork-PR guard.
 
 ### Added
 
@@ -43,6 +59,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `incrementalSince` field (null = full review).
 
 ## [1.10.0] - 2026-09-27
+
+> Pulled from the `v1` tag ~15 minutes after release (max_completion_tokens
+> breakage, see 1.10.1). Consumers that resolved `@v1` during that window
+> were affected; `v1` points at 1.9.0 until 1.10.1.
 
 ### Changed
 
