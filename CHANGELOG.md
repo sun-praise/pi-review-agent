@@ -5,6 +5,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-09-27
+
+### Changed
+
+- **Thinking is now enabled by default** (#80): reviewer personas and the
+  verifier construct their Agent with `thinkingLevel: "high"` instead of
+  `"off"`. On the wire (verified against a capture server through the real
+  provider config) this sends `thinking: {"type":"enabled"}` for
+  deepseek-format models instead of an explicit `{"type":"disabled"}` —
+  previously production was deterministically *not* thinking. Multi-turn
+  tool calls are covered: the provider already sets
+  `requiresReasoningContentOnAssistantMessages`, so assistant messages
+  carrying `tool_calls` round-trip `reasoning_content` (MiMo returns 400
+  without it), and resumed sessions backfill `reasoning_content: ""` on
+  older transcripts. Expect per-persona completion tokens and elapsed time
+  to rise; the 600s inner-SDK timeout (#72) and the verifier's 120s budget
+  are now under more pressure on large-context PRs.
+- **pi runtime upgraded: `@earendil-works/pi-ai` + `pi-agent-core`
+  0.80.2 → 0.87.1** (#79; both move together — version-locked monorepo).
+  Zero source changes were needed; the 0.84–0.87 breaking changes touch
+  APIs this repo doesn't use. What the bump buys: transient DNS failures
+  (`getaddrinfo`/`ENOTFOUND`/`EAI_AGAIN`) now trigger automatic assistant
+  retries instead of surfacing as stream errors; unmapped terminal stop
+  reasons surface as provider errors instead of masquerading as successful
+  stops (the #59 "stale content as success" class); provider stream
+  event-sequence and tool-call delta fixes (v0.85). The
+  `thinkingFormat: "deepseek"` branch is byte-identical between versions —
+  no wire change from the bump itself. `dist/index.cjs` shrinks 6.9MB →
+  1.7MB because the old bundle inlined pi's built-in model catalogs, which
+  0.87's package layout tree-shakes away (see LRN-20260927-001).
+
 ## [1.9.0] - 2026-09-23
 
 ### Fixed
