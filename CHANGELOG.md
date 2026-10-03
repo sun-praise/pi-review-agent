@@ -24,7 +24,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from ONE source pattern (same case-insensitivity): hand-written
   separately they drifted and let one bucket absorb the next section's
   items, double-counting them into the gate (found by this PR's own dogfood
-  review); a shape battery pins the recognition⇒termination invariant.
+  review); a shape battery pins the recognition⇒termination invariant in
+  both orientations. Section bodies end at keyword headings (any `#` depth)
+  or non-keyword markdown headings at `###` depth only — depth-2
+  sub-headings (`## Issue 1: …`) GROUP items inside a section, and
+  truncating there silently dropped grouped blockers and let a CANNOT
+  MERGE + real blockers exit green (second dogfood round); a leading `#86`
+  issue reference likewise does not terminate a body.
   `extractDecision` additionally honors the `<verdict>` tag (authoritative
   per the coordinator prompt, mirroring `resolveVerdict`) so a coordinator
   opening with prose no longer yields UNKNOWN → fail-closed red while the

@@ -52,17 +52,22 @@ export interface Severity {
  * double-count them into the gate (#86 dogfood blocking finding).
  */
 const HEADING_LINE =
-  "(?:#{1,6}\\s*)?(?:🔴|🟡|🟢)?\\s*(?:\\*\\*)?\\s*(?:🔴|🟡|🟢)?\\s*" +
+  "(?:#+\\s*)?(?:🔴|🟡|🟢)?\\s*(?:\\*\\*)?\\s*(?:🔴|🟡|🟢)?\\s*" +
   "(阻塞项|Blocking Issues?|警告项|Warnings?|建议项|Suggestions?)" +
   "(?:\\s*\\*\\*)?(?:\\s*[:：]\\s*(?:\\*\\*)?)?(?:\\s*(?:none|无))?(?:\\s*\\/[^\\n]*)?\\s*$";
 
 const SECTION_RE = new RegExp(`^${HEADING_LINE}`, "gim");
 
-/** A line that ENDS a section body: any markdown heading, or another
- *  severity heading — same source pattern, same case-insensitivity, so a
- *  bare `warnings` after a bare `blocking issues` cannot leak its items
- *  into the blocking count. */
-const NEXT_HEADING_RE = new RegExp(`^(?:#{1,6}[^\\n]*|${HEADING_LINE})`, "im");
+/** A line that ENDS a section body: a severity heading (HEADING_LINE, any
+ *  `#`-depth — same source, same case-insensitivity, so a bare `warnings`
+ *  cannot leak its items into the previous bucket), or a NON-keyword
+ *  markdown heading at `###` depth (the pre-existing rule). Deliberately
+ *  NOT any `##`/`#` line: models use depth-2 sub-headings (`## Issue 1:
+ *  SQL injection`) to GROUP items inside one section — truncating there
+ *  silently dropped the grouped items and let CANNOT MERGE + real blockers
+ *  exit green (#86 dogfood, second round). A `#86` issue reference at line
+ *  start must not terminate a body either. */
+const NEXT_HEADING_RE = new RegExp(`^(?:###\\s|${HEADING_LINE})`, "im");
 
 /** Map a localized heading keyword to a severity bucket. */
 function bucketFor(heading: string): "blocking" | "warning" | "suggestion" | null {

@@ -206,10 +206,11 @@ describe("parseSeverity", () => {
     // For each shape: its own section must count its item, the trailing
     // Warnings section must count exactly one item, and nothing may be
     // counted twice — the invariant the #86 dogfood blocking finding broke.
-    const shapes = [
+    const blockingShapes = [
       "### Blocking Issues",
       "#### Blocking Issues",
       "###Blocking Issues",
+      "####### Blocking Issues",
       "Blocking Issues",
       "blocking issues",
       "BLOCKING ISSUES",
@@ -223,16 +224,55 @@ describe("parseSeverity", () => {
       "### 🔴 阻塞项 / Blocking Issues",
       "阻塞项",
       "阻塞项：无",
-      "警告项:无",
-      "warnings:none",
-      "Warnings",
-      "**警告项**",
     ];
-    for (const heading of shapes) {
+    const warningShapes = ["警告项:无", "warnings:none", "Warnings", "**警告项**"];
+    for (const heading of [...blockingShapes, ...warningShapes]) {
       const s = parseSeverity(`CANNOT MERGE\n\n${heading}\n- item\n\nWarnings\n- w\n`);
       assert.equal(s.fallback, false, `unrecognized: ${heading}`);
       assert.equal(s.blockingCount + s.warningCount, 2, `not isolated: ${heading} → ${JSON.stringify(s)}`);
     }
+    // Flipped orientation, blocking shapes only (a warning-family shape's
+    // items land in the warnings bucket either way — absorption is not
+    // observable there): the shape must TERMINATE the leading warnings
+    // body, and its own item must land in the blocking bucket.
+    for (const heading of blockingShapes) {
+      const s = parseSeverity(`CANNOT MERGE\n\n### Warnings\n- w\n\n${heading}\n- item\n`);
+      assert.equal(s.warningCount, 1, `absorbed into warnings: ${heading} → ${JSON.stringify(s)}`);
+      assert.equal(s.blockingCount, 1, `lost its own item: ${heading} → ${JSON.stringify(s)}`);
+    }
+  });
+
+  it("depth-2 sub-headings group items INSIDE a section — truncating there exits green on real blockers (#86 dogfood, round 2)", () => {
+    const s = parseSeverity(
+      [
+        "CANNOT MERGE",
+        "",
+        "Blocking Issues",
+        "",
+        "## Issue 1: SQL injection",
+        "- SQL injection in login",
+        "",
+        "## Issue 2: null deref",
+        "- Null deref in parser",
+        "",
+        "Warnings",
+        "- missing test",
+      ].join("\n"),
+    );
+    assert.equal(s.decision, "CANNOT MERGE");
+    assert.equal(s.fallback, false);
+    assert.equal(s.blockingCount, 2);
+    assert.equal(s.warningCount, 1);
+    assert.equal(shouldFail(s, "blocking"), true);
+  });
+
+  it("a leading '#86' issue reference does not terminate a section body", () => {
+    const s = parseSeverity(
+      ["CANNOT MERGE", "", "Blocking Issues", "", "#86 addressed the parser side", "- still broken here", "", "Warnings", "- w"].join("\n"),
+    );
+    assert.equal(s.blockingCount, 1);
+    assert.equal(s.warningCount, 1);
+    assert.equal(shouldFail(s, "blocking"), true);
   });
 });
 
