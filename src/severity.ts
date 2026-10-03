@@ -2,8 +2,14 @@
  * Severity parsing + fail-on-severity gate.
  *
  * The coordinator (or a single reviewer) emits a decision line plus
- * structured sections: `### Blocking Issues`, `### Warnings`, `### Suggestions`.
- * We parse those into counts and turn them into an exit-code decision.
+ * structured sections named in the output-format prompts: 'Blocking
+ * Issues', 'Warnings', 'Suggestions'. The prompts ask for the section
+ * NAMES only, so every heading shape the models actually emit must parse:
+ * bare (`Warnings`), bold (`**Blocking Issues**`), with a colon (the
+ * persona prompt's `'Blocking Issues: None'` single-line form), and the
+ * habitual markdown `### Warnings` — each with or without the emoji
+ * prefix. A whole-line anchor keeps prose ("Warnings are listed below.")
+ * from matching.
  *
  * Fail-closed contract (mirrors opencode-actions #280): when the gate is
  * armed and we cannot trust a clean verdict — coordinator produced no
@@ -26,14 +32,21 @@ export interface Severity {
 }
 
 /**
- * Matches severity section headings in both English (the canonical prompt
- * format) and Chinese (the default output language), with or without the
- * emoji prefix opencode uses. Capturing group 1 = the heading keyword.
+ * Matches one severity section heading line in every shape the prompts can
+ * legitimately produce (see module doc): optional `###`-depth markdown
+ * prefix, optional emoji, optional `**` bolding, the keyword (English or
+ * Chinese), an optional colon, an inline `None`/`无`, and the legacy
+ * ` / bilingual suffix`. Capturing group 1 = the heading keyword.
  */
 const SECTION_RE =
-  /^###\s*(?:🔴|🟡|🟢)?\s*(阻塞项|Blocking Issues?|警告项|Warnings?|建议项|Suggestions?)(?:\s+\/.*)?$/gim;
+  /^(?:#{1,6}\s*)?(?:🔴|🟡|🟢)?\s*(?:\*\*)?\s*(阻塞项|Blocking Issues?|警告项|Warnings?|建议项|Suggestions?)(?:\s*\*\*)?(?:\s*[:：]\s*(?:\*\*)?)?(?:\s+(?:none|无))?(?:\s*\/[^\n]*)?\s*$/gim;
 
-const NEXT_HEADING_RE = /^###\s/m;
+/** A line that ENDS a section body: any markdown heading, or another
+ *  severity heading in the same family (bare keyword lines included — a
+ *  bare `Warnings` after a bare `Blocking Issues` must not leak its items
+ *  into the blocking count). */
+const NEXT_HEADING_RE =
+  /^(?:#{1,6}\s|(?:\*\*)?\s*(?:🔴|🟡|🟢)?\s*(?:阻塞项|Blocking Issues?|警告项|Warnings?|建议项|Suggestions?)(?:\s*\*\*)?(?:\s*[:：])?\s*$)/m;
 
 /** Map a localized heading keyword to a severity bucket. */
 function bucketFor(heading: string): "blocking" | "warning" | "suggestion" | null {

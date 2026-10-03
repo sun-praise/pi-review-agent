@@ -52,6 +52,53 @@ const ZH = [
 
 const GARBAGE = "the model went off on a tangent and produced no headings at all";
 
+// Repro of the PR #85 dogfood incident (run 37086811185): the coordinator
+// followed the prompt literally — bare section-name lines, no `###` — and
+// the then-parser saw "no recognizable sections" → fallback → fail-closed
+// exit 1 while the PR comment said ✅ CAN MERGE.
+const BARE_HEADINGS = [
+  "CAN MERGE",
+  "",
+  "三位评审一致给出 CAN MERGE，未发现任何阻塞性问题。",
+  "",
+  "Blocking Issues",
+  "",
+  "（无）",
+  "",
+  "Warnings",
+  "",
+  "- skip 路径不写 GITHUB_OUTPUT",
+  "- intEnv 接受非整数",
+  "- 并发 read-modify-write 会少计",
+  "",
+  "Suggestions",
+  "",
+  "- 为 json 模式补结构化 skip 输出",
+].join("\n");
+
+// The persona prompt's single-line empty form ('Blocking Issues: None')
+// followed by a colon-headed warnings list.
+const COLON_HEADINGS = [
+  "CAN MERGE",
+  "",
+  "Looks fine overall.",
+  "",
+  "Blocking Issues: None",
+  "Warnings:",
+  "- Naming is inconsistent",
+  "- Add a comment",
+].join("\n");
+
+const BOLD_HEADINGS = [
+  "CONDITIONAL MERGE",
+  "",
+  "**Blocking Issues**",
+  "1. stale-tree fact",
+  "",
+  "**Warnings**",
+  "- verbose logging",
+].join("\n");
+
 describe("parseSeverity", () => {
   it("counts blocking and warning items from English output", () => {
     const s = parseSeverity(WITH_BLOCKER);
@@ -84,6 +131,34 @@ describe("parseSeverity", () => {
 
   it("flags fallback when no severity headings are present", () => {
     const s = parseSeverity(GARBAGE);
+    assert.equal(s.fallback, true);
+  });
+
+  it("parses bare section-name headings (PR #85 dogfood coordinator shape)", () => {
+    const s = parseSeverity(BARE_HEADINGS);
+    assert.equal(s.decision, "CAN MERGE");
+    assert.equal(s.fallback, false);
+    assert.equal(s.blockingCount, 0);
+    assert.equal(s.warningCount, 3);
+  });
+
+  it("parses colon-headed sections and the prompt's 'X: None' single-line form", () => {
+    const s = parseSeverity(COLON_HEADINGS);
+    assert.equal(s.fallback, false);
+    assert.equal(s.blockingCount, 0);
+    assert.equal(s.warningCount, 2);
+  });
+
+  it("parses bold headings; a bare next-section line does not leak items across buckets", () => {
+    const s = parseSeverity(BOLD_HEADINGS);
+    assert.equal(s.decision, "CONDITIONAL MERGE");
+    assert.equal(s.fallback, false);
+    assert.equal(s.blockingCount, 1);
+    assert.equal(s.warningCount, 1);
+  });
+
+  it("prose mentioning a section keyword is not a heading (fallback stays armed)", () => {
+    const s = parseSeverity(["CAN MERGE", "", "Warnings are listed in the table above.", "Blocking issues: see previous review."].join("\n"));
     assert.equal(s.fallback, true);
   });
 });

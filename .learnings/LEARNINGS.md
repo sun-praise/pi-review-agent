@@ -283,3 +283,30 @@ PR #81（incremental review）合并时只确认了 `gh pr checks` 两个 job �
 - Tags: ci, dogfood, merge-gate, verdict, process
 
 ---
+
+## [LRN-20261003-002] pitfall
+
+**Logged**: 2026-10-03T00:00:00Z
+**Priority**: high
+**Status**: resolved
+**Area**: ci
+
+### Summary
+dogfood `fail-on-severity: blocking` 把一个 ✅ CAN MERGE 的评审判红：severity 解析器只认 `###` 开头的段落标题，而 output-format prompt 要求的是**裸段落名**（"Then 'Blocking Issues'…"），模型照 prompt 字面输出裸标题 → `fallback: true` → fail-closed exit 1，同时宽松的 verdict 提取路径照发 ✅ CAN MERGE 评论。
+
+### Details
+PR #85 的 dogfood run（37086811185）三个 persona + coordinator 全部 CAN MERGE、无 blocking finding、评论正常发出，但 job 红。链路：`orchestrate.ts` 用 `parseSeverity(coordinator.content)` 算 severity → `severity.ts` 的 `SECTION_RE` 要求 `^###\s*(Blocking Issues?|…)` → 本次 coordinator（mimo-v2.6-flash）输出裸 `Blocking Issues` / `Warnings` 行（prompt 字面合规，`orchestrate.ts:170-175` 和 `personas.ts:40-42` 都只写裸名字，从未要求 `###`）→ `foundAny=false` → `fallback=true` → `shouldFail(mode=blocking)` 按契约返回 true → exit 1。而 verdict 走 `<verdict>` tag / 首行关键词提取（宽松），所以评论显示 ✅ CAN MERGE。**prompt 与解析器的格式契约从写下来那天起就不一致**，只是之前的模型恰好习惯性带 `###` 才没炸；#82 review 给 dogfood 装上 `fail-on-severity: blocking`（当时就标注"有误报风险"）后第一次遇到裸标题输出就暴露了。
+
+坑点：红的是 exit 门禁、绿的是 PR 评论，两边读的是**同一份 coordinator 输出的两套解析器**（严格 vs 宽松），不一致时表现就是"评论说过了但 CI 挂了"，第一反应容易去查 LLM/网络/权限，而不是格式解析。
+
+### Suggested Action
+修法（已落地）：把 `SECTION_RE` 放宽到 prompt 可能合法产生的全部形态——裸名、`**bold**`、冒号结尾（persona prompt 的 `'Blocking Issues: None'` 单行形态）、任意 `#` 深度前缀、emoji 前缀——同时保持整行锚定（散文行 "Warnings are listed above." 不匹配），并让段落边界（NEXT_HEADING_RE）同样识别裸/bold 标题行，防止跨桶漏计数。真正无结构的输出仍 fail-closed（测试保持）。
+
+判断标志：dogfood 红但 PR 评论 ✅、日志里有完整的 persona/coordinator 输出 → 先查 `parseSeverity` 的 `fallback`，再看模型输出的标题形态。**给 fail-closed 门禁加解析器时，解析器必须接受 prompt 字面要求的所有格式**，否则等于把"模型没按你没说过的格式写"当成失败。
+
+### Metadata
+- Source: user_feedback
+- Related Files: src/severity.ts, src/orchestrate.ts, src/personas.ts, .github/workflows/dogfood.yml
+- Tags: ci, dogfood, fail-closed, severity-parsing, prompt-contract, model-drift, mimo
+
+---

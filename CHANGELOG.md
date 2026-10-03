@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **dogfood gate red on a ✅ CAN MERGE review** (observed on PR #85, run
+  37086811185): the output-format prompts ask for sections by bare name
+  ("Then 'Blocking Issues' …"), but `parseSeverity` only recognized
+  `###`-prefixed headings — a coordinator that complied literally (bare
+  `Blocking Issues` / `Warnings` lines) produced `fallback: true`, and the
+  armed `fail-on-severity` gate failed closed (exit 1) while the lenient
+  verdict path posted ✅ CAN MERGE. The heading matcher now accepts every
+  shape the prompts can legitimately produce — bare, bold, colon-headed
+  (the persona prompt's `'Blocking Issues: None'` single-line form), any
+  `#`-depth prefix, with or without emoji — while whole-line anchoring
+  keeps prose ("Warnings are listed above.") from matching; section bodies
+  now also terminate at bare/bold keyword lines so items cannot leak
+  across buckets. Fail-closed for genuinely structureless output is
+  unchanged and still tested.
+
 ## [1.10.1] - 2026-09-27
 
 ### Fixed

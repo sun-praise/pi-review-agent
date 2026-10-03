@@ -45621,8 +45621,8 @@ function loadStyleGuide(cwd, explicitPath) {
 }
 
 // src/severity.ts
-var SECTION_RE = /^###\s*(?:🔴|🟡|🟢)?\s*(阻塞项|Blocking Issues?|警告项|Warnings?|建议项|Suggestions?)(?:\s+\/.*)?$/gim;
-var NEXT_HEADING_RE = /^###\s/m;
+var SECTION_RE = /^(?:#{1,6}\s*)?(?:🔴|🟡|🟢)?\s*(?:\*\*)?\s*(阻塞项|Blocking Issues?|警告项|Warnings?|建议项|Suggestions?)(?:\s*\*\*)?(?:\s*[:：]\s*(?:\*\*)?)?(?:\s+(?:none|无))?(?:\s*\/[^\n]*)?\s*$/gim;
+var NEXT_HEADING_RE = /^(?:#{1,6}\s|(?:\*\*)?\s*(?:🔴|🟡|🟢)?\s*(?:阻塞项|Blocking Issues?|警告项|Warnings?|建议项|Suggestions?)(?:\s*\*\*)?(?:\s*[:：])?\s*$)/m;
 function bucketFor(heading) {
   const lower = heading.toLowerCase();
   if (heading === "\u963B\u585E\u9879" || lower.startsWith("blocking")) return "blocking";
