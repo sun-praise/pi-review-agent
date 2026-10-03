@@ -284,6 +284,33 @@ PR #81（incremental review）合并时只确认了 `gh pr checks` 两个 job �
 
 ---
 
+## [LRN-20261003-001] pitfall
+
+**Logged**: 2026-10-03T00:00:00Z
+**Priority**: high
+**Status**: active
+**Area**: build
+
+### Summary
+在 `.worktrees/<branch>/` 里跑 `npx tsup` 重建 dist 时，如果 worktree 没有自己的 `node_modules`，npx 会沿目录树向上借用**主 checkout 的 node_modules**——主 checkout 若停在旧分支（旧依赖版本），dist 会静默打进错误版本的依赖，build 成功、测试照过、无任何报错。
+
+### Details
+#85 开发时实测：主 checkout 停在 v1.9.0（`pi-agent-core` ^0.80.0 → 装了 0.80.2），worktree 基于 origin/main v1.10.1（**精确锁** 0.87.1）。在 worktree 里直接 `npx tsup`，产出的 `dist/index.cjs` 6.99 MB（committed 版本 1.74 MB），diff +17 万行——tsup 用 `noExternal: [/.*/]` 把 0.80.2 整个打进去了。
+
+最隐蔽的点：**没有任何失败信号**。tsc / eslint / `npm test` 全绿（npx 同样向上解析到主 checkout 的 tsx/eslint，测试跑的是 src 不碰 dist 版本），我做的 E2E 冒烟也过了（被测代码路径恰好不依赖 pi 版本差异）。唯一的暴露方式是 dist 体积/行数异常。
+
+根因：npx/npm 解析 `node_modules` 和 `.bin` 是按**进程 cwd 向上找最近的存在者**，不区分 git worktree 边界；而 worktree 是新建目录，天然没有 node_modules。
+
+### Suggested Action
+在 worktree 里改任何需要 rebuild dist 的东西之前，**先 `npm ci`（worktree 自己的 package-lock）再 `npx tsup`**。判断标志：worktree 目录下没有 `node_modules/` 就必须先装。构建后自查 dist 体积：`wc -c dist/index.cjs` 与 HEAD 版本比对，膨胀超过个位数百分比即说明打进了意料外的依赖。同理，`npm test` / `npx tsc` 也应在 worktree 自己的依赖上跑，避免版本漂移给出假绿。
+
+### Metadata
+- Source: session_analysis
+- Related Files: tsup.config.ts, package.json, .worktrees/, dist/index.cjs
+- Tags: build, worktree, node_modules, tsup, dist, silent-failure, dependency-pinning
+
+---
+
 ## [LRN-20261003-002] pitfall
 
 **Logged**: 2026-10-03T00:00:00Z
