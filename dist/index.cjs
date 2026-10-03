@@ -45621,8 +45621,9 @@ function loadStyleGuide(cwd, explicitPath) {
 }
 
 // src/severity.ts
-var SECTION_RE = /^###\s*(?:🔴|🟡|🟢)?\s*(阻塞项|Blocking Issues?|警告项|Warnings?|建议项|Suggestions?)(?:\s+\/.*)?$/gim;
-var NEXT_HEADING_RE = /^###\s/m;
+var HEADING_LINE = "(?:#+\\s*)?(?:\u{1F534}|\u{1F7E1}|\u{1F7E2})?\\s*(?:\\*\\*)?\\s*(?:\u{1F534}|\u{1F7E1}|\u{1F7E2})?\\s*(\u963B\u585E\u9879|Blocking Issues?|\u8B66\u544A\u9879|Warnings?|\u5EFA\u8BAE\u9879|Suggestions?)(?:\\s*\\*\\*)?(?:\\s*[:\uFF1A]\\s*(?:\\*\\*)?)?(?:\\s*(?:none|\u65E0))?(?:\\s*\\/[^\\n]*)?\\s*$";
+var SECTION_RE = new RegExp(`^${HEADING_LINE}`, "gim");
+var NEXT_HEADING_RE = new RegExp(`^${HEADING_LINE}`, "im");
 function bucketFor(heading) {
   const lower = heading.toLowerCase();
   if (heading === "\u963B\u585E\u9879" || lower.startsWith("blocking")) return "blocking";
@@ -45644,6 +45645,11 @@ function countListItems(body) {
   return count;
 }
 function extractDecision(text) {
+  const tag = text.match(/<verdict>\s*(CAN MERGE|CONDITIONAL MERGE|CANNOT MERGE)\s*<\/verdict>/i);
+  const tagged = tag?.[1]?.toUpperCase();
+  if (tagged === "CANNOT MERGE" || tagged === "CONDITIONAL MERGE" || tagged === "CAN MERGE") {
+    return tagged;
+  }
   for (const raw of text.split("\n")) {
     const line = raw.trim();
     if (line === "") continue;
@@ -45663,12 +45669,10 @@ function parseSeverity(text) {
     fallback: false
   };
   let foundAny = false;
-  let firstHeadingIndex = text.length;
   let match;
   SECTION_RE.lastIndex = 0;
   while ((match = SECTION_RE.exec(text)) !== null) {
     foundAny = true;
-    if (match.index < firstHeadingIndex) firstHeadingIndex = match.index;
     const bucket = bucketFor(match[1]);
     if (bucket === "blocking" || bucket === "warning") {
       const bodyStart = match.index + match[0].length;

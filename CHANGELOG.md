@@ -5,6 +5,40 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **dogfood gate red on a ✅ CAN MERGE review** (observed on PR #85, run
+  37086811185): the output-format prompts ask for sections by bare name
+  ("Then 'Blocking Issues' …"), but `parseSeverity` only recognized
+  `###`-prefixed headings — a coordinator that complied literally (bare
+  `Blocking Issues` / `Warnings` lines) produced `fallback: true`, and the
+  armed `fail-on-severity` gate failed closed (exit 1) while the lenient
+  verdict path posted ✅ CAN MERGE. The heading matcher now accepts every
+  shape the prompts can legitimately produce — bare, bold, colon-headed
+  (including `'Blocking Issues: None'` and `阻塞项：无` single-line forms),
+  any `#`-depth prefix, emoji and bold in either order, bilingual keywords,
+  the legacy ` / suffix` — with whole-line anchoring so prose never
+  matches. `SECTION_RE` and the section-body terminator are now derived
+  from ONE source pattern (same case-insensitivity): hand-written
+  separately they drifted and let one bucket absorb the next section's
+  items, double-counting them into the gate (found by this PR's own dogfood
+  review); a shape battery pins the recognition⇒termination invariant in
+  both orientations. Section bodies end EXACTLY at recognized keyword
+  headings (any `#`-depth) and nothing else — any depth-based truncation
+  dropped items grouped under non-keyword sub-headings (`## Issue 1: …` in
+  dogfood round 2, the legacy `### ` rule in round 3), parsing `CANNOT
+  MERGE` + real blockers as blockingCount=0 and exiting green; the residual
+  over-count direction (loose items after a mid-section heading join the
+  current bucket) fails toward red, which is the direction this gate is
+  allowed to err in. A leading `#86` issue reference terminates nothing.
+  `extractDecision` additionally honors the `<verdict>` tag (authoritative
+  per the coordinator prompt, mirroring `resolveVerdict`) so a coordinator
+  opening with prose no longer yields UNKNOWN → fail-closed red while the
+  comment says ✅. Fail-closed for genuinely structureless output is
+  unchanged and still tested.
+
 ## [1.10.1] - 2026-09-27
 
 ### Fixed
