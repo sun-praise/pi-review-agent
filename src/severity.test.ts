@@ -161,6 +161,79 @@ describe("parseSeverity", () => {
     const s = parseSeverity(["CAN MERGE", "", "Warnings are listed in the table above.", "Blocking issues: see previous review."].join("\n"));
     assert.equal(s.fallback, true);
   });
+
+  // #86 dogfood blocking finding: SECTION_RE and NEXT_HEADING_RE must agree
+  // on every heading shape, or one bucket absorbs the next section's items
+  // and the gate double-counts. These cases pin the shapes the first cut
+  // got wrong: case-insensitivity, emoji/bold order, `###`-without-space.
+  it("lowercase bare headings are recognized AND terminate the previous body (no cross-bucket leak)", () => {
+    const s = parseSeverity(
+      ["CANNOT MERGE", "", "blocking issues", "- b1", "- b2", "warnings", "- w1"].join("\n"),
+    );
+    assert.equal(s.blockingCount, 2);
+    assert.equal(s.warningCount, 1);
+  });
+
+  it("emoji and bold in either order are recognized and bucket-isolated", () => {
+    const s = parseSeverity(
+      ["CANNOT MERGE", "", "🔴 **Blocking Issues**", "1. b1", "**🟡 Warnings**", "- w1", "- w2"].join("\n"),
+    );
+    assert.equal(s.blockingCount, 1);
+    assert.equal(s.warningCount, 2);
+  });
+
+  it("'###' without a space is a heading and terminates the previous body", () => {
+    const s = parseSeverity(
+      ["CANNOT MERGE", "", "###Blocking Issues", "- b1", "###Warnings", "- w1"].join("\n"),
+    );
+    assert.equal(s.fallback, false);
+    assert.equal(s.blockingCount, 1);
+    assert.equal(s.warningCount, 1);
+  });
+
+  it("decision: <verdict> tag is authoritative over a prose first line", () => {
+    const tag = parseSeverity(
+      ["Overall this looks acceptable.", "", "<verdict>CANNOT MERGE</verdict>", "", "### Blocking Issues", "- b1"].join("\n"),
+    );
+    assert.equal(tag.decision, "CANNOT MERGE");
+    // Prose first line, no tag anywhere → UNKNOWN → fail-closed still armed
+    const noTag = parseSeverity(["After synthesis, the reviewers agree.", "", "### Warnings", "- w1"].join("\n"));
+    assert.equal(noTag.decision, "UNKNOWN");
+    assert.equal(shouldFail(noTag, "blocking"), true);
+  });
+
+  it("every heading shape is recognized and bucket-isolated (SECTION/NEXT agreement, by shape)", () => {
+    // For each shape: its own section must count its item, the trailing
+    // Warnings section must count exactly one item, and nothing may be
+    // counted twice — the invariant the #86 dogfood blocking finding broke.
+    const shapes = [
+      "### Blocking Issues",
+      "#### Blocking Issues",
+      "###Blocking Issues",
+      "Blocking Issues",
+      "blocking issues",
+      "BLOCKING ISSUES",
+      "Blocking Issues:",
+      "Blocking Issues: None",
+      "**Blocking Issues**",
+      "**Blocking Issues:**",
+      "🔴 Blocking Issues",
+      "🔴 **Blocking Issues**",
+      "**🔴 Blocking Issues**",
+      "### 🔴 阻塞项 / Blocking Issues",
+      "阻塞项",
+      "阻塞项：无",
+      "警告项:无",
+      "warnings:none",
+      "Warnings",
+      "**警告项**",
+    ];
+    for (const heading of shapes) {
+      const s = parseSeverity(`CANNOT MERGE\n\n${heading}\n- item\n\nWarnings\n- w\n`);
+      assert.equal(s.fallback, false, `unrecognized: ${heading}`);
+      assert.equal(s.blockingCount + s.warningCount, 2, `not isolated: ${heading} → ${JSON.stringify(s)}`);
+    }
+  });
 });
 
 describe("shouldFail", () => {
