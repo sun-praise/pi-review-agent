@@ -56,7 +56,9 @@ export interface JsonRunResult {
   /** Present when the run was skipped before any review was dispatched —
    *  `max-reviews-per-pr` reached (#84). Everything else in the payload is
    *  the empty/zero shape: no reviewer ran, nothing was spent. Consumers
-   *  should check this field before interpreting verdict/severity. */
+   *  must check this field FIRST: a skipped run carries severity UNKNOWN
+   *  (with fallback:false — a deliberate skip, not an unparseable output),
+   *  which an armed shouldFail gate would otherwise read as fail-closed. */
   skipped?: { reason: "review-limit"; completed: number; limit: number };
   /** Aggregate over all reviewers (+ coordinator in team mode).
    *  costTotal/cacheRead reuse TeamReviewResult's own totals so the two
@@ -107,6 +109,9 @@ export function buildSkippedJsonResult(args: {
     severity: { decision: "UNKNOWN", blockingCount: 0, warningCount: 0, fallback: false },
     comments: [],
     personas: [],
+    // Team runs always carry the coordinator field (object | null) so
+    // `"coordinator" in payload` consumers see the same shape on a skip.
+    ...(args.mode === "team" ? { coordinator: null } : {}),
     skipped: { reason: "review-limit", completed: args.completed, limit: args.limit },
     usage: sumUsage([]),
   };

@@ -42837,7 +42837,7 @@ function parseArgs(argv, env = process.env) {
     maxReviewsPerPr: intEnv(
       args["max-reviews-per-pr"],
       env.PI_REVIEW_MAX_REVIEWS_PER_PR,
-      0
+      5
     ),
     retryBackoffMs: intEnv(args["retry-backoff-ms"], env.PI_REVIEW_RETRY_BACKOFF_MS, 1e3),
     diffExclude: (optionalString(args["diff-exclude"], env.PI_REVIEW_DIFF_EXCLUDE) ?? "").split(",").map((s) => s.trim()).filter(Boolean),
@@ -46965,6 +46965,9 @@ function buildSkippedJsonResult(args) {
     severity: { decision: "UNKNOWN", blockingCount: 0, warningCount: 0, fallback: false },
     comments: [],
     personas: [],
+    // Team runs always carry the coordinator field (object | null) so
+    // `"coordinator" in payload` consumers see the same shape on a skip.
+    ...args.mode === "team" ? { coordinator: null } : {},
     skipped: { reason: "review-limit", completed: args.completed, limit: args.limit },
     usage: sumUsage([])
   };
@@ -47581,10 +47584,14 @@ async function main() {
     const completed = await readReviewCount(counterFile);
     if (completed >= opts.maxReviewsPerPr) {
       if (opts.format === "json") {
+        process.stderr.write(
+          `max-reviews-per-pr: ${completed} reviews already recorded, limit is ${opts.maxReviewsPerPr}; skipping review
+`
+        );
         const delivered = writeJsonRunResult(
           buildSkippedJsonResult({
             pr: opts.pr,
-            sessionKey: resolveSessionDirName(opts.sessionKey, opts.pr),
+            sessionKey: opts.sessionKey !== void 0 ? resolveSessionDirName(opts.sessionKey, opts.pr) : void 0,
             mode: opts.team ? "team" : "single",
             completed,
             limit: opts.maxReviewsPerPr
@@ -47600,7 +47607,7 @@ async function main() {
       appendStepSummary(
         `### pi-review-agent \u2014 skipped (review limit reached)
 
-This PR already ran **${completed}** reviews \u2014 the configured \`max-reviews-per-pr: ${opts.maxReviewsPerPr}\` is reached. This run skips the review, exits 0, and does not update the PR comment.
+**${completed}** review rounds are already recorded for this PR \u2014 the configured \`max-reviews-per-pr: ${opts.maxReviewsPerPr}\` is reached. This run skips the review, exits 0, and does not update the PR comment.
 
 The counter lives at \`${counterFile}\` (persisted by the per-PR session cache). Raise \`max-reviews-per-pr\` or delete that file to review again.
 `

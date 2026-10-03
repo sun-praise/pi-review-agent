@@ -159,16 +159,16 @@ inputs:
     default: "1000"
   max-reviews-per-pr:
     description: >
-      Max total review rounds per PR; 0 (default) = unlimited. Each run that
-      dispatches a review bumps a counter file
-      (<sessions-root>/<pr>/review-count.json) persisted by the per-PR session
-      cache. Once the limit is reached, later runs skip the review, exit 0,
-      note the skip in the step summary, and do not update the PR comment.
-      Re-runs count as reviews. Raise the limit or delete the counter file
-      to resume; cache eviction resets the counter (fails toward
-      re-reviewing, never toward silently stopping).
+      Max total review rounds per PR. Default 5; set 0 for unlimited. Each
+      run that dispatches a review bumps a counter file
+      (<sessions-root>/<pr>/review-count.json) persisted by the per-PR
+      session cache. Once the limit is reached, later runs skip the review,
+      exit 0, note the skip in the step summary, and do not update the PR
+      comment. Re-runs count as reviews. Raise the limit or delete the
+      counter file to resume; cache eviction resets the counter (fails
+      toward re-reviewing, never toward silently stopping).
     required: false
-    default: "0"
+    default: "5"
   diff-exclude:
     description: >
       Comma-separated glob patterns for additional files to exclude from the

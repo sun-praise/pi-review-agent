@@ -65,6 +65,12 @@ jobs:
           # includes fail-closed CANNOT MERGE verdicts) instead of always
           # exiting 0 and leaving only a comment (#82 review).
           fail-on-severity: "blocking"
+          # The per-PR review cap defaults to 5 — right for user PRs, wrong
+          # for this gate: an active dev PR re-pushes far more than 5 times,
+          # and a cap here would silently turn the merge gate green with no
+          # review after round 5 (the skip path exits 0). Keep the dogfood
+          # leg unlimited.
+          max-reviews-per-pr: "0"
           # Headroom over the 600s default for TIMEOUT-type slowness only:
           # thinking-on reviews on a loaded shared Token Plan can exceed
           # 600s per persona and fail-closed with no code fault (observed

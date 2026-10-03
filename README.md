@@ -271,13 +271,13 @@ Statistics is **opt-in** and off by default: a runner that sets nothing records 
 
 ### Review limits
 
-Long-lived PRs get a review on every push, and the tokens add up. `max-reviews-per-pr` caps the **total number of review rounds per PR** (#84):
+Long-lived PRs get a review on every push, and the tokens add up. `max-reviews-per-pr` caps the **total number of review rounds per PR** (#84). It defaults to `5` — every PR's spend is bounded out of the box; set `0` to disable:
 
 ```yaml
 - uses: sun-praise/pi-review-agent@v1
   with:
     team: "quality:1,security:1"
-    max-reviews-per-pr: "10"   # 0 (default) = unlimited
+    max-reviews-per-pr: "10"   # default 5; "0" = unlimited
 ```
 
 - A counter file `<sessions-root>/<pr>/review-count.json` records how many rounds were dispatched. It rides the same per-PR `actions/cache` entry as the session JSONL, so the count persists across runs and never leaks between PRs.

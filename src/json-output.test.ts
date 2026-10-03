@@ -174,7 +174,14 @@ describe("buildSkippedJsonResult (#84)", () => {
     // No verdict — no coordinator ran; UNKNOWN-with-fallback:false = a
     // deliberate skip, not an unparseable output.
     assert.equal(r.verdict, undefined);
+    assert.equal("coordinator" in r, false);
     assert.equal(r.severity.decision, "UNKNOWN");
     assert.equal(r.severity.fallback, false);
+  });
+
+  it("team mode keeps the coordinator field (null) so shape consumers see the same envelope", () => {
+    const r = buildSkippedJsonResult({ pr: 7, mode: "team", completed: 5, limit: 5 });
+    assert.equal(r.mode, "team");
+    assert.equal(r.coordinator, null);
   });
 });

@@ -553,12 +553,20 @@ async function main(): Promise<number> {
       // a skipped run (#84 dogfood: a plain-text skip line broke bench
       // harness parsing) — same delivery semantics as a real run: --output
       // file when given (stdout fallback + exit 1 on write failure),
-      // stdout otherwise.
+      // stdout otherwise. sessionKey stays conditional like the dispatch
+      // paths: undefined when identity came from --pr (JsonRunResult
+      // contract). Diagnostics go to stderr — stdout is the payload.
       if (opts.format === "json") {
+        process.stderr.write(
+          `max-reviews-per-pr: ${completed} reviews already recorded, limit is ${opts.maxReviewsPerPr}; skipping review\n`,
+        );
         const delivered = writeJsonRunResult(
           buildSkippedJsonResult({
             pr: opts.pr,
-            sessionKey: resolveSessionDirName(opts.sessionKey, opts.pr),
+            sessionKey:
+              opts.sessionKey !== undefined
+                ? resolveSessionDirName(opts.sessionKey, opts.pr)
+                : undefined,
             mode: opts.team ? "team" : "single",
             completed,
             limit: opts.maxReviewsPerPr,
@@ -572,9 +580,10 @@ async function main(): Promise<number> {
       );
       appendStepSummary(
         `### pi-review-agent — skipped (review limit reached)\n\n` +
-          `This PR already ran **${completed}** reviews — the configured ` +
-          `\`max-reviews-per-pr: ${opts.maxReviewsPerPr}\` is reached. This run ` +
-          `skips the review, exits 0, and does not update the PR comment.\n\n` +
+          `**${completed}** review rounds are already recorded for this PR — ` +
+          `the configured \`max-reviews-per-pr: ${opts.maxReviewsPerPr}\` is ` +
+          `reached. This run skips the review, exits 0, and does not update ` +
+          `the PR comment.\n\n` +
           `The counter lives at \`${counterFile}\` (persisted by the per-PR ` +
           `session cache). Raise \`max-reviews-per-pr\` or delete that file to ` +
           `review again.\n`,
