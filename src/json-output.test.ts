@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { buildSingleJsonResult, buildTeamJsonResult } from "./json-output.js";
+import { buildSingleJsonResult, buildTeamJsonResult, buildSkippedJsonResult } from "./json-output.js";
 import type { ReviewResult, ReviewUsage } from "./review.js";
 import type { TeamReviewResult, PersonaReview } from "./orchestrate.js";
 import type { InlineComment } from "./inline-comments.js";
@@ -152,5 +152,29 @@ describe("buildSingleJsonResult", () => {
     assert.deepEqual(json.usage, result.usage);
     assert.equal("verdict" in json, false);
     assert.equal("coordinator" in json, false);
+  });
+});
+
+describe("buildSkippedJsonResult (#84)", () => {
+  it("emits the one-JSON-document envelope with a skip marker and zero usage", () => {
+    const r = buildSkippedJsonResult({
+      pr: 7,
+      sessionKey: "bench-1",
+      mode: "single",
+      completed: 10,
+      limit: 10,
+    });
+    assert.deepEqual(r.skipped, { reason: "review-limit", completed: 10, limit: 10 });
+    assert.equal(r.mode, "single");
+    assert.equal(r.pr, 7);
+    assert.equal(r.sessionKey, "bench-1");
+    assert.deepEqual(r.personas, []);
+    assert.deepEqual(r.comments, []);
+    assert.deepEqual(r.usage, usage());
+    // No verdict — no coordinator ran; UNKNOWN-with-fallback:false = a
+    // deliberate skip, not an unparseable output.
+    assert.equal(r.verdict, undefined);
+    assert.equal(r.severity.decision, "UNKNOWN");
+    assert.equal(r.severity.fallback, false);
   });
 });

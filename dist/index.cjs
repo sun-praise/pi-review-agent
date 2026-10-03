@@ -46957,6 +46957,18 @@ function personaReport(r) {
   if (r.error !== void 0) report.error = r.error;
   return report;
 }
+function buildSkippedJsonResult(args) {
+  return {
+    mode: args.mode,
+    pr: args.pr,
+    sessionKey: args.sessionKey,
+    severity: { decision: "UNKNOWN", blockingCount: 0, warningCount: 0, fallback: false },
+    comments: [],
+    personas: [],
+    skipped: { reason: "review-limit", completed: args.completed, limit: args.limit },
+    usage: sumUsage([])
+  };
+}
 function buildSingleJsonResult(args) {
   const { result } = args;
   return {
@@ -47568,6 +47580,19 @@ async function main() {
   if (opts.maxReviewsPerPr > 0) {
     const completed = await readReviewCount(counterFile);
     if (completed >= opts.maxReviewsPerPr) {
+      if (opts.format === "json") {
+        const delivered = writeJsonRunResult(
+          buildSkippedJsonResult({
+            pr: opts.pr,
+            sessionKey: resolveSessionDirName(opts.sessionKey, opts.pr),
+            mode: opts.team ? "team" : "single",
+            completed,
+            limit: opts.maxReviewsPerPr
+          }),
+          opts.output
+        );
+        return delivered ? 0 : 1;
+      }
       process.stdout.write(
         `max-reviews-per-pr: ${completed} reviews already recorded, limit is ${opts.maxReviewsPerPr}; skipping review
 `

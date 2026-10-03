@@ -53,6 +53,11 @@ export interface JsonRunResult {
   personas: JsonPersonaReport[];
   /** Team mode only: coordinator usage summary (null when skipped/failed). */
   coordinator?: { resumed: boolean; usage: ReviewUsage } | null;
+  /** Present when the run was skipped before any review was dispatched —
+   *  `max-reviews-per-pr` reached (#84). Everything else in the payload is
+   *  the empty/zero shape: no reviewer ran, nothing was spent. Consumers
+   *  should check this field before interpreting verdict/severity. */
+  skipped?: { reason: "review-limit"; completed: number; limit: number };
   /** Aggregate over all reviewers (+ coordinator in team mode).
    *  costTotal/cacheRead reuse TeamReviewResult's own totals so the two
    *  renderings can never drift apart. */
@@ -79,6 +84,32 @@ function personaReport(r: PersonaReview): JsonPersonaReport {
   };
   if (r.error !== undefined) report.error = r.error;
   return report;
+}
+
+/** The skip payload for a run stopped by the `max-reviews-per-pr` gate
+ *  before any review was dispatched (#84). Json mode's contract — stdout
+ *  (or --output) is ONE JSON document — holds even for a skipped run: a
+ *  bench harness that configured the limit parses the same envelope and
+ *  reads `skipped` instead of findings. Severity carries UNKNOWN with
+ *  fallback:false (a skip is a decision, not an unparseable output); no
+ *  verdict — no coordinator ran. */
+export function buildSkippedJsonResult(args: {
+  pr: number;
+  sessionKey?: string;
+  mode: "single" | "team";
+  completed: number;
+  limit: number;
+}): JsonRunResult {
+  return {
+    mode: args.mode,
+    pr: args.pr,
+    sessionKey: args.sessionKey,
+    severity: { decision: "UNKNOWN", blockingCount: 0, warningCount: 0, fallback: false },
+    comments: [],
+    personas: [],
+    skipped: { reason: "review-limit", completed: args.completed, limit: args.limit },
+    usage: sumUsage([]),
+  };
 }
 
 export function buildSingleJsonResult(args: {

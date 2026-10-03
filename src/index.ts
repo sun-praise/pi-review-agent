@@ -44,7 +44,7 @@ import { listDiffFiles } from "./changed-lines.js";
 import { buildRelatedContext } from "./related-context.js";
 import { buildStatsEvent, recordStats, resolveRunIdentity } from "./stats.js";
 import { checkWorkspace } from "./workspace-check.js";
-import { buildSingleJsonResult, buildTeamJsonResult, type JsonRunResult } from "./json-output.js";
+import { buildSingleJsonResult, buildTeamJsonResult, buildSkippedJsonResult, type JsonRunResult } from "./json-output.js";
 import { resolveSessionDirName } from "./session-dir.js";
 import { readReviewCount, bumpReviewCount, REVIEW_COUNT_FILENAME } from "./review-counter.js";
 import { resolveIncremental } from "./incremental.js";
@@ -549,6 +549,24 @@ async function main(): Promise<number> {
   if (opts.maxReviewsPerPr > 0) {
     const completed = await readReviewCount(counterFile);
     if (completed >= opts.maxReviewsPerPr) {
+      // Json mode keeps its one-JSON-document-on-stdout contract even for
+      // a skipped run (#84 dogfood: a plain-text skip line broke bench
+      // harness parsing) — same delivery semantics as a real run: --output
+      // file when given (stdout fallback + exit 1 on write failure),
+      // stdout otherwise.
+      if (opts.format === "json") {
+        const delivered = writeJsonRunResult(
+          buildSkippedJsonResult({
+            pr: opts.pr,
+            sessionKey: resolveSessionDirName(opts.sessionKey, opts.pr),
+            mode: opts.team ? "team" : "single",
+            completed,
+            limit: opts.maxReviewsPerPr,
+          }),
+          opts.output,
+        );
+        return delivered ? 0 : 1;
+      }
       process.stdout.write(
         `max-reviews-per-pr: ${completed} reviews already recorded, limit is ${opts.maxReviewsPerPr}; skipping review\n`,
       );

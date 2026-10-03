@@ -19,7 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   runs and never leaks between PRs. Once the counter reaches the limit,
   later runs skip the review entirely — exit 0, a step-summary note, and no
   PR-comment update — so the workflow stays green while token spend stops.
-  Re-runs count as reviews (they spend tokens); skipped runs never count.
+  Headless json mode keeps its one-JSON-document stdout contract on a skip:
+  the payload carries `skipped: {reason: "review-limit", completed, limit}`
+  with empty findings and zero usage (found blocking by dogfood after the
+  severity-parser fix let the gate read findings again). Re-runs count as reviews (they spend tokens); skipped runs never count.
   The counter is a fact record, not a ban: raising the limit resumes
   reviewing, deleting the file resets it, and a cache eviction resets it to
   0 — every degradation fails toward "review again", never toward silently
