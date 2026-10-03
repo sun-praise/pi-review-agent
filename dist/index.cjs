@@ -45623,7 +45623,7 @@ function loadStyleGuide(cwd, explicitPath) {
 // src/severity.ts
 var HEADING_LINE = "(?:#+\\s*)?(?:\u{1F534}|\u{1F7E1}|\u{1F7E2})?\\s*(?:\\*\\*)?\\s*(?:\u{1F534}|\u{1F7E1}|\u{1F7E2})?\\s*(\u963B\u585E\u9879|Blocking Issues?|\u8B66\u544A\u9879|Warnings?|\u5EFA\u8BAE\u9879|Suggestions?)(?:\\s*\\*\\*)?(?:\\s*[:\uFF1A]\\s*(?:\\*\\*)?)?(?:\\s*(?:none|\u65E0))?(?:\\s*\\/[^\\n]*)?\\s*$";
 var SECTION_RE = new RegExp(`^${HEADING_LINE}`, "gim");
-var NEXT_HEADING_RE = new RegExp(`^(?:###\\s|${HEADING_LINE})`, "im");
+var NEXT_HEADING_RE = new RegExp(`^${HEADING_LINE}`, "im");
 function bucketFor(heading) {
   const lower = heading.toLowerCase();
   if (heading === "\u963B\u585E\u9879" || lower.startsWith("blocking")) return "blocking";

@@ -300,7 +300,7 @@ PR #85 的 dogfood run（37086811185）三个 persona + coordinator 全部 CAN M
 坑点：红的是 exit 门禁、绿的是 PR 评论，两边读的是**同一份 coordinator 输出的两套解析器**（严格 vs 宽松），不一致时表现就是"评论说过了但 CI 挂了"，第一反应容易去查 LLM/网络/权限，而不是格式解析。
 
 ### Suggested Action
-修法（已落地）：把 `SECTION_RE` 放宽到 prompt 可能合法产生的全部形态——裸名、`**bold**`、冒号结尾（persona prompt 的 `'Blocking Issues: None'` 单行形态）、任意 `#` 深度前缀、emoji 前缀——同时保持整行锚定（散文行 "Warnings are listed above." 不匹配），并让段落边界（NEXT_HEADING_RE）同样识别裸/bold 标题行，防止跨桶漏计数。真正无结构的输出仍 fail-closed（测试保持）。
+修法（已落地）：把 `SECTION_RE` 放宽到 prompt 可能合法产生的全部形态——裸名、`**bold**`、冒号结尾（persona prompt 的 `'Blocking Issues: None'` 单行形态）、任意 `#` 深度前缀、emoji 前缀——同时保持整行锚定（散文行 "Warnings are listed above." 不匹配）。段落边界（NEXT_HEADING_RE）与识别**同源派生**，且只认关键词标题：不变量是"识别即终止、仅识别才截断"。两个对称的失败方向都要警惕：**识别⇒不终止**会跨桶双重计数（误红，本 PR dogfood 第一轮）；**不识别⇒终止**会在段内子标题（`## Issue 1: …`、`### Notes`）处丢弃分组条目 → `CANNOT MERGE` + 真阻塞项 blockingCount=0 → **误绿**（fail-open，比误红更危险，dogfood 第二、三轮连续在 `#{1,6}` 和遗留的 `###\s` 分支上各烧一次）。任何基于 `#` 深度的 body 截断分支都不要加——模型用子标题给条目分组；残留的"段中非关键词标题后的散列表项多计入当前桶"是多计方向（fail-closed），是门禁允许的出错方向。真正无结构的输出仍 fail-closed（测试保持）。
 
 判断标志：dogfood 红但 PR 评论 ✅、日志里有完整的 persona/coordinator 输出 → 先查 `parseSeverity` 的 `fallback`，再看模型输出的标题形态。**给 fail-closed 门禁加解析器时，解析器必须接受 prompt 字面要求的所有格式**，否则等于把"模型没按你没说过的格式写"当成失败。
 

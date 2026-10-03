@@ -266,6 +266,39 @@ describe("parseSeverity", () => {
     assert.equal(shouldFail(s, "blocking"), true);
   });
 
+  it("depth-3 non-keyword sub-headings group items too — same fail-open hole one depth up (#86 dogfood, round 3)", () => {
+    // The exact repro from the round-3 finding: keyword heading opens the
+    // section, every item lives under a `### Issue N:` sub-heading.
+    const s = parseSeverity(
+      [
+        "<verdict>CANNOT MERGE</verdict>",
+        "",
+        "## Blocking Issues",
+        "",
+        "### Issue 1: SQL injection",
+        "- SQL injection in login",
+        "### Issue 2: null deref",
+        "- Null deref in parser",
+      ].join("\n"),
+    );
+    assert.equal(s.decision, "CANNOT MERGE");
+    assert.equal(s.fallback, false);
+    assert.equal(s.blockingCount, 2);
+    assert.equal(shouldFail(s, "blocking"), true);
+  });
+
+  it("mid-section non-keyword headings over-count into the current bucket (fail-closed direction, accepted)", () => {
+    const s = parseSeverity(
+      ["CANNOT MERGE", "", "### Blocking Issues", "- b1", "", "### Notes", "- tangent list item", "", "### Warnings", "- w"].join("\n"),
+    );
+    assert.equal(s.blockingCount, 2);
+    assert.equal(s.warningCount, 1);
+  });
+
+  it("end-to-end on the PR #85 incident shape: bare-headings CAN MERGE stays green under the armed gate", () => {
+    assert.equal(shouldFail(parseSeverity(BARE_HEADINGS), "blocking"), false);
+  });
+
   it("a leading '#86' issue reference does not terminate a section body", () => {
     const s = parseSeverity(
       ["CANNOT MERGE", "", "Blocking Issues", "", "#86 addressed the parser side", "- still broken here", "", "Warnings", "- w"].join("\n"),

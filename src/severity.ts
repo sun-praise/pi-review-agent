@@ -58,16 +58,19 @@ const HEADING_LINE =
 
 const SECTION_RE = new RegExp(`^${HEADING_LINE}`, "gim");
 
-/** A line that ENDS a section body: a severity heading (HEADING_LINE, any
- *  `#`-depth — same source, same case-insensitivity, so a bare `warnings`
- *  cannot leak its items into the previous bucket), or a NON-keyword
- *  markdown heading at `###` depth (the pre-existing rule). Deliberately
- *  NOT any `##`/`#` line: models use depth-2 sub-headings (`## Issue 1:
- *  SQL injection`) to GROUP items inside one section — truncating there
- *  silently dropped the grouped items and let CANNOT MERGE + real blockers
- *  exit green (#86 dogfood, second round). A `#86` issue reference at line
- *  start must not terminate a body either. */
-const NEXT_HEADING_RE = new RegExp(`^(?:###\\s|${HEADING_LINE})`, "im");
+/** A line that ENDS a section body: exactly a recognized severity heading
+ *  (HEADING_LINE, any `#`-depth — same source, same case-insensitivity).
+ *  The invariant is symmetric: recognize⇒terminate AND terminate⇒recognize.
+ *  Deliberately NO non-keyword markdown branch: models use sub-headings
+ *  (`## Issue 1: …`, `### Notes`) to GROUP items inside one section, and
+ *  any depth-based truncation there silently dropped the grouped items —
+ *  `CANNOT MERGE` + real blockers parsed as blockingCount=0 and the armed
+ *  gate exited green (fail-open; #86 dogfood rounds 2 and 3, first at
+ *  `#{1,6}`, then at the legacy `###\s`). The price — loose list items
+ *  after a mid-section non-keyword heading over-count into the current
+ *  bucket — fails toward red, the direction this gate is allowed to err
+ *  in. A leading `#86` issue reference terminates nothing either. */
+const NEXT_HEADING_RE = new RegExp(`^${HEADING_LINE}`, "im");
 
 /** Map a localized heading keyword to a severity bucket. */
 function bucketFor(heading: string): "blocking" | "warning" | "suggestion" | null {
