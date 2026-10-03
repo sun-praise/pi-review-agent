@@ -170,6 +170,23 @@ describe("parseArgs flags and numbers", () => {
     assert.equal(parse(MIN, { PI_REVIEW_FAIL_ON_SEVERITY: "blocking" }).failOnSeverity, "blocking");
     assert.equal(parse(MIN, { PI_REVIEW_FAIL_ON_SEVERITY: "bogus" }).failOnSeverity, "none");
   });
+
+  it("max-reviews-per-pr (#84): default 5, explicit 0 = unlimited, env/CLI honored, bogus degrades to default", () => {
+    assert.equal(parse(MIN).maxReviewsPerPr, 5);
+    // GitHub's ""-injection for an unset input behaves as unset → default 5
+    assert.equal(parse(MIN, { PI_REVIEW_MAX_REVIEWS_PER_PR: "" }).maxReviewsPerPr, 5);
+    assert.equal(parse(MIN, { PI_REVIEW_MAX_REVIEWS_PER_PR: "10" }).maxReviewsPerPr, 10);
+    assert.equal(parse([...MIN, "--max-reviews-per-pr", "3"]).maxReviewsPerPr, 3);
+    assert.equal(
+      parse([...MIN, "--max-reviews-per-pr", "0"], { PI_REVIEW_MAX_REVIEWS_PER_PR: "10" })
+        .maxReviewsPerPr,
+      0,
+    );
+    for (const bogus of ["-2", "abc", "2.5"]) {
+      assert.equal(parse(MIN, { PI_REVIEW_MAX_REVIEWS_PER_PR: bogus }).maxReviewsPerPr, 5);
+    }
+    assert.equal(parse(MIN, { PI_REVIEW_MAX_REVIEWS_PER_PR: "1e3" }).maxReviewsPerPr, 1000);
+  });
 });
 
 describe("parseArgs --format json (headless bench mode)", () => {

@@ -157,6 +157,20 @@ inputs:
       Backoff = base * 2^(attempt-1) + jitter[0, base]. Default 1000.
     required: false
     default: "1000"
+  max-reviews-per-pr:
+    description: >
+      Max total review rounds per PR. Default 5; set 0 for unlimited. Each
+      run that dispatches a review bumps a counter file
+      (<sessions-root>/<pr>/review-count.json) persisted by the per-PR
+      session cache. Once the limit is reached, later runs skip the review,
+      exit 0, emit a ::warning:: annotation, set the skipped output, and do
+      not update the PR comment. Re-runs count as reviews. Raise the limit
+      or delete the counter file to resume; cache eviction resets the
+      counter (fails toward re-reviewing, never toward silently stopping).
+      NOTE for fail-on-severity users: a skipped run passes your required
+      check with no review — gate on the skipped output if that matters.
+    required: false
+    default: "5"
   diff-exclude:
     description: >
       Comma-separated glob patterns for additional files to exclude from the
@@ -267,6 +281,13 @@ inputs:
     default: "false"
 
 outputs:
+  skipped:
+    description: >
+      "true" when max-reviews-per-pr reached its limit and this run skipped
+      the review (exit 0, ::warning:: annotation, no PR comment). Empty on
+      a normal review. Fail-on-severity consumers that must not pass
+      unreviewed should gate on this output.
+    value: ${{ steps.review.outputs.skipped }}
   verdict:
     description: >
       Final review verdict: `CAN MERGE`, `CONDITIONAL MERGE`, `CANNOT MERGE`,
@@ -368,6 +389,7 @@ runs:
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
         PI_REVIEW_TIMEOUT_SECONDS: ${{ inputs.timeout-seconds }}
         PI_REVIEW_MAX_ATTEMPTS: ${{ inputs.max-attempts }}
+        PI_REVIEW_MAX_REVIEWS_PER_PR: ${{ inputs.max-reviews-per-pr }}
         PI_REVIEW_RETRY_BACKOFF_MS: ${{ inputs.retry-backoff-ms }}
         PI_REVIEW_DIFF_EXCLUDE: ${{ inputs.diff-exclude }}
         PI_REVIEW_DIFF_MAX_SIZE_KB: ${{ inputs.diff-max-size-kb }}
