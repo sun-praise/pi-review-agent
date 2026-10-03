@@ -281,7 +281,8 @@ Long-lived PRs get a review on every push, and the tokens add up. `max-reviews-p
 ```
 
 - A counter file `<sessions-root>/<pr>/review-count.json` records how many rounds were dispatched. It rides the same per-PR `actions/cache` entry as the session JSONL, so the count persists across runs and never leaks between PRs.
-- Once the counter reaches the limit, later runs **skip the review entirely**: exit 0, a step-summary note explaining the skip, and no PR-comment update — the workflow stays green. In headless `--format json` mode the skip keeps the one-JSON-document stdout contract: the payload carries `skipped: {reason: "review-limit", completed, limit}` with empty findings and zero usage instead of a review.
+- Once the counter reaches the limit, later runs **skip the review entirely**: exit 0, a `::warning::` annotation in the Checks UI, a step-summary note, the `skipped` output set to `true`, and no PR-comment update. Headless `--format json` mode keeps the one-JSON-document stdout contract on a skip: the payload carries `skipped: {reason: "review-limit", completed, limit}` with empty findings and zero usage.
+- **If you arm `fail-on-severity` as a required check, gate on `skipped` too** — a skipped run passes your check with no review from push N+1 on. Merge gates that must never pass unreviewed (like this repo's own dogfood) should set `max-reviews-per-pr: "0"`.
 - Every run that dispatches a review counts one round — including re-runs and runs whose review later fails (tokens were spent). Skips never count.
 - The counter is a fact record, not a ban: raise `max-reviews-per-pr` and reviewing resumes from where the count left off; delete the counter file to reset it. If the cache entry is evicted the counter resets to 0 — the failure direction is "review again", never "silently stop".
 

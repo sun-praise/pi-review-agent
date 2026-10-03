@@ -163,10 +163,12 @@ inputs:
       run that dispatches a review bumps a counter file
       (<sessions-root>/<pr>/review-count.json) persisted by the per-PR
       session cache. Once the limit is reached, later runs skip the review,
-      exit 0, note the skip in the step summary, and do not update the PR
-      comment. Re-runs count as reviews. Raise the limit or delete the
-      counter file to resume; cache eviction resets the counter (fails
-      toward re-reviewing, never toward silently stopping).
+      exit 0, emit a ::warning:: annotation, set the skipped output, and do
+      not update the PR comment. Re-runs count as reviews. Raise the limit
+      or delete the counter file to resume; cache eviction resets the
+      counter (fails toward re-reviewing, never toward silently stopping).
+      NOTE for fail-on-severity users: a skipped run passes your required
+      check with no review — gate on the skipped output if that matters.
     required: false
     default: "5"
   diff-exclude:
@@ -279,6 +281,13 @@ inputs:
     default: "false"
 
 outputs:
+  skipped:
+    description: >
+      "true" when max-reviews-per-pr reached its limit and this run skipped
+      the review (exit 0, ::warning:: annotation, no PR comment). Empty on
+      a normal review. Fail-on-severity consumers that must not pass
+      unreviewed should gate on this output.
+    value: ${{ steps.review.outputs.skipped }}
   verdict:
     description: >
       Final review verdict: `CAN MERGE`, `CONDITIONAL MERGE`, `CANNOT MERGE`,

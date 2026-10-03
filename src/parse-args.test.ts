@@ -182,9 +182,10 @@ describe("parseArgs flags and numbers", () => {
         .maxReviewsPerPr,
       0,
     );
-    for (const bogus of ["-2", "abc"]) {
+    for (const bogus of ["-2", "abc", "2.5"]) {
       assert.equal(parse(MIN, { PI_REVIEW_MAX_REVIEWS_PER_PR: bogus }).maxReviewsPerPr, 5);
     }
+    assert.equal(parse(MIN, { PI_REVIEW_MAX_REVIEWS_PER_PR: "1e3" }).maxReviewsPerPr, 1000);
   });
 });
 

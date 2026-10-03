@@ -196,6 +196,16 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
   if (!persona && !team) {
     throw new Error("--persona <name> or --team <spec> required");
   }
+  // Rounds are integers — a fractional limit ("2.5") would leak a nonsense
+  // value into the gate comparison and the skip payload. intEnv only rejects
+  // negatives/non-finite, so finish the job here and say so on stderr (same
+  // warn-and-degrade convention as cost-overrides / currency).
+  const maxReviewsRaw = intEnv(args["max-reviews-per-pr"], env.PI_REVIEW_MAX_REVIEWS_PER_PR, 5);
+  if (!Number.isInteger(maxReviewsRaw)) {
+    process.stderr.write(
+      `max-reviews-per-pr: must be a non-negative integer (got ${maxReviewsRaw}); using default 5\n`,
+    );
+  }
   // An explicitly-empty --model/PI_REVIEW_MODEL is almost certainly a config
   // mistake; before #48 it silently dropped the primary model and the run
   // fell through to the fallback chain. Fail loudly instead.
@@ -230,11 +240,7 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     cwd: args.cwd?.trim() ? args.cwd : process.cwd(),
     timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], env),
     maxAttempts: intEnv(args["max-attempts"], env.PI_REVIEW_MAX_ATTEMPTS, 3),
-    maxReviewsPerPr: intEnv(
-      args["max-reviews-per-pr"],
-      env.PI_REVIEW_MAX_REVIEWS_PER_PR,
-      5,
-    ),
+    maxReviewsPerPr: Number.isInteger(maxReviewsRaw) ? maxReviewsRaw : 5,
     retryBackoffMs: intEnv(args["retry-backoff-ms"], env.PI_REVIEW_RETRY_BACKOFF_MS, 1000),
     diffExclude: (optionalString(args["diff-exclude"], env.PI_REVIEW_DIFF_EXCLUDE) ?? "")
       .split(",")

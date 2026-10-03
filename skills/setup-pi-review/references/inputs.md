@@ -54,6 +54,7 @@ The action uses `actions/cache@v5` with key `pi-review-session-<repo>-<pr>-<run_
 
 | Output | Description |
 |---|---|
+| `skipped` | `true` when `max-reviews-per-pr` hit its limit and the run skipped the review (exit 0, `::warning::`, no PR comment). Empty on a normal review. `fail-on-severity` consumers that must not pass unreviewed should gate on this. |
 | `verdict` | `CAN MERGE` / `CONDITIONAL MERGE` / `CANNOT MERGE` / `UNKNOWN`. Team mode: coordinator verdict (persona severity vote as fallback). Single mode: reviewer's first line. |
 | `cacheRead` | Total cache-hit tokens across all reviewers + coordinator. Non-zero = upstream cache hit → discounted billing. |
 | `totalCost` | Total USD cost across all reviewers + coordinator. |

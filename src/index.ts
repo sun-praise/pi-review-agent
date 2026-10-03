@@ -549,6 +549,10 @@ async function main(): Promise<number> {
   if (opts.maxReviewsPerPr > 0) {
     const completed = await readReviewCount(counterFile);
     if (completed >= opts.maxReviewsPerPr) {
+      const skipDiagnostic =
+        `max-reviews-per-pr: ${completed} reviews already recorded, limit is ` +
+        `${opts.maxReviewsPerPr}; skipping review — this run passes without ` +
+        `a review\n`;
       // Json mode keeps its one-JSON-document-on-stdout contract even for
       // a skipped run (#84 dogfood: a plain-text skip line broke bench
       // harness parsing) — same delivery semantics as a real run: --output
@@ -557,9 +561,7 @@ async function main(): Promise<number> {
       // paths: undefined when identity came from --pr (JsonRunResult
       // contract). Diagnostics go to stderr — stdout is the payload.
       if (opts.format === "json") {
-        process.stderr.write(
-          `max-reviews-per-pr: ${completed} reviews already recorded, limit is ${opts.maxReviewsPerPr}; skipping review\n`,
-        );
+        process.stderr.write(skipDiagnostic);
         const delivered = writeJsonRunResult(
           buildSkippedJsonResult({
             pr: opts.pr,
@@ -575,9 +577,19 @@ async function main(): Promise<number> {
         );
         return delivered ? 0 : 1;
       }
-      process.stdout.write(
-        `max-reviews-per-pr: ${completed} reviews already recorded, limit is ${opts.maxReviewsPerPr}; skipping review\n`,
-      );
+      // The skip must be VISIBLE, not just green (this round's dogfood
+      // blocking finding: default 5 + silent exit 0 + no outputs would let
+      // fail-on-severity required checks pass with no review from push 6
+      // on). The ::warning:: workflow command surfaces in the Checks UI
+      // annotations; the skipped=true output (plus completed/limit) gives
+      // gate consumers a machine-readable way to treat skipped runs
+      // explicitly instead of reading empty verdict as pass.
+      process.stdout.write(`::warning::${skipDiagnostic}`);
+      appendOutputs([
+        "skipped=true",
+        `completed=${completed}`,
+        `limit=${opts.maxReviewsPerPr}`,
+      ]);
       appendStepSummary(
         `### pi-review-agent — skipped (review limit reached)\n\n` +
           `**${completed}** review rounds are already recorded for this PR — ` +

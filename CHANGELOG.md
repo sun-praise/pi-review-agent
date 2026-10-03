@@ -11,9 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`max-reviews-per-pr`** (#84): configurable cap on the total number of
   review rounds per PR (`max-reviews-per-pr` input /
-  `PI_REVIEW_MAX_REVIEWS_PER_PR` env / `--max-reviews-per-pr` CLI). Default
-  `5` bounds every PR's token spend out of the box; explicit `0` restores
-  unlimited. Each run that dispatches a review bumps a counter file
+  `PI_REVIEW_MAX_REVIEWS_PER_PR` env / `--max-reviews-per-pr` CLI).
+  **Behavior change: the default is `5`** — every PR's token spend is
+  bounded out of the box; explicit `0` restores unlimited. Each run that
+  dispatches a review bumps a counter file
   (`<sessions-root>/<pr>/review-count.json`) that rides the same per-PR
   `actions/cache` entry as the resume JSONL, so the count persists across
   runs and never leaks between PRs. Once the counter reaches the limit,
@@ -22,7 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Headless json mode keeps its one-JSON-document stdout contract on a skip:
   the payload carries `skipped: {reason: "review-limit", completed, limit}`
   with empty findings and zero usage (found blocking by dogfood after the
-  severity-parser fix let the gate read findings again). Re-runs count as
+  severity-parser fix let the gate read findings again). A skipped run is
+  never silent: `::warning::` annotation, `skipped`/`completed`/`limit`
+  step outputs (new `skipped` action output), and a step-summary note —
+  fail-on-severity consumers that must not pass unreviewed should gate on
+  `skipped` (this repo's dogfood pins `max-reviews-per-pr: "0"`).
+  Re-runs count as
   reviews (they spend tokens); skipped runs never count. The counter is a
   fact record, not a ban: raising the limit resumes reviewing, deleting
   the file resets it, and a cache eviction resets it to 0 — every

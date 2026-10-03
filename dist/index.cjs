@@ -42804,6 +42804,13 @@ function parseArgs(argv, env = process.env) {
   if (!persona && !team) {
     throw new Error("--persona <name> or --team <spec> required");
   }
+  const maxReviewsRaw = intEnv(args["max-reviews-per-pr"], env.PI_REVIEW_MAX_REVIEWS_PER_PR, 5);
+  if (!Number.isInteger(maxReviewsRaw)) {
+    process.stderr.write(
+      `max-reviews-per-pr: must be a non-negative integer (got ${maxReviewsRaw}); using default 5
+`
+    );
+  }
   const modelRaw = args.model !== void 0 ? args.model : env.PI_REVIEW_MODEL;
   if (modelRaw !== void 0 && !modelRaw.trim()) {
     throw new Error("--model (or PI_REVIEW_MODEL) must not be empty \u2014 unset it to use the default model");
@@ -42834,11 +42841,7 @@ function parseArgs(argv, env = process.env) {
     cwd: args.cwd?.trim() ? args.cwd : process.cwd(),
     timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], env),
     maxAttempts: intEnv(args["max-attempts"], env.PI_REVIEW_MAX_ATTEMPTS, 3),
-    maxReviewsPerPr: intEnv(
-      args["max-reviews-per-pr"],
-      env.PI_REVIEW_MAX_REVIEWS_PER_PR,
-      5
-    ),
+    maxReviewsPerPr: Number.isInteger(maxReviewsRaw) ? maxReviewsRaw : 5,
     retryBackoffMs: intEnv(args["retry-backoff-ms"], env.PI_REVIEW_RETRY_BACKOFF_MS, 1e3),
     diffExclude: (optionalString(args["diff-exclude"], env.PI_REVIEW_DIFF_EXCLUDE) ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     diffMaxSizeKb: intEnv(args["diff-max-size-kb"], env.PI_REVIEW_DIFF_MAX_SIZE_KB, 200),
@@ -47583,11 +47586,10 @@ async function main() {
   if (opts.maxReviewsPerPr > 0) {
     const completed = await readReviewCount(counterFile);
     if (completed >= opts.maxReviewsPerPr) {
+      const skipDiagnostic = `max-reviews-per-pr: ${completed} reviews already recorded, limit is ${opts.maxReviewsPerPr}; skipping review \u2014 this run passes without a review
+`;
       if (opts.format === "json") {
-        process.stderr.write(
-          `max-reviews-per-pr: ${completed} reviews already recorded, limit is ${opts.maxReviewsPerPr}; skipping review
-`
-        );
+        process.stderr.write(skipDiagnostic);
         const delivered = writeJsonRunResult(
           buildSkippedJsonResult({
             pr: opts.pr,
@@ -47600,10 +47602,12 @@ async function main() {
         );
         return delivered ? 0 : 1;
       }
-      process.stdout.write(
-        `max-reviews-per-pr: ${completed} reviews already recorded, limit is ${opts.maxReviewsPerPr}; skipping review
-`
-      );
+      process.stdout.write(`::warning::${skipDiagnostic}`);
+      appendOutputs([
+        "skipped=true",
+        `completed=${completed}`,
+        `limit=${opts.maxReviewsPerPr}`
+      ]);
       appendStepSummary(
         `### pi-review-agent \u2014 skipped (review limit reached)
 

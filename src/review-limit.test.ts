@@ -13,14 +13,20 @@
  * pins the gate's precedence: if it ever moves behind the "no diff
  * source" failure, these spawns exit 1 and the tests go red.
  */
-import { describe, it } from "node:test";
+import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtemp, mkdir, writeFile, readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..");
+
+const tmpRoots: string[] = [];
+
+after(async () => {
+  await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
+});
 
 function spawnCli(sessionsRoot: string, extraArgs: string[]): string {
   return execFileSync(
@@ -47,6 +53,7 @@ function spawnCli(sessionsRoot: string, extraArgs: string[]): string {
 /** Fixture sessions-root with the counter already at the limit. */
 async function limitedRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "pi-review-limit-"));
+  tmpRoots.push(root);
   await mkdir(join(root, "9"), { recursive: true });
   await writeFile(join(root, "9", "review-count.json"), '{"count":3}\n');
   return root;
@@ -67,14 +74,17 @@ describe("max-reviews-per-pr gate routing (spawned CLI, #84)", () => {
     assert.equal(skipped.reason, "review-limit");
     assert.equal(skipped.completed, 3);
     assert.equal(skipped.limit, 3);
+    // Identity came from --pr (no --session-key) → sessionKey stays
+    // undefined, same contract as the dispatch paths.
+    assert.equal(record.sessionKey, undefined);
     // A skip is not a review — the counter must not move.
     assert.equal(await readFile(join(root, "9", "review-count.json"), "utf8"), '{"count":3}\n');
   });
 
-  it("text mode: a skipped run prints the human note, exits 0, counter untouched", async () => {
+  it("text mode: a skipped run warns visibly (::warning:: annotation), exits 0, counter untouched", async () => {
     const root = await limitedRoot();
     const out = spawnCli(root, []);
-    assert.match(out, /max-reviews-per-pr: 3 reviews already recorded/);
+    assert.match(out, /::warning::max-reviews-per-pr: 3 reviews already recorded/);
     assert.equal(await readFile(join(root, "9", "review-count.json"), "utf8"), '{"count":3}\n');
   });
 });
