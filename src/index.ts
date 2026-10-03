@@ -46,6 +46,7 @@ import { buildStatsEvent, recordStats, resolveRunIdentity } from "./stats.js";
 import { checkWorkspace } from "./workspace-check.js";
 import { buildSingleJsonResult, buildTeamJsonResult, type JsonRunResult } from "./json-output.js";
 import { resolveSessionDirName } from "./session-dir.js";
+import { readReviewCount, bumpReviewCount, REVIEW_COUNT_FILENAME } from "./review-counter.js";
 import { resolveIncremental } from "./incremental.js";
 
 
@@ -533,6 +534,37 @@ async function main(): Promise<number> {
     process.stderr.write("stats-token is set but stats-url is not; the token is never used\n");
   }
 
+  // Review-round limiter (#84): this gate runs FIRST — a skipped run must
+  // not spend anything on diff loading, workspace checks, or LLM calls, and
+  // must not fail on the guards below. The counter is a per-PR fact record
+  // under the sessions root (it rides the same per-PR cache entry as the
+  // resume JSONL); reaching the limit skips with exit 0 and never touches
+  // the PR comment. The count is not a ban: raising the limit (or deleting
+  // the counter file) resumes reviewing on the next run.
+  const counterFile = join(
+    opts.sessionsRoot,
+    resolveSessionDirName(opts.sessionKey, opts.pr),
+    REVIEW_COUNT_FILENAME,
+  );
+  if (opts.maxReviewsPerPr > 0) {
+    const completed = await readReviewCount(counterFile);
+    if (completed >= opts.maxReviewsPerPr) {
+      process.stdout.write(
+        `max-reviews-per-pr: ${completed} reviews already recorded, limit is ${opts.maxReviewsPerPr}; skipping review\n`,
+      );
+      appendStepSummary(
+        `### pi-review-agent — skipped (review limit reached)\n\n` +
+          `This PR already ran **${completed}** reviews — the configured ` +
+          `\`max-reviews-per-pr: ${opts.maxReviewsPerPr}\` is reached. This run ` +
+          `skips the review, exits 0, and does not update the PR comment.\n\n` +
+          `The counter lives at \`${counterFile}\` (persisted by the per-PR ` +
+          `session cache). Raise \`max-reviews-per-pr\` or delete that file to ` +
+          `review again.\n`,
+      );
+      return 0;
+    }
+  }
+
   // Stale-tree guard (#67): reviewers' read/grep, the related-context graph,
   // and the verifier's disk checks all read `cwd` — the caller's checkout.
   // If files the PR ADDS are missing there, cwd is provably not the PR head
@@ -576,6 +608,7 @@ async function main(): Promise<number> {
   // CliOptions stays immutable from construction on.
   if (opts.format === "json") {
     await attachRelatedContext(opts);
+    if (guardDiff !== undefined) await bumpReviewCount(counterFile);
     return opts.team ? runTeam(opts, null, "none") : runSingle(opts, null, "none");
   }
 
@@ -604,6 +637,14 @@ async function main(): Promise<number> {
   // blast radius of a delta run covers only the delta's files.
   await applyIncrementalDiff(opts, adapter);
   await attachRelatedContext(opts);
+  // Count this round (#84): a review is dispatched on the next line (here
+  // and in the json branch above), so the run counts even if the review
+  // itself then fails — the tokens are spent. Runs that can never dispatch
+  // (no diff source) do not count, and neither do runs stopped by the gates
+  // above (limit reached, stale workspace). Counting is unconditional
+  // w.r.t. the limit: the file is a fact record of rounds run, so a limit
+  // introduced later reflects history instead of starting at zero.
+  if (guardDiff !== undefined) await bumpReviewCount(counterFile);
   return opts.team ? runTeam(opts, adapter, platform) : runSingle(opts, adapter, platform);
 }
 

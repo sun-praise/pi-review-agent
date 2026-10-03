@@ -170,6 +170,22 @@ describe("parseArgs flags and numbers", () => {
     assert.equal(parse(MIN, { PI_REVIEW_FAIL_ON_SEVERITY: "blocking" }).failOnSeverity, "blocking");
     assert.equal(parse(MIN, { PI_REVIEW_FAIL_ON_SEVERITY: "bogus" }).failOnSeverity, "none");
   });
+
+  it("max-reviews-per-pr (#84): 0 default, env/CLI honored, bogus values degrade to 0", () => {
+    assert.equal(parse(MIN).maxReviewsPerPr, 0);
+    // GitHub's ""-injection for an unset input must behave as unset (unlimited)
+    assert.equal(parse(MIN, { PI_REVIEW_MAX_REVIEWS_PER_PR: "" }).maxReviewsPerPr, 0);
+    assert.equal(parse(MIN, { PI_REVIEW_MAX_REVIEWS_PER_PR: "10" }).maxReviewsPerPr, 10);
+    assert.equal(parse([...MIN, "--max-reviews-per-pr", "3"]).maxReviewsPerPr, 3);
+    assert.equal(
+      parse([...MIN, "--max-reviews-per-pr", "0"], { PI_REVIEW_MAX_REVIEWS_PER_PR: "10" })
+        .maxReviewsPerPr,
+      0,
+    );
+    for (const bogus of ["-2", "abc"]) {
+      assert.equal(parse(MIN, { PI_REVIEW_MAX_REVIEWS_PER_PR: bogus }).maxReviewsPerPr, 0);
+    }
+  });
 });
 
 describe("parseArgs --format json (headless bench mode)", () => {

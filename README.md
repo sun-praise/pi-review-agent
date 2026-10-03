@@ -269,6 +269,24 @@ Env equivalents for direct CLI use: `PI_REVIEW_STATS_URL` / `PI_REVIEW_STATS_TOK
 
 Statistics is **opt-in** and off by default: a runner that sets nothing records nothing. `stats-enabled: true` turns on the local JSONL record; adding `stats-url` also ships each event to the dashboard (fail-open — an unreachable dashboard never fails a review, and a set `stats-url` without the switch warns on stderr). In CI the local `stats.jsonl` is best-effort: it lives under the runner's `sessions-root` and only survives through `actions/cache` — treat the dashboard as the source of truth for aggregation. Stats events carry repo names, PR numbers, verdicts and reviewer error messages: point `stats-url` only at a dashboard you control (prefer `https://` even on an intranet when using `stats-token`).
 
+### Review limits
+
+Long-lived PRs get a review on every push, and the tokens add up. `max-reviews-per-pr` caps the **total number of review rounds per PR** (#84):
+
+```yaml
+- uses: sun-praise/pi-review-agent@v1
+  with:
+    team: "quality:1,security:1"
+    max-reviews-per-pr: "10"   # 0 (default) = unlimited
+```
+
+- A counter file `<sessions-root>/<pr>/review-count.json` records how many rounds were dispatched. It rides the same per-PR `actions/cache` entry as the session JSONL, so the count persists across runs and never leaks between PRs.
+- Once the counter reaches the limit, later runs **skip the review entirely**: exit 0, a step-summary note explaining the skip, and no PR-comment update — the workflow stays green.
+- Every run that dispatches a review counts one round — including re-runs and runs whose review later fails (tokens were spent). Skips never count.
+- The counter is a fact record, not a ban: raise `max-reviews-per-pr` and reviewing resumes from where the count left off; delete the counter file to reset it. If the cache entry is evicted the counter resets to 0 — the failure direction is "review again", never "silently stop".
+
+Env/CLI equivalents: `PI_REVIEW_MAX_REVIEWS_PER_PR` / `--max-reviews-per-pr`.
+
 ## Install via agent skill
 
 This repo ships an installer skill ([`skills/setup-pi-review/`](./skills/setup-pi-review/)) discoverable by [`npx skills`](https://github.com/vercel-labs/skills). An agent loaded with the skill (Claude Code, Cursor, etc.) can set pi-review-agent up for any repository via natural language — it generates the workflow YAML, points you to the secrets, and reminds you of the required permissions.

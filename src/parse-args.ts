@@ -44,6 +44,10 @@ export interface CliOptions {
   timeoutMs: number;
   /** Max attempts per review. Default 3. */
   maxAttempts: number;
+  /** Max total review rounds per session identity / PR (#84). 0 (default)
+   *  = unlimited. The counter persists under sessions-root — see
+   *  review-counter.ts. */
+  maxReviewsPerPr: number;
   /** Retry backoff base (ms). Default 1000. */
   retryBackoffMs: number;
   /** Comma-separated globs to exclude from the diff (in addition to locks). */
@@ -226,6 +230,11 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
     cwd: args.cwd?.trim() ? args.cwd : process.cwd(),
     timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], env),
     maxAttempts: intEnv(args["max-attempts"], env.PI_REVIEW_MAX_ATTEMPTS, 3),
+    maxReviewsPerPr: intEnv(
+      args["max-reviews-per-pr"],
+      env.PI_REVIEW_MAX_REVIEWS_PER_PR,
+      0,
+    ),
     retryBackoffMs: intEnv(args["retry-backoff-ms"], env.PI_REVIEW_RETRY_BACKOFF_MS, 1000),
     diffExclude: (optionalString(args["diff-exclude"], env.PI_REVIEW_DIFF_EXCLUDE) ?? "")
       .split(",")

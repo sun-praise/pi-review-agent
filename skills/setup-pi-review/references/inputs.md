@@ -44,6 +44,12 @@ Count >1 is accepted (e.g. `quality:2`) but currently runs as 1 — kept for spe
 
 The action uses `actions/cache@v4` with key `pi-review-session-<repo>-<pr>-<run_id>` and restore-key prefix `pi-review-session-<repo>-<pr>-`. This is what makes re-push continue the prior session.
 
+## Review limit
+
+| Input | Default | Description |
+|---|---|---|
+| `max-reviews-per-pr` | `"0"` | Max total review rounds per PR; `0` = unlimited. The counter (`<sessions-root>/<pr>/review-count.json`) rides the per-PR session cache. At the limit, later runs skip the review: exit 0 + step-summary note, no PR-comment update. Re-runs count as reviews. Raise the limit or delete the counter file to resume; cache eviction resets the counter (fails toward re-reviewing). |
+
 ## Outputs
 
 | Output | Description |

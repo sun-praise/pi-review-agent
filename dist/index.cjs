@@ -42613,7 +42613,7 @@ ${inlineSummary}`;
 
 // src/index.ts
 var import_node_fs8 = require("fs");
-var import_node_path11 = require("path");
+var import_node_path12 = require("path");
 
 // src/provider.ts
 init_dist();
@@ -42834,6 +42834,11 @@ function parseArgs(argv, env = process.env) {
     cwd: args.cwd?.trim() ? args.cwd : process.cwd(),
     timeoutMs: resolveTimeoutMs(args["timeout-seconds"], args["timeout-ms"], env),
     maxAttempts: intEnv(args["max-attempts"], env.PI_REVIEW_MAX_ATTEMPTS, 3),
+    maxReviewsPerPr: intEnv(
+      args["max-reviews-per-pr"],
+      env.PI_REVIEW_MAX_REVIEWS_PER_PR,
+      0
+    ),
     retryBackoffMs: intEnv(args["retry-backoff-ms"], env.PI_REVIEW_RETRY_BACKOFF_MS, 1e3),
     diffExclude: (optionalString(args["diff-exclude"], env.PI_REVIEW_DIFF_EXCLUDE) ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     diffMaxSizeKb: intEnv(args["diff-max-size-kb"], env.PI_REVIEW_DIFF_MAX_SIZE_KB, 200),
@@ -47002,6 +47007,43 @@ function buildTeamJsonResult(args) {
   return payload;
 }
 
+// src/review-counter.ts
+var import_promises4 = require("fs/promises");
+var import_node_path11 = require("path");
+var REVIEW_COUNT_FILENAME = "review-count.json";
+function parseCount(raw) {
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+  const count = parsed.count;
+  return typeof count === "number" && Number.isFinite(count) && count >= 0 ? count : null;
+}
+async function readReviewCount(file) {
+  try {
+    return parseCount(await (0, import_promises4.readFile)(file, "utf8")) ?? 0;
+  } catch {
+    return 0;
+  }
+}
+async function bumpReviewCount(file) {
+  const next = await readReviewCount(file) + 1;
+  try {
+    await (0, import_promises4.mkdir)((0, import_node_path11.dirname)(file), { recursive: true });
+    await (0, import_promises4.writeFile)(file, `${JSON.stringify({ count: next })}
+`, "utf8");
+  } catch (err2) {
+    process.stderr.write(
+      `max-reviews-per-pr: counter update failed (${err2 instanceof Error ? err2.message : String(err2)}); continuing
+`
+    );
+  }
+  return next;
+}
+
 // src/delta-diff.ts
 var import_node_child_process2 = require("child_process");
 var SHA_RE2 = /^[0-9a-f]{7,40}$/i;
@@ -47275,7 +47317,7 @@ async function runSingle(opts, adapter, platform) {
   if (opts.statsEnabled) {
     const repository = prInfo?.repository ?? process.env.GITHUB_REPOSITORY?.trim() ?? "local";
     await recordStats({
-      file: (0, import_node_path11.join)(opts.sessionsRoot, "stats.jsonl"),
+      file: (0, import_node_path12.join)(opts.sessionsRoot, "stats.jsonl"),
       url: opts.statsUrl,
       token: opts.statsToken,
       event: buildStatsEvent({
@@ -47383,7 +47425,7 @@ async function runTeam(opts, adapter, platform) {
   if (opts.statsEnabled) {
     const repository = prInfo?.repository ?? process.env.GITHUB_REPOSITORY?.trim() ?? "local";
     await recordStats({
-      file: (0, import_node_path11.join)(opts.sessionsRoot, "stats.jsonl"),
+      file: (0, import_node_path12.join)(opts.sessionsRoot, "stats.jsonl"),
       url: opts.statsUrl,
       token: opts.statsToken,
       event: buildStatsEvent({
@@ -47518,6 +47560,29 @@ async function main() {
   if (opts.statsToken && !opts.statsUrl) {
     process.stderr.write("stats-token is set but stats-url is not; the token is never used\n");
   }
+  const counterFile = (0, import_node_path12.join)(
+    opts.sessionsRoot,
+    resolveSessionDirName(opts.sessionKey, opts.pr),
+    REVIEW_COUNT_FILENAME
+  );
+  if (opts.maxReviewsPerPr > 0) {
+    const completed = await readReviewCount(counterFile);
+    if (completed >= opts.maxReviewsPerPr) {
+      process.stdout.write(
+        `max-reviews-per-pr: ${completed} reviews already recorded, limit is ${opts.maxReviewsPerPr}; skipping review
+`
+      );
+      appendStepSummary(
+        `### pi-review-agent \u2014 skipped (review limit reached)
+
+This PR already ran **${completed}** reviews \u2014 the configured \`max-reviews-per-pr: ${opts.maxReviewsPerPr}\` is reached. This run skips the review, exits 0, and does not update the PR comment.
+
+The counter lives at \`${counterFile}\` (persisted by the per-PR session cache). Raise \`max-reviews-per-pr\` or delete that file to review again.
+`
+      );
+      return 0;
+    }
+  }
   let guardDiff;
   try {
     guardDiff = prepareDiff(opts);
@@ -47535,6 +47600,7 @@ Reviewing anyway would feed reviewers and the verifier a stale tree (issue #67).
   }
   if (opts.format === "json") {
     await attachRelatedContext(opts);
+    if (guardDiff !== void 0) await bumpReviewCount(counterFile);
     return opts.team ? runTeam(opts, null, "none") : runSingle(opts, null, "none");
   }
   const { adapter, platform } = await createAdapterFromEnv(process.env, opts.platform);
@@ -47557,6 +47623,7 @@ Reviewing anyway would feed reviewers and the verifier a stale tree (issue #67).
   }
   await applyIncrementalDiff(opts, adapter);
   await attachRelatedContext(opts);
+  if (guardDiff !== void 0) await bumpReviewCount(counterFile);
   return opts.team ? runTeam(opts, adapter, platform) : runSingle(opts, adapter, platform);
 }
 main().then((code) => process.exit(code)).catch((err2) => {

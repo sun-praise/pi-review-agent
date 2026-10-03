@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`max-reviews-per-pr`** (#84): configurable cap on the total number of
+  review rounds per PR (`max-reviews-per-pr` input /
+  `PI_REVIEW_MAX_REVIEWS_PER_PR` env / `--max-reviews-per-pr` CLI). Default
+  `0` = unlimited, byte-for-byte the previous behavior. Each run that
+  dispatches a review bumps a counter file
+  (`<sessions-root>/<pr>/review-count.json`) that rides the same per-PR
+  `actions/cache` entry as the resume JSONL, so the count persists across
+  runs and never leaks between PRs. Once the counter reaches the limit,
+  later runs skip the review entirely — exit 0, a step-summary note, and no
+  PR-comment update — so the workflow stays green while token spend stops.
+  Re-runs count as reviews (they spend tokens); skipped runs never count.
+  The counter is a fact record, not a ban: raising the limit resumes
+  reviewing, deleting the file resets it, and a cache eviction resets it to
+  0 — every degradation fails toward "review again", never toward silently
+  stopping.
 ### Fixed
 
 - **dogfood gate red on a ✅ CAN MERGE review** (observed on PR #85, run
@@ -38,6 +55,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   opening with prose no longer yields UNKNOWN → fail-closed red while the
   comment says ✅. Fail-closed for genuinely structureless output is
   unchanged and still tested.
+
 
 ## [1.10.1] - 2026-09-27
 
