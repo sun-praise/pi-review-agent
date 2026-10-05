@@ -8,7 +8,7 @@
  * never fails just because comment posting did.
  */
 import type { InlineComment, InlineSeverity } from "./inline-comments.js";
-import { SELF_MARKER as MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX } from "./review-anchor.js";
+import { SELF_MARKER as MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX, SKIP_NOTICE_MARKER } from "./review-anchor.js";
 import { withTransientRetry } from "./retry.js";
 import { isTransientReviewerError } from "./transient-error.js";
 
@@ -138,6 +138,92 @@ async function updateComment(
     },
     body: JSON.stringify({ body }),
   });
+}
+
+async function deleteComment(ctx: PrCommentContext, id: number): Promise<void> {
+  const url = `${ctx.apiBase}/repos/${ctx.repository}/issues/comments/${id}`;
+  const res = await fetchWithTimeout(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${ctx.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`GitHub API ${res.status} ${res.statusText}: ${text.slice(0, 500)}`);
+  }
+  // 204 carries no body — release the connection instead of parsing it.
+  await res.body?.cancel();
+}
+
+/** Newest comment id carrying the skip-notice marker. Max id, not first
+ * match: the listing is chronological today, but id-selection keeps the
+ * update deterministic should a legacy sequence ever stack notices. */
+function latestNoticeId(comments: GithubComment[]): number | undefined {
+  let best: number | undefined;
+  for (const c of comments) {
+    if (c.body !== null && c.body.includes(SKIP_NOTICE_MARKER) && (best === undefined || c.id > best)) {
+      best = c.id;
+    }
+  }
+  return best;
+}
+
+/** Post or update the standing skip notice (#88). Like postPrComment but
+ * keyed on the notice marker ALONE — every skipped push refreshes ONE
+ * comment instead of stacking one per head SHA, and the payload must never
+ * grow the anchor marker/sha line (see SKIP_NOTICE_MARKER). */
+export async function postPrNotice(
+  ctx: PrCommentContext,
+  body: string,
+): Promise<"created" | "updated" | "skipped"> {
+  if (!ctx.token) {
+    process.stderr.write("postPrNotice: no GITHUB_TOKEN; skipping\n");
+    return "skipped";
+  }
+  const payload = `${SKIP_NOTICE_MARKER}\n${body}`;
+  try {
+    return await withTransientRetry(async () => {
+      const existing = await listComments(ctx);
+      const id = latestNoticeId(existing);
+      if (id !== undefined) {
+        await updateComment(ctx, id, payload);
+        return "updated" as const;
+      }
+      await createComment(ctx, payload);
+      return "created" as const;
+    }, { label: "postPrNotice" });
+  } catch (err: unknown) {
+    process.stderr.write(
+      `postPrNotice: failed (${err instanceof Error ? err.message : String(err)}); skipping\n`,
+    );
+    return "skipped";
+  }
+}
+
+/** Delete the standing skip notice once a review round dispatches again
+ * (#88), so a stale notice cannot keep claiming pushes are unreviewed
+ * after the budget was raised or the counter reset. "none" when no notice
+ * exists. Never throws. */
+export async function deletePrNotice(
+  ctx: PrCommentContext,
+): Promise<"deleted" | "none" | "skipped"> {
+  if (!ctx.token) return "skipped";
+  try {
+    return await withTransientRetry(async () => {
+      const id = latestNoticeId(await listComments(ctx));
+      if (id === undefined) return "none" as const;
+      await deleteComment(ctx, id);
+      return "deleted" as const;
+    }, { label: "deletePrNotice" });
+  } catch (err: unknown) {
+    process.stderr.write(
+      `deletePrNotice: failed (${err instanceof Error ? err.message : String(err)}); skipping\n`,
+    );
+    return "skipped";
+  }
 }
 
 /** Post or update the comment. Returns the action taken, or "skipped".

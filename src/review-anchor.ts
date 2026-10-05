@@ -25,6 +25,14 @@ export const SELF_MARKER = "<!-- pi-review-agent -->";
 export const SHA_LINE_PREFIX = "<!-- pi-review-agent-sha:";
 export const SHA_LINE_SUFFIX = " -->";
 
+/** Identity marker of the standing skip notice (#88) — the marker-keyed
+ * comment that makes a max-reviews-per-pr skip visible in the PR
+ * conversation. Deliberately NOT part of the anchor grammar above: a notice
+ * body must never carry SELF_MARKER or the sha fingerprint, or
+ * latestReviewAnchor would parse a skipped commit as reviewed and steer the
+ * next incremental delta past unreviewed changes. */
+export const SKIP_NOTICE_MARKER = "<!-- pi-review-agent-skip-notice -->";
+
 /** Full 40-hex commit ids (what headSha env injects) plus >=7 short ids,
  *  case-insensitive, so a hand-truncated anchor still resolves. */
 const SHA_RE = /^[0-9a-f]{7,40}$/i;

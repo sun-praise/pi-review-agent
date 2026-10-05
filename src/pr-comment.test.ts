@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { postPrComment, postPrReview, type PrCommentContext } from "./pr-comment.js";
+import { postPrComment, postPrReview, postPrNotice, deletePrNotice, type PrCommentContext } from "./pr-comment.js";
 import type { InlineComment } from "./inline-comments.js";
+import { SKIP_NOTICE_MARKER } from "./review-anchor.js";
 
 const CTX: PrCommentContext = {
   apiBase: "https://api.test.local",
@@ -275,5 +276,76 @@ test("postPrComment", async (t) => {
         assert.equal(calls.length, 3);
       },
     );
+  });
+});
+
+test("postPrNotice / deletePrNotice (#88)", async (t) => {
+  const notice = JSON.stringify([
+    { id: 777, body: "<!-- pi-review-agent -->\n<!-- pi-review-agent-sha:abc123 -->\nreview" },
+    { id: 42, body: `${SKIP_NOTICE_MARKER}\nolder notice` },
+    { id: 99, body: "someone else's comment" },
+  ]);
+
+  await t.test("creates the notice when none exists; payload carries no anchor grammar", async () => {
+    await withFetchStub(
+      [
+        { status: 200, ok: true, json: "[]" },
+        { status: 201, ok: true },
+      ],
+      async (calls) => {
+        const outcome = await postPrNotice(CTX, "skip body");
+        assert.equal(outcome, "created");
+        const body = (calls[1].body as { body: string }).body;
+        assert.ok(body.startsWith(SKIP_NOTICE_MARKER + "\n"));
+        assert.ok(!body.includes("<!-- pi-review-agent -->"));
+        assert.ok(!body.includes("<!-- pi-review-agent-sha:"));
+        assert.match(body, /skip body/);
+      },
+    );
+  });
+
+  await t.test("updates the newest existing notice regardless of head SHA (marker-keyed)", async () => {
+    await withFetchStub(
+      [
+        { status: 200, ok: true, json: notice },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        // A DIFFERENT head SHA must still update — one standing comment,
+        // never one notice per push.
+        const outcome = await postPrNotice({ ...CTX, headSha: "def4560000000000000000000000000000000000" }, "refreshed");
+        assert.equal(outcome, "updated");
+        assert.equal(calls[1].method, "PATCH");
+        assert.match(calls[1].url, /\/issues\/comments\/42$/);
+      },
+    );
+  });
+
+  await t.test("no token: skipped without any fetch", async () => {
+    await withFetchStub([], async (calls) => {
+      assert.equal(await postPrNotice({ ...CTX, token: "" }, "x"), "skipped");
+      assert.equal(calls.length, 0);
+    });
+  });
+
+  await t.test("deletePrNotice removes the newest notice", async () => {
+    await withFetchStub(
+      [
+        { status: 200, ok: true, json: notice },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        assert.equal(await deletePrNotice(CTX), "deleted");
+        assert.equal(calls[1].method, "DELETE");
+        assert.match(calls[1].url, /\/issues\/comments\/42$/);
+      },
+    );
+  });
+
+  await t.test("deletePrNotice: 'none' when no notice exists", async () => {
+    await withFetchStub([{ status: 200, ok: true, json: "[]" }], async (calls) => {
+      assert.equal(await deletePrNotice(CTX), "none");
+      assert.equal(calls.length, 1);
+    });
   });
 });

@@ -337,3 +337,29 @@ PR #85 的 dogfood run（37086811185）三个 persona + coordinator 全部 CAN M
 - Tags: ci, dogfood, fail-closed, severity-parsing, prompt-contract, model-drift, mimo
 
 ---
+## [LRN-20261005-001] pitfall
+
+**Logged**: 2026-10-05T00:00:00Z
+**Priority**: low
+**Status**: resolved
+**Area**: testing
+
+### Summary
+`pr-comment.ts` 的 `fetchJson` 对每个响应无条件 `res.json()`——给 DELETE 类端点（GitHub 返回 204 No Content、空响应体）复用它会在解析空 body 时抛 SyntaxError，被外层 catch 吞成 "skipped"，表现为"删除永远静默失败"。
+
+### Details
+#88 的 skip-notice 需要删评论（`DELETE /repos/{o}/{r}/issues/comments/{id}`）。GitHub 对 DELETE 成功返回 204 无 body；`fetchJson` 里 `res.json()` 解析空字符串直接 reject。错误被 `deletePrNotice` 的 fail-open catch 捕获，功能上不出错（返回 skipped），但排查时只看到一句 "postPrNotice: failed"，根因（空 body 解析）不显而易见。
+
+顺带两个 E2E harness 坑（同一场调试发现）：
+1. 同进程 `spawnSync` 起 mock HTTP server 再跑 CLI = 死锁——spawnSync 阻塞父进程事件循环，server 无法响应，只能靠 `AbortSignal.timeout(30s)` 解围。mock server 必须放独立进程。
+2. `pkill -f mock-gh-server.mjs` 会匹配到包含该字符串的外层 `bash -c` 命令行自杀。用 pid 文件管理。
+
+### Suggested Action
+新增无 body 的 API 调用（DELETE/204）时不要走 `fetchJson`：直接 `fetchWithTimeout` + `res.ok` 判断 + `res.body?.cancel()` 释放连接（参考 `pr-comment.ts` 的 `deleteComment`）。
+
+**Metadata**
+- Source: session_analysis
+- Related Files: src/pr-comment.ts, src/skip-notice.ts
+- Tags: github-api, delete-204, empty-body, fetchJson, e2e-harness
+
+---

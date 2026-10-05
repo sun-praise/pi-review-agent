@@ -48,13 +48,13 @@ The action uses `actions/cache@v5` with key `pi-review-session-<repo>-<pr>-<run_
 
 | Input | Default | Description |
 |---|---|---|
-| `max-reviews-per-pr` | `"5"` | Max total review rounds per PR; `0` = unlimited. The counter (`<sessions-root>/<pr>/review-count.json`) rides the per-PR session cache. At the limit, later runs skip the review: exit 0 + step-summary note, no PR-comment update. Re-runs count as reviews. Raise the limit or delete the counter file to resume; cache eviction resets the counter (fails toward re-reviewing). |
+| `max-reviews-per-pr` | `"5"` | Max total review rounds per PR; `0` = unlimited. The counter (`<sessions-root>/<pr>/review-count.json`) rides the per-PR session cache. At the limit, later runs skip the review: exit 0 + step-summary note + one standing skip-notice comment on the PR (refreshed per skipped push, deleted when reviews resume). Re-runs count as reviews. Raise the limit or delete the counter file to resume; cache eviction resets the counter (fails toward re-reviewing). |
 
 ## Outputs
 
 | Output | Description |
 |---|---|
-| `skipped` | `true` when `max-reviews-per-pr` hit its limit and the run skipped the review (exit 0, `::warning::`, no PR comment). Empty on a normal review. `fail-on-severity` consumers that must not pass unreviewed should gate on this. |
+| `skipped` | `true` when `max-reviews-per-pr` hit its limit and the run skipped the review (exit 0, `::warning::`, standing skip-notice comment on the PR). Empty on a normal review. `fail-on-severity` consumers that must not pass unreviewed should gate on this. |
 | `verdict` | `CAN MERGE` / `CONDITIONAL MERGE` / `CANNOT MERGE` / `UNKNOWN`. Team mode: coordinator verdict (persona severity vote as fallback). Single mode: reviewer's first line. |
 | `cacheRead` | Total cache-hit tokens across all reviewers + coordinator. Non-zero = upstream cache hit → discounted billing. |
 | `totalCost` | Total USD cost across all reviewers + coordinator. |
