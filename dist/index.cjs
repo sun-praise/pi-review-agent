@@ -42031,14 +42031,12 @@ async function listCommentsWide(ctx) {
   const lastPage = await fetchCommentPage(ctx, last);
   return [...first.comments, ...lastPage.comments];
 }
-function latestNoticeId(comments) {
-  let best;
+function noticeIds(comments) {
+  const ids = [];
   for (const c of comments) {
-    if (c.body !== null && c.body.includes(SKIP_NOTICE_MARKER) && (best === void 0 || c.id > best)) {
-      best = c.id;
-    }
+    if (c.body !== null && c.body.startsWith(SKIP_NOTICE_MARKER)) ids.push(c.id);
   }
-  return best;
+  return ids.sort((a, b) => a - b);
 }
 async function postPrNotice(ctx, body) {
   if (!ctx.token) {
@@ -42049,8 +42047,7 @@ async function postPrNotice(ctx, body) {
 ${body}`;
   try {
     return await withTransientRetry(async () => {
-      const existing = await listCommentsWide(ctx);
-      const id = latestNoticeId(existing);
+      const id = noticeIds(await listCommentsWide(ctx)).at(-1);
       if (id !== void 0) {
         await updateComment(ctx, id, payload);
         return "updated";
@@ -42070,9 +42067,9 @@ async function deletePrNotice(ctx) {
   if (!ctx.token) return "skipped";
   try {
     return await withTransientRetry(async () => {
-      const id = latestNoticeId(await listCommentsWide(ctx));
-      if (id === void 0) return "none";
-      await deleteComment(ctx, id);
+      const ids = noticeIds(await listCommentsWide(ctx));
+      if (ids.length === 0) return "none";
+      for (const id of ids) await deleteComment(ctx, id);
       return "deleted";
     }, { label: "deletePrNotice" });
   } catch (err2) {
@@ -42594,7 +42591,7 @@ ${body}`;
         try {
           return await withTransientRetry(async () => {
             const comments = await this.listAnchorCommentPages(base, context);
-            const existing = this.findSkipNotice(comments);
+            const existing = this.findSkipNotices(comments).at(-1);
             if (existing !== void 0) {
               await this.updateComment(base, existing, payload, context.token);
               return "updated";
@@ -42611,14 +42608,16 @@ ${body}`;
         }
       }
       async deleteNotice(context) {
-        if (!context.token) return "skipped";
+        if (!context.token) {
+          process.stderr.write("Gitea deleteNotice: no GITEA_TOKEN; skipping\n");
+          return "skipped";
+        }
         const base = `${context.apiBase.replace(/\/+$/, "")}/repos/${context.repository}`;
         try {
           return await withTransientRetry(async () => {
-            const comments = await this.listAnchorCommentPages(base, context);
-            const existing = this.findSkipNotice(comments);
-            if (existing === void 0) return "none";
-            await this.deleteComment(base, existing, context.token);
+            const ids = this.findSkipNotices(await this.listAnchorCommentPages(base, context));
+            if (ids.length === 0) return "none";
+            for (const id of ids) await this.deleteComment(base, id, context.token);
             return "deleted";
           }, { label: "Gitea deleteNotice" });
         } catch (err2) {
@@ -42730,16 +42729,16 @@ ${inlineSummary}`;
         }
         return void 0;
       }
-      /** Newest comment id carrying the skip-notice marker (id-selection, so a
-       * legacy stack of notices updates the newest deterministically). */
-      findSkipNotice(comments) {
-        let best;
+      /** All notice-comment ids, ascending; startsWith so a comment merely
+       * quoting the (public) marker is never hijacked. Post updates the newest
+       * (last); delete removes every match so duplicates self-heal (#89
+       * dogfood warnings: marker-substring + single-notice). */
+      findSkipNotices(comments) {
+        const ids = [];
         for (const c of comments) {
-          if (c.body !== null && c.body.includes(SKIP_NOTICE_MARKER) && (best === void 0 || c.id > best)) {
-            best = c.id;
-          }
+          if (c.body !== null && c.body.startsWith(SKIP_NOTICE_MARKER)) ids.push(c.id);
         }
-        return best;
+        return ids.sort((a, b) => a - b);
       }
       async createComment(base, pr, body, token) {
         const res = await fetchWithTimeout2(`${base}/issues/${pr}/comments`, {

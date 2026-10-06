@@ -265,7 +265,7 @@ export class GiteaAdapter implements PlatformAdapter {
     try {
       return await withTransientRetry(async () => {
         const comments = await this.listAnchorCommentPages(base, context);
-        const existing = this.findSkipNotice(comments);
+        const existing = this.findSkipNotices(comments).at(-1);
         if (existing !== undefined) {
           await this.updateComment(base, existing, payload, context.token);
           return "updated" as const;
@@ -282,14 +282,18 @@ export class GiteaAdapter implements PlatformAdapter {
   }
 
   async deleteNotice(context: PrCommentContext): Promise<"deleted" | "none" | "skipped"> {
-    if (!context.token) return "skipped";
+    if (!context.token) {
+      process.stderr.write("Gitea deleteNotice: no GITEA_TOKEN; skipping\n");
+      return "skipped";
+    }
     const base = `${context.apiBase.replace(/\/+$/, "")}/repos/${context.repository}`;
     try {
       return await withTransientRetry(async () => {
-        const comments = await this.listAnchorCommentPages(base, context);
-        const existing = this.findSkipNotice(comments);
-        if (existing === undefined) return "none" as const;
-        await this.deleteComment(base, existing, context.token);
+        // Every match, not just the newest: duplicated notices must not
+        // survive a resume.
+        const ids = this.findSkipNotices(await this.listAnchorCommentPages(base, context));
+        if (ids.length === 0) return "none" as const;
+        for (const id of ids) await this.deleteComment(base, id, context.token);
         return "deleted" as const;
       }, { label: "Gitea deleteNotice" });
     } catch (err: unknown) {
@@ -439,16 +443,16 @@ export class GiteaAdapter implements PlatformAdapter {
     return undefined;
   }
 
-  /** Newest comment id carrying the skip-notice marker (id-selection, so a
-   * legacy stack of notices updates the newest deterministically). */
-  private findSkipNotice(comments: GiteaComment[]): number | undefined {
-    let best: number | undefined;
+  /** All notice-comment ids, ascending; startsWith so a comment merely
+   * quoting the (public) marker is never hijacked. Post updates the newest
+   * (last); delete removes every match so duplicates self-heal (#89
+   * dogfood warnings: marker-substring + single-notice). */
+  private findSkipNotices(comments: GiteaComment[]): number[] {
+    const ids: number[] = [];
     for (const c of comments) {
-      if (c.body !== null && c.body.includes(SKIP_NOTICE_MARKER) && (best === undefined || c.id > best)) {
-        best = c.id;
-      }
+      if (c.body !== null && c.body.startsWith(SKIP_NOTICE_MARKER)) ids.push(c.id);
     }
-    return best;
+    return ids.sort((a, b) => a - b);
   }
 
   private async createComment(base: string, pr: number, body: string, token: string): Promise<void> {

@@ -197,17 +197,17 @@ async function listCommentsWide(ctx: PrCommentContext): Promise<GithubComment[]>
   return [...first.comments, ...lastPage.comments];
 }
 
-/** Newest comment id carrying the skip-notice marker. Max id, not first
- * match: the listing is chronological today, but id-selection keeps the
- * update deterministic should a legacy sequence ever stack notices. */
-function latestNoticeId(comments: GithubComment[]): number | undefined {
-  let best: number | undefined;
+/** All notice-comment ids, ascending; matches on body.startsWith so a
+ * third-party comment merely QUOTING the (public) marker in its prose is
+ * never hijacked — ours always carry it as the first line. Post updates
+ * the newest (last); delete removes every match so legacy duplicates
+ * self-heal (#89 dogfood warnings: marker-substring + single-notice). */
+function noticeIds(comments: GithubComment[]): number[] {
+  const ids: number[] = [];
   for (const c of comments) {
-    if (c.body !== null && c.body.includes(SKIP_NOTICE_MARKER) && (best === undefined || c.id > best)) {
-      best = c.id;
-    }
+    if (c.body !== null && c.body.startsWith(SKIP_NOTICE_MARKER)) ids.push(c.id);
   }
-  return best;
+  return ids.sort((a, b) => a - b);
 }
 
 /** Post or update the standing skip notice (#88). Like postPrComment but
@@ -225,8 +225,7 @@ export async function postPrNotice(
   const payload = `${SKIP_NOTICE_MARKER}\n${body}`;
   try {
     return await withTransientRetry(async () => {
-      const existing = await listCommentsWide(ctx);
-      const id = latestNoticeId(existing);
+      const id = noticeIds(await listCommentsWide(ctx)).at(-1);
       if (id !== undefined) {
         await updateComment(ctx, id, payload);
         return "updated" as const;
@@ -252,9 +251,11 @@ export async function deletePrNotice(
   if (!ctx.token) return "skipped";
   try {
     return await withTransientRetry(async () => {
-      const id = latestNoticeId(await listCommentsWide(ctx));
-      if (id === undefined) return "none" as const;
-      await deleteComment(ctx, id);
+      // Every match, not just the newest: notices duplicated by an older
+      // pagination bug or a concurrent run must not survive a resume.
+      const ids = noticeIds(await listCommentsWide(ctx));
+      if (ids.length === 0) return "none" as const;
+      for (const id of ids) await deleteComment(ctx, id);
       return "deleted" as const;
     }, { label: "deletePrNotice" });
   } catch (err: unknown) {

@@ -358,6 +358,22 @@ test("postPrNotice / deletePrNotice (#88)", async (t) => {
     });
   });
 
+  await t.test("a comment merely quoting the marker mid-prose is not hijacked", async () => {
+    const quoting = JSON.stringify([
+      { id: 50, body: `fyi the agent posts ${SKIP_NOTICE_MARKER} somewhere` },
+    ]);
+    await withFetchStub(
+      [
+        { status: 200, ok: true, json: quoting },
+        { status: 201, ok: true },
+      ],
+      async (calls) => {
+        assert.equal(await postPrNotice(CTX, "fresh"), "created");
+        assert.equal(calls[1].method, "POST");
+      },
+    );
+  });
+
   await t.test("deletePrNotice removes the newest notice", async () => {
     await withFetchStub(
       [
@@ -368,6 +384,31 @@ test("postPrNotice / deletePrNotice (#88)", async (t) => {
         assert.equal(await deletePrNotice(CTX), "deleted");
         assert.equal(calls[1].method, "DELETE");
         assert.match(calls[1].url, /\/issues\/comments\/42$/);
+      },
+    );
+  });
+
+  await t.test("deletePrNotice removes every duplicate notice (legacy self-heal)", async () => {
+    const dupes = JSON.stringify([
+      { id: 10, body: `${SKIP_NOTICE_MARKER}\nolder duplicate` },
+      { id: 777, body: "<!-- pi-review-agent -->\nreview comment" },
+      { id: 42, body: `${SKIP_NOTICE_MARKER}\nnewest` },
+    ]);
+    await withFetchStub(
+      [
+        { status: 200, ok: true, json: dupes },
+        { status: 200, ok: true },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        assert.equal(await deletePrNotice(CTX), "deleted");
+        assert.deepEqual(
+          calls.slice(1).map((c) => c.url),
+          [
+            "https://api.test.local/repos/octocat/Hello-World/issues/comments/10",
+            "https://api.test.local/repos/octocat/Hello-World/issues/comments/42",
+          ],
+        );
       },
     );
   });
