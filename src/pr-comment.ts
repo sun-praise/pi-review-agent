@@ -8,8 +8,9 @@
  * never fails just because comment posting did.
  */
 import type { InlineComment, InlineSeverity } from "./inline-comments.js";
-import { SELF_MARKER as MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX } from "./review-anchor.js";
+import { SELF_MARKER as MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX, SKIP_NOTICE_MARKER } from "./review-anchor.js";
 import { withTransientRetry } from "./retry.js";
+import { lastPageUrl } from "./platforms/pagination.js";
 import { isTransientReviewerError } from "./transient-error.js";
 
 /**
@@ -138,6 +139,131 @@ async function updateComment(
     },
     body: JSON.stringify({ body }),
   });
+}
+
+async function deleteComment(ctx: PrCommentContext, id: number): Promise<void> {
+  const url = `${ctx.apiBase}/repos/${ctx.repository}/issues/comments/${id}`;
+  const res = await fetchWithTimeout(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${ctx.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`GitHub API ${res.status} ${res.statusText}: ${text.slice(0, 500)}`);
+  }
+  // 204 carries no body — release the connection instead of parsing it.
+  await res.body?.cancel();
+}
+
+/** One comments page with its Link header, for the notice lookup. */
+async function fetchCommentPage(
+  ctx: PrCommentContext,
+  url: string,
+): Promise<{ comments: GithubComment[]; linkHeader: string | null }> {
+  const res = await fetchWithTimeout(url, {
+    headers: {
+      Authorization: `Bearer ${ctx.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new Error(`GitHub API ${res.status} ${res.statusText}`);
+  }
+  const data = (await res.json()) as GithubComment[];
+  return {
+    comments: Array.isArray(data) ? data : [],
+    linkHeader: res.headers.get("link"),
+  };
+}
+
+/** Comment pages for the notice lookup (#89 dogfood, blocking): the
+ * per_page=100 first page plus — when GitHub paginates (Link header) — the
+ * LAST page, where the newest notice lives. The plain 30-oldest first page
+ * of listComments would strand the standing notice on a busy PR, stacking a
+ * fresh notice per skip and never cleaning one up on resume. Same shape as
+ * the anchor lookup in platforms/github/adapter.ts. */
+async function listCommentsWide(ctx: PrCommentContext): Promise<GithubComment[]> {
+  const firstUrl = `${ctx.apiBase}/repos/${ctx.repository}/issues/${ctx.pr}/comments?per_page=100&page=1`;
+  const first = await fetchCommentPage(ctx, firstUrl);
+  const last = lastPageUrl(first.linkHeader);
+  if (last === null || last === firstUrl) return first.comments;
+  const lastPage = await fetchCommentPage(ctx, last);
+  return [...first.comments, ...lastPage.comments];
+}
+
+/** All notice-comment ids, ascending; matches on body.startsWith so a
+ * third-party comment merely QUOTING the (public) marker in its prose is
+ * never hijacked — ours always carry it as the first line. Post updates
+ * the newest (last); delete removes every match so legacy duplicates
+ * self-heal (#89 dogfood warnings: marker-substring + single-notice). */
+function noticeIds(comments: GithubComment[]): number[] {
+  const ids: number[] = [];
+  for (const c of comments) {
+    if (c.body !== null && c.body.startsWith(SKIP_NOTICE_MARKER)) ids.push(c.id);
+  }
+  return ids.sort((a, b) => a - b);
+}
+
+/** Post or update the standing skip notice (#88). Like postPrComment but
+ * keyed on the notice marker ALONE — every skipped push refreshes ONE
+ * comment instead of stacking one per head SHA, and the payload must never
+ * grow the anchor marker/sha line (see SKIP_NOTICE_MARKER). */
+export async function postPrNotice(
+  ctx: PrCommentContext,
+  body: string,
+): Promise<"created" | "updated" | "skipped"> {
+  if (!ctx.token) {
+    process.stderr.write("postPrNotice: no GITHUB_TOKEN; skipping\n");
+    return "skipped";
+  }
+  const payload = `${SKIP_NOTICE_MARKER}\n${body}`;
+  try {
+    return await withTransientRetry(async () => {
+      const id = noticeIds(await listCommentsWide(ctx)).at(-1);
+      if (id !== undefined) {
+        await updateComment(ctx, id, payload);
+        return "updated" as const;
+      }
+      await createComment(ctx, payload);
+      return "created" as const;
+    }, { label: "postPrNotice" });
+  } catch (err: unknown) {
+    process.stderr.write(
+      `postPrNotice: failed (${err instanceof Error ? err.message : String(err)}); skipping\n`,
+    );
+    return "skipped";
+  }
+}
+
+/** Delete the standing skip notice once a review round dispatches again
+ * (#88), so a stale notice cannot keep claiming pushes are unreviewed
+ * after the budget was raised or the counter reset. "none" when no notice
+ * exists. Never throws. */
+export async function deletePrNotice(
+  ctx: PrCommentContext,
+): Promise<"deleted" | "none" | "skipped"> {
+  if (!ctx.token) return "skipped";
+  try {
+    return await withTransientRetry(async () => {
+      // Every match, not just the newest: notices duplicated by an older
+      // pagination bug or a concurrent run must not survive a resume.
+      const ids = noticeIds(await listCommentsWide(ctx));
+      if (ids.length === 0) return "none" as const;
+      for (const id of ids) await deleteComment(ctx, id);
+      return "deleted" as const;
+    }, { label: "deletePrNotice" });
+  } catch (err: unknown) {
+    process.stderr.write(
+      `deletePrNotice: failed (${err instanceof Error ? err.message : String(err)}); skipping\n`,
+    );
+    return "skipped";
+  }
 }
 
 /** Post or update the comment. Returns the action taken, or "skipped".

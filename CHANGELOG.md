@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A `max-reviews-per-pr` skip is now visible in the PR conversation**
+  (#88): reaching the limit kept the run green with only a Checks-log
+  `::warning::`, so "skipped" and "reviewed clean" were indistinguishable
+  in the PR UI — authors read the green check as approval of the final
+  commits that were in fact never reviewed. A skipped run now posts ONE
+  standing skip-notice comment (marker `<!-- pi-review-agent-skip-notice -->`,
+  refreshed in place per skipped push — never one comment per push) saying
+  the latest push was NOT reviewed and how to resume (raise the limit or
+  delete the counter file). The next dispatching round deletes the notice,
+  so it cannot go stale in the opposite direction once reviews resume. The
+  notice body deliberately carries no review-anchor fingerprint, so
+  incremental review is unaffected; posting is fail-open (no token / no
+  platform / API error downgrades to a stderr note, run stays green), and
+  headless `--format json` skips never post. Gitea support included.
+  Docs (`action.yml`, README, skill references) updated to describe the
+  notice instead of "no PR-comment update".
+
 ## [1.11.0] - 2026-10-03
 
 ### Added

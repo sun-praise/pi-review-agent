@@ -15,7 +15,7 @@
  */
 import { describe, it, after } from "node:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -28,8 +28,28 @@ after(async () => {
   await Promise.all(tmpRoots.map((root) => rm(root, { recursive: true, force: true })));
 });
 
-function spawnCli(sessionsRoot: string, extraArgs: string[]): string {
-  return execFileSync(
+/** Spawn env with platform vars scrubbed: CI exports GITHUB_REPOSITORY (and
+ * a PR ref) into test steps, which would route the #88 notice path into a
+ * real API call from inside these tests. The gate itself needs none of
+ * them. */
+function scrubbedEnv(): NodeJS.ProcessEnv {
+  const env = { ...process.env };
+  for (const key of [
+    "GITHUB_REPOSITORY",
+    "GITHUB_TOKEN",
+    "GITHUB_REF",
+    "GITHUB_API_URL",
+    "PI_REVIEW_HEAD_SHA",
+    "GITEA_URL",
+    "GITEA_TOKEN",
+  ]) {
+    delete env[key];
+  }
+  return env;
+}
+
+function spawnCli(sessionsRoot: string, extraArgs: string[]): { stdout: string; stderr: string } {
+  const res = spawnSync(
     process.execPath,
     [
       "--import",
@@ -46,8 +66,10 @@ function spawnCli(sessionsRoot: string, extraArgs: string[]): string {
       ...extraArgs,
     ],
     // cwd must be the repo root so tsx and the project's deps resolve.
-    { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
+    { cwd: REPO_ROOT, encoding: "utf8", env: scrubbedEnv() },
   );
+  assert.equal(res.status, 0, `CLI exited ${res.status}\nstderr: ${res.stderr}`);
+  return { stdout: res.stdout, stderr: res.stderr };
 }
 
 /** Fixture sessions-root with the counter already at the limit. */
@@ -62,8 +84,8 @@ async function limitedRoot(): Promise<string> {
 describe("max-reviews-per-pr gate routing (spawned CLI, #84)", () => {
   it("json mode: a skipped run prints ONE parseable JSON document with skipped.reason, exits 0, and never bumps the counter", async () => {
     const root = await limitedRoot();
-    const out = spawnCli(root, ["--format", "json"]);
-    const parsed: unknown = JSON.parse(out);
+    const { stdout, stderr } = spawnCli(root, ["--format", "json"]);
+    const parsed: unknown = JSON.parse(stdout);
     assert.ok(typeof parsed === "object" && parsed !== null && "skipped" in parsed);
     const record = parsed as Record<string, unknown>;
     const skipped = record.skipped as {
@@ -77,14 +99,20 @@ describe("max-reviews-per-pr gate routing (spawned CLI, #84)", () => {
     // Identity came from --pr (no --session-key) → sessionKey stays
     // undefined, same contract as the dispatch paths.
     assert.equal(record.sessionKey, undefined);
+    // Headless mode never posts PR comments — not even the skip notice.
+    assert.ok(!stderr.includes("skip notice:"));
     // A skip is not a review — the counter must not move.
     assert.equal(await readFile(join(root, "9", "review-count.json"), "utf8"), '{"count":3}\n');
   });
 
-  it("text mode: a skipped run warns visibly (::warning:: annotation), exits 0, counter untouched", async () => {
+  it("text mode: a skipped run warns visibly (::warning:: annotation), attempts the #88 notice, exits 0, counter untouched", async () => {
     const root = await limitedRoot();
-    const out = spawnCli(root, []);
-    assert.match(out, /::warning::max-reviews-per-pr: 3 reviews already recorded/);
+    const { stdout, stderr } = spawnCli(root, []);
+    assert.match(stdout, /::warning::max-reviews-per-pr: 3 reviews already recorded/);
+    // The notice path runs in the real CLI even when it cannot post (no
+    // platform env here) — its diagnostic proves main() routes skips
+    // through postSkipNoticeFromEnv instead of exiting silently.
+    assert.match(stderr, /skip notice:/);
     assert.equal(await readFile(join(root, "9", "review-count.json"), "utf8"), '{"count":3}\n');
   });
 });

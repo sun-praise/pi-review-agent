@@ -41471,13 +41471,14 @@ function latestReviewAnchor(comments, selfLogin) {
   }
   return best;
 }
-var SELF_MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX, SHA_RE;
+var SELF_MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX, SKIP_NOTICE_MARKER, SHA_RE;
 var init_review_anchor = __esm({
   "src/review-anchor.ts"() {
     "use strict";
     SELF_MARKER = "<!-- pi-review-agent -->";
     SHA_LINE_PREFIX = "<!-- pi-review-agent-sha:";
     SHA_LINE_SUFFIX = " -->";
+    SKIP_NOTICE_MARKER = "<!-- pi-review-agent-skip-notice -->";
     SHA_RE = /^[0-9a-f]{7,40}$/i;
   }
 });
@@ -41988,6 +41989,97 @@ async function updateComment(ctx, id, body) {
     body: JSON.stringify({ body })
   });
 }
+async function deleteComment(ctx, id) {
+  const url = `${ctx.apiBase}/repos/${ctx.repository}/issues/comments/${id}`;
+  const res = await fetchWithTimeout(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${ctx.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28"
+    }
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`GitHub API ${res.status} ${res.statusText}: ${text.slice(0, 500)}`);
+  }
+  await res.body?.cancel();
+}
+async function fetchCommentPage(ctx, url) {
+  const res = await fetchWithTimeout(url, {
+    headers: {
+      Authorization: `Bearer ${ctx.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28"
+    }
+  });
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new Error(`GitHub API ${res.status} ${res.statusText}`);
+  }
+  const data = await res.json();
+  return {
+    comments: Array.isArray(data) ? data : [],
+    linkHeader: res.headers.get("link")
+  };
+}
+async function listCommentsWide(ctx) {
+  const firstUrl = `${ctx.apiBase}/repos/${ctx.repository}/issues/${ctx.pr}/comments?per_page=100&page=1`;
+  const first = await fetchCommentPage(ctx, firstUrl);
+  const last = lastPageUrl(first.linkHeader);
+  if (last === null || last === firstUrl) return first.comments;
+  const lastPage = await fetchCommentPage(ctx, last);
+  return [...first.comments, ...lastPage.comments];
+}
+function noticeIds(comments) {
+  const ids = [];
+  for (const c of comments) {
+    if (c.body !== null && c.body.startsWith(SKIP_NOTICE_MARKER)) ids.push(c.id);
+  }
+  return ids.sort((a, b) => a - b);
+}
+async function postPrNotice(ctx, body) {
+  if (!ctx.token) {
+    process.stderr.write("postPrNotice: no GITHUB_TOKEN; skipping\n");
+    return "skipped";
+  }
+  const payload = `${SKIP_NOTICE_MARKER}
+${body}`;
+  try {
+    return await withTransientRetry(async () => {
+      const id = noticeIds(await listCommentsWide(ctx)).at(-1);
+      if (id !== void 0) {
+        await updateComment(ctx, id, payload);
+        return "updated";
+      }
+      await createComment(ctx, payload);
+      return "created";
+    }, { label: "postPrNotice" });
+  } catch (err2) {
+    process.stderr.write(
+      `postPrNotice: failed (${err2 instanceof Error ? err2.message : String(err2)}); skipping
+`
+    );
+    return "skipped";
+  }
+}
+async function deletePrNotice(ctx) {
+  if (!ctx.token) return "skipped";
+  try {
+    return await withTransientRetry(async () => {
+      const ids = noticeIds(await listCommentsWide(ctx));
+      if (ids.length === 0) return "none";
+      for (const id of ids) await deleteComment(ctx, id);
+      return "deleted";
+    }, { label: "deletePrNotice" });
+  } catch (err2) {
+    process.stderr.write(
+      `deletePrNotice: failed (${err2 instanceof Error ? err2.message : String(err2)}); skipping
+`
+    );
+    return "skipped";
+  }
+}
 async function postPrComment(ctx, body) {
   if (!ctx.token) {
     process.stderr.write("postPrComment: no GITHUB_TOKEN; skipping\n");
@@ -42113,6 +42205,7 @@ var init_pr_comment = __esm({
     "use strict";
     init_review_anchor();
     init_retry3();
+    init_pagination2();
     init_transient_error();
     FETCH_TIMEOUT_MS = 3e4;
     SEVERITY_EMOJI = {
@@ -42278,6 +42371,12 @@ var init_adapter = __esm({
       }
       async postComment(context, body) {
         return postPrComment(context, body);
+      }
+      async postNotice(context, body) {
+        return postPrNotice(context, body);
+      }
+      async deleteNotice(context) {
+        return deletePrNotice(context);
       }
       async postReview(context, summary, comments, commentFallback) {
         return postPrReview(context, summary, comments, commentFallback);
@@ -42478,6 +42577,57 @@ ${body}`;
           return "skipped";
         }
       }
+      /** Standing skip notice (#88): find-or-create keyed on the notice marker
+       * alone, so every skipped push refreshes ONE comment. The payload must
+       * never carry the anchor marker/sha line (see SKIP_NOTICE_MARKER). */
+      async postNotice(context, body) {
+        if (!context.token) {
+          process.stderr.write("Gitea postNotice: no GITEA_TOKEN; skipping\n");
+          return "skipped";
+        }
+        const base = `${context.apiBase.replace(/\/+$/, "")}/repos/${context.repository}`;
+        const payload = `${SKIP_NOTICE_MARKER}
+${body}`;
+        try {
+          return await withTransientRetry(async () => {
+            const comments = await this.listAnchorCommentPages(base, context);
+            const existing = this.findSkipNotices(comments).at(-1);
+            if (existing !== void 0) {
+              await this.updateComment(base, existing, payload, context.token);
+              return "updated";
+            }
+            await this.createComment(base, context.pr, payload, context.token);
+            return "created";
+          }, { label: "Gitea postNotice" });
+        } catch (err2) {
+          process.stderr.write(
+            `Gitea postNotice: failed (${err2 instanceof Error ? err2.message : String(err2)}); skipping
+`
+          );
+          return "skipped";
+        }
+      }
+      async deleteNotice(context) {
+        if (!context.token) {
+          process.stderr.write("Gitea deleteNotice: no GITEA_TOKEN; skipping\n");
+          return "skipped";
+        }
+        const base = `${context.apiBase.replace(/\/+$/, "")}/repos/${context.repository}`;
+        try {
+          return await withTransientRetry(async () => {
+            const ids = this.findSkipNotices(await this.listAnchorCommentPages(base, context));
+            if (ids.length === 0) return "none";
+            for (const id of ids) await this.deleteComment(base, id, context.token);
+            return "deleted";
+          }, { label: "Gitea deleteNotice" });
+        } catch (err2) {
+          process.stderr.write(
+            `Gitea deleteNotice: failed (${err2 instanceof Error ? err2.message : String(err2)}); skipping
+`
+          );
+          return "skipped";
+        }
+      }
       async postReview(context, summary, comments, commentFallback) {
         const body = commentFallback ?? summary;
         if (comments.length > 0) {
@@ -42579,6 +42729,17 @@ ${inlineSummary}`;
         }
         return void 0;
       }
+      /** All notice-comment ids, ascending; startsWith so a comment merely
+       * quoting the (public) marker is never hijacked. Post updates the newest
+       * (last); delete removes every match so duplicates self-heal (#89
+       * dogfood warnings: marker-substring + single-notice). */
+      findSkipNotices(comments) {
+        const ids = [];
+        for (const c of comments) {
+          if (c.body !== null && c.body.startsWith(SKIP_NOTICE_MARKER)) ids.push(c.id);
+        }
+        return ids.sort((a, b) => a - b);
+      }
       async createComment(base, pr, body, token) {
         const res = await fetchWithTimeout2(`${base}/issues/${pr}/comments`, {
           method: "POST",
@@ -42605,6 +42766,18 @@ ${inlineSummary}`;
         await res.text().catch(() => "");
         if (!res.ok) {
           throw new Error(`Gitea API ${res.status}: PATCH /issues/comments/${id} failed`);
+        }
+      }
+      async deleteComment(base, id, token) {
+        const res = await fetchWithTimeout2(`${base}/issues/comments/${id}`, {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        await res.text().catch(() => "");
+        if (!res.ok) {
+          throw new Error(`Gitea API ${res.status}: DELETE /issues/comments/${id} failed`);
         }
       }
     };
@@ -47062,6 +47235,88 @@ async function bumpReviewCount(file) {
   return next;
 }
 
+// src/skip-notice.ts
+function buildSkipNoticeBody(facts) {
+  const zh = facts.language.toLowerCase().startsWith("zh");
+  const where = facts.headSha ? `\`${facts.headSha.slice(0, 8)}\`` : zh ? "\u672C\u6B21\u63A8\u9001" : "this push";
+  if (zh) {
+    return `\u23F8\uFE0F \u8BC4\u5BA1\u4E0A\u9650\u5DF2\u5230 \u2014 \u672C\u6B21\u63A8\u9001\u672A\u7ECF\u8BC4\u5BA1
+
+> \u6B64 PR \u5DF2\u8BB0\u5F55 **${facts.completed} / ${facts.limit}** \u8F6E\u8BC4\u5BA1\uFF08\`max-reviews-per-pr: ${facts.limit}\`\uFF09\uFF0C${where} \u88AB\u8DF3\u8FC7\u8BC4\u5BA1\uFF1A\u7EFF\u8272\u901A\u8FC7\u53EA\u4EE3\u8868\u201C\u672A\u8BC4\u5BA1\u201D\uFF0C\u4E0D\u4EE3\u8868\u201C\u8BC4\u5BA1\u901A\u8FC7\u201D\u3002\u5728\u9884\u7B97\u8C03\u6574\u524D\uFF0C\u540E\u7EED\u63A8\u9001\u540C\u6837\u4F1A\u88AB\u8DF3\u8FC7\u3002
+>
+> \u6062\u590D\u8BC4\u5BA1\uFF1A\u8C03\u9AD8 \`max-reviews-per-pr\`\uFF0C\u6216\u5220\u9664\u4F1A\u8BDD\u7F13\u5B58\u4E2D\u7684 \`<sessions-root>/<pr>/review-count.json\` \u91CD\u7F6E\u8BA1\u6570\u3002\u6062\u590D\u8BC4\u5BA1\u540E\u672C\u516C\u544A\u4F1A\u88AB\u81EA\u52A8\u5220\u9664\u3002`;
+  }
+  return `\u23F8\uFE0F Review limit reached \u2014 this push was NOT reviewed
+
+> **${facts.completed} of ${facts.limit}** review rounds for this PR are already recorded (\`max-reviews-per-pr: ${facts.limit}\`), so ${where} was not reviewed: the green check means "not reviewed", not "approved". Every later push skips too, until the budget changes.
+>
+> To resume reviews: raise \`max-reviews-per-pr\`, or reset the counter by deleting \`<sessions-root>/<pr>/review-count.json\` from this PR's session cache. This notice is removed automatically once a new round runs.`;
+}
+async function resolveNoticeContext(env, opts) {
+  let adapter;
+  try {
+    adapter = (await createAdapterFromEnv(env, opts.platform)).adapter;
+  } catch {
+    return null;
+  }
+  const info = adapter.resolvePrFromEnv(env);
+  if (info === null) return null;
+  return {
+    adapter,
+    ctx: {
+      apiBase: info.apiBase,
+      repository: info.repository,
+      pr: opts.pr > 0 ? opts.pr : info.pr,
+      token: info.token,
+      headSha: info.headSha
+    }
+  };
+}
+async function postSkipNoticeFromEnv(env, opts) {
+  const resolved = await resolveNoticeContext(env, opts);
+  if (resolved === null) {
+    process.stderr.write("skip notice: no platform/PR context; not posted\n");
+    return "skipped";
+  }
+  const facts = {
+    completed: opts.completed,
+    limit: opts.limit,
+    headSha: resolved.ctx.headSha || opts.headSha,
+    language: opts.language
+  };
+  try {
+    const outcome = await resolved.adapter.postNotice(resolved.ctx, buildSkipNoticeBody(facts));
+    process.stderr.write(`skip notice: ${outcome}
+`);
+    return outcome;
+  } catch (err2) {
+    process.stderr.write(
+      `skip notice: failed (${err2 instanceof Error ? err2.message : String(err2)}); skipping
+`
+    );
+    return "skipped";
+  }
+}
+async function clearSkipNoticeFromEnv(env, opts) {
+  const resolved = await resolveNoticeContext(env, opts);
+  if (resolved === null) return "none";
+  try {
+    const outcome = await resolved.adapter.deleteNotice(resolved.ctx);
+    if (outcome === "deleted") {
+      process.stderr.write("skip notice: stale notice deleted (reviews resumed)\n");
+    } else if (outcome === "skipped") {
+      process.stderr.write("skip notice: deletion failed; the notice may be stale\n");
+    }
+    return outcome;
+  } catch (err2) {
+    process.stderr.write(
+      `skip notice: deletion failed (${err2 instanceof Error ? err2.message : String(err2)}); the notice may be stale
+`
+    );
+    return "skipped";
+  }
+}
+
 // src/delta-diff.ts
 var import_node_child_process2 = require("child_process");
 var SHA_RE2 = /^[0-9a-f]{7,40}$/i;
@@ -47608,12 +47863,19 @@ async function main() {
         `completed=${completed}`,
         `limit=${opts.maxReviewsPerPr}`
       ]);
+      const notice = await postSkipNoticeFromEnv(process.env, {
+        platform: opts.platform,
+        pr: opts.pr,
+        completed,
+        limit: opts.maxReviewsPerPr,
+        language: opts.language
+      });
       appendStepSummary(
         `### pi-review-agent \u2014 skipped (review limit reached)
 
-**${completed}** review rounds are already recorded for this PR \u2014 the configured \`max-reviews-per-pr: ${opts.maxReviewsPerPr}\` is reached. This run skips the review, exits 0, and does not update the PR comment.
+**${completed}** review rounds are already recorded for this PR \u2014 the configured \`max-reviews-per-pr: ${opts.maxReviewsPerPr}\` is reached. This run skips the review and exits 0; the green check means "not reviewed", not "approved".
 
-The counter lives at \`${counterFile}\` (persisted by the per-PR session cache). Raise \`max-reviews-per-pr\` or delete that file to review again.
+PR notice comment: ${notice}. The counter lives at \`${counterFile}\` (persisted by the per-PR session cache). Raise \`max-reviews-per-pr\` or delete that file to review again.
 `
       );
       return 0;
@@ -47659,7 +47921,10 @@ Reviewing anyway would feed reviewers and the verifier a stale tree (issue #67).
   }
   await applyIncrementalDiff(opts, adapter);
   await attachRelatedContext(opts);
-  if (guardDiff !== void 0) await bumpReviewCount(counterFile);
+  if (guardDiff !== void 0) {
+    await bumpReviewCount(counterFile);
+    await clearSkipNoticeFromEnv(process.env, { platform: opts.platform, pr: opts.pr });
+  }
   return opts.team ? runTeam(opts, adapter, platform) : runSingle(opts, adapter, platform);
 }
 main().then((code) => process.exit(code)).catch((err2) => {

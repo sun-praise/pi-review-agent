@@ -5,7 +5,7 @@
 
 import type { PlatformAdapter, PrContextOptions, PrCommentContext, PrInfo, InlineComment, PostReviewResult, CompareDiffOptions } from "../types.js";
 import type { ReviewAnchor } from "../../review-anchor.js";
-import { SELF_MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX, latestReviewAnchor } from "../../review-anchor.js";
+import { SELF_MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX, SKIP_NOTICE_MARKER, latestReviewAnchor } from "../../review-anchor.js";
 import { planGiteaPages } from "../pagination.js";
 import { withTransientRetry } from "../../retry.js";
 
@@ -252,6 +252,58 @@ export class GiteaAdapter implements PlatformAdapter {
     }
   }
 
+  /** Standing skip notice (#88): find-or-create keyed on the notice marker
+   * alone, so every skipped push refreshes ONE comment. The payload must
+   * never carry the anchor marker/sha line (see SKIP_NOTICE_MARKER). */
+  async postNotice(context: PrCommentContext, body: string): Promise<"created" | "updated" | "skipped"> {
+    if (!context.token) {
+      process.stderr.write("Gitea postNotice: no GITEA_TOKEN; skipping\n");
+      return "skipped";
+    }
+    const base = `${context.apiBase.replace(/\/+$/, "")}/repos/${context.repository}`;
+    const payload = `${SKIP_NOTICE_MARKER}\n${body}`;
+    try {
+      return await withTransientRetry(async () => {
+        const comments = await this.listAnchorCommentPages(base, context);
+        const existing = this.findSkipNotices(comments).at(-1);
+        if (existing !== undefined) {
+          await this.updateComment(base, existing, payload, context.token);
+          return "updated" as const;
+        }
+        await this.createComment(base, context.pr, payload, context.token);
+        return "created" as const;
+      }, { label: "Gitea postNotice" });
+    } catch (err: unknown) {
+      process.stderr.write(
+        `Gitea postNotice: failed (${err instanceof Error ? err.message : String(err)}); skipping\n`,
+      );
+      return "skipped";
+    }
+  }
+
+  async deleteNotice(context: PrCommentContext): Promise<"deleted" | "none" | "skipped"> {
+    if (!context.token) {
+      process.stderr.write("Gitea deleteNotice: no GITEA_TOKEN; skipping\n");
+      return "skipped";
+    }
+    const base = `${context.apiBase.replace(/\/+$/, "")}/repos/${context.repository}`;
+    try {
+      return await withTransientRetry(async () => {
+        // Every match, not just the newest: duplicated notices must not
+        // survive a resume.
+        const ids = this.findSkipNotices(await this.listAnchorCommentPages(base, context));
+        if (ids.length === 0) return "none" as const;
+        for (const id of ids) await this.deleteComment(base, id, context.token);
+        return "deleted" as const;
+      }, { label: "Gitea deleteNotice" });
+    } catch (err: unknown) {
+      process.stderr.write(
+        `Gitea deleteNotice: failed (${err instanceof Error ? err.message : String(err)}); skipping\n`,
+      );
+      return "skipped";
+    }
+  }
+
   async postReview(
     context: PrCommentContext,
     summary: string,
@@ -391,6 +443,18 @@ export class GiteaAdapter implements PlatformAdapter {
     return undefined;
   }
 
+  /** All notice-comment ids, ascending; startsWith so a comment merely
+   * quoting the (public) marker is never hijacked. Post updates the newest
+   * (last); delete removes every match so duplicates self-heal (#89
+   * dogfood warnings: marker-substring + single-notice). */
+  private findSkipNotices(comments: GiteaComment[]): number[] {
+    const ids: number[] = [];
+    for (const c of comments) {
+      if (c.body !== null && c.body.startsWith(SKIP_NOTICE_MARKER)) ids.push(c.id);
+    }
+    return ids.sort((a, b) => a - b);
+  }
+
   private async createComment(base: string, pr: number, body: string, token: string): Promise<void> {
     const res = await fetchWithTimeout(`${base}/issues/${pr}/comments`, {
       method: "POST",
@@ -420,6 +484,20 @@ export class GiteaAdapter implements PlatformAdapter {
     await res.text().catch(() => "");
     if (!res.ok) {
       throw new Error(`Gitea API ${res.status}: PATCH /issues/comments/${id} failed`);
+    }
+  }
+
+  private async deleteComment(base: string, id: number, token: string): Promise<void> {
+    const res = await fetchWithTimeout(`${base}/issues/comments/${id}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    // Consume response body to release resources
+    await res.text().catch(() => "");
+    if (!res.ok) {
+      throw new Error(`Gitea API ${res.status}: DELETE /issues/comments/${id} failed`);
     }
   }
 }

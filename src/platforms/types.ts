@@ -99,6 +99,22 @@ export interface PlatformAdapter {
   postComment(context: PrCommentContext, body: string): Promise<"created" | "updated" | "skipped">;
 
   /**
+   * Post or update the standing skip notice (#88) — the marker-keyed comment
+   * that makes a max-reviews-per-pr skip visible in the PR conversation
+   * instead of only in the Checks log. Keyed on the notice marker alone (not
+   * per head SHA): every skipped push refreshes ONE comment. Never throws.
+   */
+  postNotice(context: PrCommentContext, body: string): Promise<"created" | "updated" | "skipped">;
+
+  /**
+   * Delete the standing skip notice once a review round dispatches again
+   * (#88), so a stale notice cannot keep claiming pushes are unreviewed
+   * after the budget was raised or the counter reset. "none" when no notice
+   * exists. Never throws.
+   */
+  deleteNotice(context: PrCommentContext): Promise<"deleted" | "none" | "skipped">;
+
+  /**
    * Post a PR review with optional inline comments.
    * Falls back to summary review or issue comment if inline comments fail.
    * `commentFallback` overrides the body used when the review layer degrades

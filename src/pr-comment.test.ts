@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { postPrComment, postPrReview, type PrCommentContext } from "./pr-comment.js";
+import { postPrComment, postPrReview, postPrNotice, deletePrNotice, type PrCommentContext } from "./pr-comment.js";
 import type { InlineComment } from "./inline-comments.js";
+import { SKIP_NOTICE_MARKER } from "./review-anchor.js";
 
 const CTX: PrCommentContext = {
   apiBase: "https://api.test.local",
@@ -25,12 +26,16 @@ interface RecordedCall {
 
 /**
  * Stub globalThis.fetch with a fixed sequence of outcomes. Each entry is
- * either an HTTP response or `{ throw }` for a network-level failure. Each
+ * either an HTTP response (optionally with response headers, e.g. a
+ * pagination Link header) or `{ throw }` for a network-level failure. Each
  * call records its url/method/body so assertions can inspect the payload.
  * The stub is restored in t.afterEach so tests don't leak fetch state.
  */
 function withFetchStub(
-  responses: ({ status: number; ok: boolean; json?: string } | { throw: string })[],
+  responses: (
+    | { status: number; ok: boolean; json?: string; headers?: Record<string, string> }
+    | { throw: string }
+  )[],
   fn: (calls: RecordedCall[]) => Promise<void>,
 ): Promise<void> {
   const calls: RecordedCall[] = [];
@@ -54,7 +59,11 @@ function withFetchStub(
     i += 1;
     if ("throw" in r) return Promise.reject(new TypeError(r.throw));
     return Promise.resolve(
-      new Response(r.json ?? "{}", { status: r.status, statusText: r.ok ? "OK" : "ERR" }),
+      new Response(r.json ?? "{}", {
+        status: r.status,
+        statusText: r.ok ? "OK" : "ERR",
+        headers: r.headers,
+      }),
     );
   }) as typeof fetch;
   return fn(calls).finally(() => {
@@ -275,5 +284,139 @@ test("postPrComment", async (t) => {
         assert.equal(calls.length, 3);
       },
     );
+  });
+});
+
+test("postPrNotice / deletePrNotice (#88)", async (t) => {
+  const notice = JSON.stringify([
+    { id: 777, body: "<!-- pi-review-agent -->\n<!-- pi-review-agent-sha:abc123 -->\nreview" },
+    { id: 42, body: `${SKIP_NOTICE_MARKER}\nolder notice` },
+    { id: 99, body: "someone else's comment" },
+  ]);
+
+  await t.test("creates the notice when none exists; payload carries no anchor grammar", async () => {
+    await withFetchStub(
+      [
+        { status: 200, ok: true, json: "[]" },
+        { status: 201, ok: true },
+      ],
+      async (calls) => {
+        const outcome = await postPrNotice(CTX, "skip body");
+        assert.equal(outcome, "created");
+        const body = (calls[1].body as { body: string }).body;
+        assert.ok(body.startsWith(SKIP_NOTICE_MARKER + "\n"));
+        assert.ok(!body.includes("<!-- pi-review-agent -->"));
+        assert.ok(!body.includes("<!-- pi-review-agent-sha:"));
+        assert.match(body, /skip body/);
+      },
+    );
+  });
+
+  await t.test("updates the newest existing notice regardless of head SHA (marker-keyed)", async () => {
+    await withFetchStub(
+      [
+        { status: 200, ok: true, json: notice },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        // A DIFFERENT head SHA must still update — one standing comment,
+        // never one notice per push.
+        const outcome = await postPrNotice({ ...CTX, headSha: "def4560000000000000000000000000000000000" }, "refreshed");
+        assert.equal(outcome, "updated");
+        assert.equal(calls[1].method, "PATCH");
+        assert.match(calls[1].url, /\/issues\/comments\/42$/);
+        // The notice lookup pages wide (#89 dogfood): per_page=100, not the
+        // 30-oldest default.
+        assert.match(calls[0].url, /[?&]per_page=100/);
+      },
+    );
+  });
+
+  await t.test("follows the Link header to the last page where the notice lives (busy PR)", async () => {
+    const lastUrl = "https://api.test.local/repos/octocat/Hello-World/issues/42/comments?per_page=100&page=7";
+    await withFetchStub(
+      [
+        // First page: 100 older comments, none of ours, paginated.
+        { status: 200, ok: true, json: "[]", headers: { link: `<${lastUrl}>; rel="last"` } },
+        { status: 200, ok: true, json: JSON.stringify([{ id: 42, body: `${SKIP_NOTICE_MARKER}\nnotice` }]) },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        const outcome = await postPrNotice(CTX, "refreshed");
+        assert.equal(outcome, "updated");
+        assert.equal(calls[1].url, lastUrl);
+        assert.equal(calls[2].method, "PATCH");
+        assert.match(calls[2].url, /\/issues\/comments\/42$/);
+      },
+    );
+  });
+
+  await t.test("no token: skipped without any fetch", async () => {
+    await withFetchStub([], async (calls) => {
+      assert.equal(await postPrNotice({ ...CTX, token: "" }, "x"), "skipped");
+      assert.equal(calls.length, 0);
+    });
+  });
+
+  await t.test("a comment merely quoting the marker mid-prose is not hijacked", async () => {
+    const quoting = JSON.stringify([
+      { id: 50, body: `fyi the agent posts ${SKIP_NOTICE_MARKER} somewhere` },
+    ]);
+    await withFetchStub(
+      [
+        { status: 200, ok: true, json: quoting },
+        { status: 201, ok: true },
+      ],
+      async (calls) => {
+        assert.equal(await postPrNotice(CTX, "fresh"), "created");
+        assert.equal(calls[1].method, "POST");
+      },
+    );
+  });
+
+  await t.test("deletePrNotice removes the newest notice", async () => {
+    await withFetchStub(
+      [
+        { status: 200, ok: true, json: notice },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        assert.equal(await deletePrNotice(CTX), "deleted");
+        assert.equal(calls[1].method, "DELETE");
+        assert.match(calls[1].url, /\/issues\/comments\/42$/);
+      },
+    );
+  });
+
+  await t.test("deletePrNotice removes every duplicate notice (legacy self-heal)", async () => {
+    const dupes = JSON.stringify([
+      { id: 10, body: `${SKIP_NOTICE_MARKER}\nolder duplicate` },
+      { id: 777, body: "<!-- pi-review-agent -->\nreview comment" },
+      { id: 42, body: `${SKIP_NOTICE_MARKER}\nnewest` },
+    ]);
+    await withFetchStub(
+      [
+        { status: 200, ok: true, json: dupes },
+        { status: 200, ok: true },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        assert.equal(await deletePrNotice(CTX), "deleted");
+        assert.deepEqual(
+          calls.slice(1).map((c) => c.url),
+          [
+            "https://api.test.local/repos/octocat/Hello-World/issues/comments/10",
+            "https://api.test.local/repos/octocat/Hello-World/issues/comments/42",
+          ],
+        );
+      },
+    );
+  });
+
+  await t.test("deletePrNotice: 'none' when no notice exists", async () => {
+    await withFetchStub([{ status: 200, ok: true, json: "[]" }], async (calls) => {
+      assert.equal(await deletePrNotice(CTX), "none");
+      assert.equal(calls.length, 1);
+    });
   });
 });

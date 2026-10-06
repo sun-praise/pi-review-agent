@@ -47,6 +47,7 @@ import { checkWorkspace } from "./workspace-check.js";
 import { buildSingleJsonResult, buildTeamJsonResult, buildSkippedJsonResult, type JsonRunResult } from "./json-output.js";
 import { resolveSessionDirName } from "./session-dir.js";
 import { readReviewCount, bumpReviewCount, REVIEW_COUNT_FILENAME } from "./review-counter.js";
+import { postSkipNoticeFromEnv, clearSkipNoticeFromEnv } from "./skip-notice.js";
 import { resolveIncremental } from "./incremental.js";
 
 
@@ -539,7 +540,8 @@ async function main(): Promise<number> {
   // must not fail on the guards below. The counter is a per-PR fact record
   // under the sessions root (it rides the same per-PR cache entry as the
   // resume JSONL); reaching the limit skips with exit 0 and never touches
-  // the PR comment. The count is not a ban: raising the limit (or deleting
+  // the PR's review comment — it posts the separate standing skip notice
+  // instead (#88). The count is not a ban: raising the limit (or deleting
   // the counter file) resumes reviewing on the next run.
   const counterFile = join(
     opts.sessionsRoot,
@@ -590,15 +592,28 @@ async function main(): Promise<number> {
         `completed=${completed}`,
         `limit=${opts.maxReviewsPerPr}`,
       ]);
+      // #88: annotations live in a log PR authors demonstrably never open —
+      // a skip also needs a face in the conversation itself. ONE standing
+      // marker-keyed notice comment, refreshed in place per skipped push and
+      // deleted when a new round dispatches (see the bumpReviewCount call at
+      // the dispatch point). Fail-open: without platform context or on API
+      // failure the run stays green exactly like before.
+      const notice = await postSkipNoticeFromEnv(process.env, {
+        platform: opts.platform,
+        pr: opts.pr,
+        completed,
+        limit: opts.maxReviewsPerPr,
+        language: opts.language,
+      });
       appendStepSummary(
         `### pi-review-agent — skipped (review limit reached)\n\n` +
           `**${completed}** review rounds are already recorded for this PR — ` +
           `the configured \`max-reviews-per-pr: ${opts.maxReviewsPerPr}\` is ` +
-          `reached. This run skips the review, exits 0, and does not update ` +
-          `the PR comment.\n\n` +
-          `The counter lives at \`${counterFile}\` (persisted by the per-PR ` +
-          `session cache). Raise \`max-reviews-per-pr\` or delete that file to ` +
-          `review again.\n`,
+          `reached. This run skips the review and exits 0; the green check ` +
+          `means "not reviewed", not "approved".\n\n` +
+          `PR notice comment: ${notice}. The counter lives at \`${counterFile}\` ` +
+          `(persisted by the per-PR session cache). Raise ` +
+          `\`max-reviews-per-pr\` or delete that file to review again.\n`,
       );
       return 0;
     }
@@ -683,7 +698,13 @@ async function main(): Promise<number> {
   // above (limit reached, stale workspace). Counting is unconditional
   // w.r.t. the limit: the file is a fact record of rounds run, so a limit
   // introduced later reflects history instead of starting at zero.
-  if (guardDiff !== undefined) await bumpReviewCount(counterFile);
+  if (guardDiff !== undefined) {
+    await bumpReviewCount(counterFile);
+    // #88: a dispatching round ends the skip era — drop the standing notice
+    // so it cannot keep claiming pushes are unreviewed after the budget was
+    // raised or the counter reset. Fail-open; silent when no notice exists.
+    await clearSkipNoticeFromEnv(process.env, { platform: opts.platform, pr: opts.pr });
+  }
   return opts.team ? runTeam(opts, adapter, platform) : runSingle(opts, adapter, platform);
 }
 

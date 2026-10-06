@@ -8,7 +8,7 @@ import type { ReviewAnchor, ReviewAnchorComment } from "../../review-anchor.js";
 import { latestReviewAnchor } from "../../review-anchor.js";
 import { lastPageUrl } from "../pagination.js";
 import { fetchPrContext, githubAuthFromEnv } from "../../github-context.js";
-import { postPrComment, postPrReview } from "../../pr-comment.js";
+import { postPrComment, postPrReview, postPrNotice, deletePrNotice } from "../../pr-comment.js";
 
 export class GitHubAdapter implements PlatformAdapter {
   async fetchPrContext(options: PrContextOptions): Promise<string> {
@@ -176,6 +176,14 @@ export class GitHubAdapter implements PlatformAdapter {
 
   async postComment(context: PrCommentContext, body: string): Promise<"created" | "updated" | "skipped"> {
     return postPrComment(context, body);
+  }
+
+  async postNotice(context: PrCommentContext, body: string): Promise<"created" | "updated" | "skipped"> {
+    return postPrNotice(context, body);
+  }
+
+  async deleteNotice(context: PrCommentContext): Promise<"deleted" | "none" | "skipped"> {
+    return deletePrNotice(context);
   }
 
   async postReview(
