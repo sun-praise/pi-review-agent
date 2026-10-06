@@ -10,6 +10,7 @@
 import type { InlineComment, InlineSeverity } from "./inline-comments.js";
 import { SELF_MARKER as MARKER, SHA_LINE_PREFIX, SHA_LINE_SUFFIX, SKIP_NOTICE_MARKER } from "./review-anchor.js";
 import { withTransientRetry } from "./retry.js";
+import { lastPageUrl } from "./platforms/pagination.js";
 import { isTransientReviewerError } from "./transient-error.js";
 
 /**
@@ -158,6 +159,44 @@ async function deleteComment(ctx: PrCommentContext, id: number): Promise<void> {
   await res.body?.cancel();
 }
 
+/** One comments page with its Link header, for the notice lookup. */
+async function fetchCommentPage(
+  ctx: PrCommentContext,
+  url: string,
+): Promise<{ comments: GithubComment[]; linkHeader: string | null }> {
+  const res = await fetchWithTimeout(url, {
+    headers: {
+      Authorization: `Bearer ${ctx.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new Error(`GitHub API ${res.status} ${res.statusText}`);
+  }
+  const data = (await res.json()) as GithubComment[];
+  return {
+    comments: Array.isArray(data) ? data : [],
+    linkHeader: res.headers.get("link"),
+  };
+}
+
+/** Comment pages for the notice lookup (#89 dogfood, blocking): the
+ * per_page=100 first page plus — when GitHub paginates (Link header) — the
+ * LAST page, where the newest notice lives. The plain 30-oldest first page
+ * of listComments would strand the standing notice on a busy PR, stacking a
+ * fresh notice per skip and never cleaning one up on resume. Same shape as
+ * the anchor lookup in platforms/github/adapter.ts. */
+async function listCommentsWide(ctx: PrCommentContext): Promise<GithubComment[]> {
+  const firstUrl = `${ctx.apiBase}/repos/${ctx.repository}/issues/${ctx.pr}/comments?per_page=100&page=1`;
+  const first = await fetchCommentPage(ctx, firstUrl);
+  const last = lastPageUrl(first.linkHeader);
+  if (last === null || last === firstUrl) return first.comments;
+  const lastPage = await fetchCommentPage(ctx, last);
+  return [...first.comments, ...lastPage.comments];
+}
+
 /** Newest comment id carrying the skip-notice marker. Max id, not first
  * match: the listing is chronological today, but id-selection keeps the
  * update deterministic should a legacy sequence ever stack notices. */
@@ -186,7 +225,7 @@ export async function postPrNotice(
   const payload = `${SKIP_NOTICE_MARKER}\n${body}`;
   try {
     return await withTransientRetry(async () => {
-      const existing = await listComments(ctx);
+      const existing = await listCommentsWide(ctx);
       const id = latestNoticeId(existing);
       if (id !== undefined) {
         await updateComment(ctx, id, payload);
@@ -213,7 +252,7 @@ export async function deletePrNotice(
   if (!ctx.token) return "skipped";
   try {
     return await withTransientRetry(async () => {
-      const id = latestNoticeId(await listComments(ctx));
+      const id = latestNoticeId(await listCommentsWide(ctx));
       if (id === undefined) return "none" as const;
       await deleteComment(ctx, id);
       return "deleted" as const;

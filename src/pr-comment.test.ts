@@ -26,12 +26,16 @@ interface RecordedCall {
 
 /**
  * Stub globalThis.fetch with a fixed sequence of outcomes. Each entry is
- * either an HTTP response or `{ throw }` for a network-level failure. Each
+ * either an HTTP response (optionally with response headers, e.g. a
+ * pagination Link header) or `{ throw }` for a network-level failure. Each
  * call records its url/method/body so assertions can inspect the payload.
  * The stub is restored in t.afterEach so tests don't leak fetch state.
  */
 function withFetchStub(
-  responses: ({ status: number; ok: boolean; json?: string } | { throw: string })[],
+  responses: (
+    | { status: number; ok: boolean; json?: string; headers?: Record<string, string> }
+    | { throw: string }
+  )[],
   fn: (calls: RecordedCall[]) => Promise<void>,
 ): Promise<void> {
   const calls: RecordedCall[] = [];
@@ -55,7 +59,11 @@ function withFetchStub(
     i += 1;
     if ("throw" in r) return Promise.reject(new TypeError(r.throw));
     return Promise.resolve(
-      new Response(r.json ?? "{}", { status: r.status, statusText: r.ok ? "OK" : "ERR" }),
+      new Response(r.json ?? "{}", {
+        status: r.status,
+        statusText: r.ok ? "OK" : "ERR",
+        headers: r.headers,
+      }),
     );
   }) as typeof fetch;
   return fn(calls).finally(() => {
@@ -317,6 +325,28 @@ test("postPrNotice / deletePrNotice (#88)", async (t) => {
         assert.equal(outcome, "updated");
         assert.equal(calls[1].method, "PATCH");
         assert.match(calls[1].url, /\/issues\/comments\/42$/);
+        // The notice lookup pages wide (#89 dogfood): per_page=100, not the
+        // 30-oldest default.
+        assert.match(calls[0].url, /[?&]per_page=100/);
+      },
+    );
+  });
+
+  await t.test("follows the Link header to the last page where the notice lives (busy PR)", async () => {
+    const lastUrl = "https://api.test.local/repos/octocat/Hello-World/issues/42/comments?per_page=100&page=7";
+    await withFetchStub(
+      [
+        // First page: 100 older comments, none of ours, paginated.
+        { status: 200, ok: true, json: "[]", headers: { link: `<${lastUrl}>; rel="last"` } },
+        { status: 200, ok: true, json: JSON.stringify([{ id: 42, body: `${SKIP_NOTICE_MARKER}\nnotice` }]) },
+        { status: 200, ok: true },
+      ],
+      async (calls) => {
+        const outcome = await postPrNotice(CTX, "refreshed");
+        assert.equal(outcome, "updated");
+        assert.equal(calls[1].url, lastUrl);
+        assert.equal(calls[2].method, "PATCH");
+        assert.match(calls[2].url, /\/issues\/comments\/42$/);
       },
     );
   });

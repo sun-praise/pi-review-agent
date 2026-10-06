@@ -42005,6 +42005,32 @@ async function deleteComment(ctx, id) {
   }
   await res.body?.cancel();
 }
+async function fetchCommentPage(ctx, url) {
+  const res = await fetchWithTimeout(url, {
+    headers: {
+      Authorization: `Bearer ${ctx.token}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28"
+    }
+  });
+  if (!res.ok) {
+    await res.body?.cancel();
+    throw new Error(`GitHub API ${res.status} ${res.statusText}`);
+  }
+  const data = await res.json();
+  return {
+    comments: Array.isArray(data) ? data : [],
+    linkHeader: res.headers.get("link")
+  };
+}
+async function listCommentsWide(ctx) {
+  const firstUrl = `${ctx.apiBase}/repos/${ctx.repository}/issues/${ctx.pr}/comments?per_page=100&page=1`;
+  const first = await fetchCommentPage(ctx, firstUrl);
+  const last = lastPageUrl(first.linkHeader);
+  if (last === null || last === firstUrl) return first.comments;
+  const lastPage = await fetchCommentPage(ctx, last);
+  return [...first.comments, ...lastPage.comments];
+}
 function latestNoticeId(comments) {
   let best;
   for (const c of comments) {
@@ -42023,7 +42049,7 @@ async function postPrNotice(ctx, body) {
 ${body}`;
   try {
     return await withTransientRetry(async () => {
-      const existing = await listComments(ctx);
+      const existing = await listCommentsWide(ctx);
       const id = latestNoticeId(existing);
       if (id !== void 0) {
         await updateComment(ctx, id, payload);
@@ -42044,7 +42070,7 @@ async function deletePrNotice(ctx) {
   if (!ctx.token) return "skipped";
   try {
     return await withTransientRetry(async () => {
-      const id = latestNoticeId(await listComments(ctx));
+      const id = latestNoticeId(await listCommentsWide(ctx));
       if (id === void 0) return "none";
       await deleteComment(ctx, id);
       return "deleted";
@@ -42182,6 +42208,7 @@ var init_pr_comment = __esm({
     "use strict";
     init_review_anchor();
     init_retry3();
+    init_pagination2();
     init_transient_error();
     FETCH_TIMEOUT_MS = 3e4;
     SEVERITY_EMOJI = {
@@ -47258,10 +47285,18 @@ async function postSkipNoticeFromEnv(env, opts) {
     headSha: resolved.ctx.headSha || opts.headSha,
     language: opts.language
   };
-  const outcome = await resolved.adapter.postNotice(resolved.ctx, buildSkipNoticeBody(facts));
-  process.stderr.write(`skip notice: ${outcome}
+  try {
+    const outcome = await resolved.adapter.postNotice(resolved.ctx, buildSkipNoticeBody(facts));
+    process.stderr.write(`skip notice: ${outcome}
 `);
-  return outcome;
+    return outcome;
+  } catch (err2) {
+    process.stderr.write(
+      `skip notice: failed (${err2 instanceof Error ? err2.message : String(err2)}); skipping
+`
+    );
+    return "skipped";
+  }
 }
 async function clearSkipNoticeFromEnv(env, opts) {
   const resolved = await resolveNoticeContext(env, opts);

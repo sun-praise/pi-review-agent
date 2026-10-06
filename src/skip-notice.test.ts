@@ -121,7 +121,11 @@ test("postSkipNoticeFromEnv", async (t) => {
         const outcome = await postSkipNoticeFromEnv(GH_ENV, { ...FACTS, pr: 0 });
         assert.equal(outcome, "created");
         assert.equal(calls[0].method, "GET");
-        assert.ok(calls[0].url.endsWith("/repos/octocat/Hello-World/issues/7/comments"));
+        assert.ok(
+          calls[0].url.startsWith("https://api.test.local/repos/octocat/Hello-World/issues/7/comments"),
+          `unexpected list url: ${calls[0].url}`,
+        );
+        assert.match(calls[0].url, /[?&]per_page=100/);
         assert.equal(calls[1].method, "POST");
         const body = (calls[1].body as { body: string }).body;
         assert.ok(body.startsWith(SKIP_NOTICE_MARKER + "\n"));
@@ -159,7 +163,7 @@ test("postSkipNoticeFromEnv", async (t) => {
       async (calls) => {
         const outcome = await postSkipNoticeFromEnv(GH_ENV, { ...FACTS, pr: 9 });
         assert.equal(outcome, "created");
-        assert.ok(calls[0].url.endsWith("/repos/octocat/Hello-World/issues/9/comments"));
+        assert.ok(calls[0].url.includes("/repos/octocat/Hello-World/issues/9/comments"));
       },
     );
   });

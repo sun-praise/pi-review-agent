@@ -112,9 +112,19 @@ export async function postSkipNoticeFromEnv(
     headSha: resolved.ctx.headSha || opts.headSha,
     language: opts.language,
   };
-  const outcome = await resolved.adapter.postNotice(resolved.ctx, buildSkipNoticeBody(facts));
-  process.stderr.write(`skip notice: ${outcome}\n`);
-  return outcome;
+  // Defensive symmetry with clearSkipNoticeFromEnv: the adapters' "Never
+  // throws" contract is theirs to keep, but a skip run must stay green even
+  // if one ever violates it.
+  try {
+    const outcome = await resolved.adapter.postNotice(resolved.ctx, buildSkipNoticeBody(facts));
+    process.stderr.write(`skip notice: ${outcome}\n`);
+    return outcome;
+  } catch (err: unknown) {
+    process.stderr.write(
+      `skip notice: failed (${err instanceof Error ? err.message : String(err)}); skipping\n`,
+    );
+    return "skipped";
+  }
 }
 
 /** Delete the standing skip notice once a round dispatches again, so it
